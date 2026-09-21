@@ -14,7 +14,6 @@ import { MatDialog, MatDialogRef, MatDialogModule } from '@angular/material/dial
 // Serviços e Componentes
 import { MessageService } from '../../../core/services/message-service';
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
-import { DatasusService } from '../../services/datasus-service';
 
 // Modais (Dialogs)
 import { PatientCreateComponent } from '../../components/patients/patient-create/patient-create.component';
@@ -71,7 +70,6 @@ export class TfdLayout implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly dialog = inject(MatDialog);
   private readonly messageService = inject(MessageService);
-  private readonly datasusService = inject(DatasusService);
   private readonly destroyRef = inject(DestroyRef);
 
   // Captura do input HTML
@@ -122,49 +120,6 @@ export class TfdLayout implements OnInit, OnDestroy {
     });
   }
 
-  protected importCompetence(): void {
-    this.competence().nativeElement.click();
-  }
-
-  protected onFileChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const files = input.files;
-
-    if (files && files.length > 0 && files[0].type === 'application/zip') {
-      this.openLoading();
-      this.selectedFile.set(files[0]);
-      
-      this.datasusService.process(this.selectedFile()!)
-        .pipe(
-          finalize(() => {
-            if (this.loadingDialog) this.loadingDialog.close();
-            input.value = '';
-          }),
-          takeUntilDestroyed(this.destroyRef)
-        )
-        .subscribe({
-          next: (response) => {
-            this.messageService.showMessage(response.message);
-            this.postMessage('SIGTAP', 'update');
-          },
-          error: (error) => {
-            const fallbackError = error?.error?.message || 'Erro ao processar arquivo';
-            this.messageService.showMessage(fallbackError);
-          },
-        });
-    } else {
-      input.value = '';
-    }
-  }
-
-  private openLoading(): void {
-    this.loadingDialog = this.dialog.open(LoadingComponent, {
-      height: '200px',
-      disableClose: true,
-      autoFocus: false,
-    });
-  }
-
   private openDialog(component: any, width = '500px', height = 'auto', channelKey?: TfdChannelKey): void {
     this.dialog.open(component, {
       width,
@@ -196,14 +151,6 @@ export class TfdLayout implements OnInit, OnDestroy {
       items: [
         { label: 'Regras', icon: 'security', permissions: ['regra listar'], routerLink: ['regras'] },
         { label: 'Nova regra', icon: 'add_moderator', permissions: ['regra criar'], action: () => this.roleCreate() }
-      ]
-    },
-    {
-      subHeader: 'Datasus',
-      requiredRoles: ['datasus listar', 'datasus importar'],
-      items: [
-        { label: 'Sigtap', icon: 'medical_services', permissions: ['datasus listar'], routerLink: ['sigtap'] },
-        { label: 'Importar competência', icon: 'upload', permissions: ['datasus importar'], action: () => this.importCompetence() }
       ]
     },
     {

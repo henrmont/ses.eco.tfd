@@ -17,11 +17,6 @@ export const tfdRoutes: Routes = [
         data: { permission: 'tfd/regra listar' } // Adicionado
     },
     {
-        path: 'sigtap',
-        loadComponent: () => import('./../pages/sigtap-page/sigtap-page').then( m => m.SigtapPage),
-        data: { permission: 'tfd/datasus listar' } // Adicionado
-    },
-    {
         path: 'configuracoes',
         loadComponent: () => import('./../pages/settings-page/settings.page').then( m => m.SettingsPage),
         data: { permission: 'tfd/configuração listar' } // Adicionado
