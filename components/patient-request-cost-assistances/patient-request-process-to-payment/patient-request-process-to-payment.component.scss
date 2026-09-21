@@ -1,0 +1,280 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+
+.stepper {
+  margin-top: $spacing-form-gap; 
+  display: flex; 
+  flex-direction: column; 
+  gap: $spacing-form-gap;
+}
+
+.line {
+  display: grid; 
+  grid-template-columns: var(--grid-cols, 1fr); 
+  column-gap: $spacing-xl; 
+  row-gap: $spacing-form-gap; 
+  align-items: start;
+  min-height: 56px;
+
+  .file-upload-cell {
+    display: flex;
+    align-items: center;
+    height: 56px;
+  }
+
+  .toggle-cell {
+    display: flex;
+    align-items: center;
+    height: 56px;
+
+    mat-slide-toggle {
+      font-size: 14px;
+      color: var(--mdc-outlined-text-field-label-text-color, $color-text-label-fallback);
+    }
+  }
+}
+
+// --- Definições Semânticas das Colunas da Grid ---
+.line {
+  &.cols-1-col     { --grid-cols: 1fr; }
+  &.cols-1-1       { --grid-cols: 1fr 1fr; }
+}
+
+.uf-container {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+
+  .uf-field {
+    width: 40%;
+    min-width: 80px;
+  }
+}
+
+// --- Estrutura Drag and Drop (Etapa 2) ---
+.drag-drop-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-xl;
+  margin-top: $spacing-form-gap;
+  min-height: 320px;
+}
+
+.drag-column {
+  display: flex;
+  flex-direction: column;
+
+  .column-title {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: $spacing-form-gap;
+
+    mat-icon {
+      font-size: 1.2rem;
+      width: 1.2rem;
+      height: 1.2rem;
+    }
+  }
+}
+
+.drop-zone {
+  border: 2px dashed rgba(0, 0, 0, 0.12);
+  border-radius: $radius-md;
+  padding: $spacing-xs;
+  min-height: 120px;
+  background: rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  transition: all 0.2s ease-in-out;
+
+  // Quando o item está sendo arrastado sobre a zona (Borda Roxa / Primária)
+  &.cdk-drop-list-dragging {
+    border-color: $color-primary; 
+    border-style: dashed;
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+.available-zone {
+  height: 100%;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.slots-container {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-form-gap;
+}
+
+.slot-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .slot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    font-weight: 500;
+
+    .required-badge {
+      color: #d32f2f;
+      font-size: 0.75rem;
+    }
+  }
+
+  .slot-zone {
+    position: relative;
+    height: 48px;
+    min-height: 48px;
+    max-height: 48px;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    padding: 0; 
+    border-radius: $radius-md; // Bordas arredondadas no slot
+    overflow: hidden; 
+
+    // Estado quando o arquivo é colocado no slot (Borda Verde)
+    &.has-file {
+      border: 2px solid #2e7d32; // Verde indicando preenchimento
+      background: rgba(46, 125, 50, 0.03); 
+    }
+
+    // Esconde o texto placeholder durante o arraste
+    &.cdk-drop-list-dragging {
+      .placeholder-text {
+        display: none;
+      }
+    }
+
+    .drag-card {
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+    }
+  }
+}
+
+.drag-card {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-sm;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: $radius-sm;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  cursor: grab;
+  user-select: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  .drag-handle {
+    color: #999;
+    font-size: 1.1rem;
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+
+  .file-name {
+    flex: 1;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // Estilização do card fixado dentro do slot
+  &.assigned-card {
+    cursor: default !important;
+    width: 100%;
+    height: 100%;
+    border: none; // O slot (.slot-zone.has-file) assume a borda verde
+    border-radius: $radius-md; // Bordas arredondadas harmônicas
+    background: transparent; 
+    box-shadow: none;
+    justify-content: space-between;
+
+    .file-name {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #1b5e20; // Texto em tom verde escuro
+    }
+  }
+}
+
+.placeholder-text {
+  font-size: 0.72rem;
+  line-height: 1;
+  color: #888;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.empty-drop-msg {
+  font-size: 0.85rem;
+  color: #888;
+  font-style: italic;
+  text-align: center;
+  margin: auto 0;
+}
+
+// --- Ajustes do CDK Drag & Drop (Preview e Marcação) ---
+
+// Card flutuante preso ao cursor durante o arraste
+.cdk-drag-preview {
+  box-sizing: border-box;
+  border-radius: $radius-md;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-sm;
+
+  .file-name {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// Marcação/sombra dentro da zona de soltura
+.cdk-drag-placeholder {
+  opacity: 0.3;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px dashed rgba(0, 0, 0, 0.3);
+  border-radius: $radius-md;
+  box-sizing: border-box;
+  height: 100% !important;
+  min-height: 100% !important;
+}
+
+// Transições de animação ao reordenar
+.cdk-drag-animating {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.drop-zone.cdk-drop-list-dragging .drag-card:not(.cdk-drag-placeholder) {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}

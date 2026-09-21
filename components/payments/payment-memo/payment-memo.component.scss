@@ -1,0 +1,73 @@
+.memo-content {
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #333;
+
+  .paragraph {
+    text-align: justify;
+    margin-bottom: 12px;
+  }
+
+  .table-container {
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+
+  .memo-table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    th {
+      background-color: #f5f5f5;
+      font-weight: bold;
+    }
+
+    tfoot tr td {
+      background-color: #fafafa;
+    }
+  }
+
+  .legend, .obs {
+    font-size: 11px;
+    margin: 4px 0;
+  }
+
+  .obs {
+    color: #c62828;
+  }
+
+  .budget-card {
+    margin-top: 12px;
+    background-color: #fafafa;
+
+    mat-card-title {
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    p {
+      margin: 4px 0;
+      font-size: 13px;
+    }
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 24px;
+
+  .action-buttons {
+    display: flex;
+    gap: 8px;
+  }
+}

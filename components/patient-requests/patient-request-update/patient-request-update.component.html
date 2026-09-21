@@ -1,0 +1,172 @@
+<h2 mat-dialog-title>Atualizar solicitação</h2>
+
+<mat-dialog-content>
+    <form [formGroup]="patientRequestForm">
+        <div class="stepper">
+            
+            <!-- Linha: Paciente -->
+            <div class="line cols-1-col">
+                <mat-form-field appearance="outline">
+                    <mat-label>Paciente</mat-label>
+                    <input 
+                        type="text" 
+                        matInput 
+                        formControlName="patient_search" 
+                        [matAutocomplete]="patientAuto" 
+                        [readonly]="patientReadOnly()">
+                    
+                    @if (patientLoading()) {
+                        <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
+                    }
+
+                    <mat-autocomplete #patientAuto="matAutocomplete" [displayWith]="displayPatient">
+                        @for (option of filteredPatientOptions(); track $index) {
+                            <mat-option [value]="option" (onSelectionChange)="setPatient(option)">
+                                {{ option.name }}
+                            </mat-option>
+                        }
+                    </mat-autocomplete>
+
+                    @for (item of errorMessages['patient_search']; track $index) {
+                        <mat-error [hidden]="!patientRequestForm.get('patient_search')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+            <!-- Linha: CID -->
+            <div class="line cols-1-col">
+                <mat-form-field appearance="outline">
+                    <mat-label>CID</mat-label>
+                    <input 
+                        type="text" 
+                        matInput 
+                        formControlName="cid_search" 
+                        [matAutocomplete]="cidAuto" 
+                        [readonly]="cidReadOnly()">
+                    
+                    @if (cidLoading()) {
+                        <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
+                    }
+
+                    <mat-autocomplete #cidAuto="matAutocomplete" [displayWith]="displayCid">
+                        @for (option of filteredCidOptions(); track $index) {
+                            <mat-option [value]="option" (onSelectionChange)="setCid(option)">
+                                {{ option.code }} - {{ option.name }}
+                            </mat-option>
+                        }
+                    </mat-autocomplete>
+
+                    @for (item of errorMessages['cid_search']; track $index) {
+                        <mat-error [hidden]="!patientRequestForm.get('cid_search')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+            <!-- Linha: Unidade Hospitalar -->
+            <div class="line cols-1-col">
+                <mat-form-field appearance="outline">
+                    <mat-label>Unidade hospitalar</mat-label>
+                    <input 
+                        type="text"
+                        matInput 
+                        formControlName="hospital_search"
+                        [matAutocomplete]="hospitalAuto" 
+                        [readonly]="hospitalReadOnly()">
+                    
+                    @if (hospitalLoading()) {
+                        <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
+                    }
+
+                    <mat-autocomplete #hospitalAuto="matAutocomplete" [displayWith]="displayHospitalUnity">
+                        @for (option of filteredHospitalOptions(); track $index) {
+                            <mat-option [value]="option" (onSelectionChange)="setHospitalUnity(option)">
+                                {{ option.name }}
+                            </mat-option>
+                        }
+                    </mat-autocomplete>
+
+                    @for (item of errorMessages['hospital_search']; track $index) {
+                        <mat-error [hidden]="!patientRequestForm.get('hospital_search')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+            <!-- Linha: Tipo de Solicitação e Data de Agendamento -->
+            <div class="line cols-1-1">
+                <mat-form-field appearance="outline">
+                    <mat-label>Tipo de Solicitação</mat-label>
+                    <input 
+                        matInput 
+                        formControlName="type" 
+                        readonly 
+                        placeholder="Sem solicitação de entrada aprovada">
+                    <mat-icon matSuffix class="locked-icon">lock</mat-icon>
+                    
+                    @for (item of errorMessages['type']; track $index) {
+                        <mat-error [hidden]="!patientRequestForm.get('type')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                    <mat-label>Data do Agendamento</mat-label>
+                    <input 
+                        matInput 
+                        [matDatepicker]="picker" 
+                        formControlName="consultation_date"
+                        placeholder="DD/MM/AAAA"
+                        (keypress)="onlyNumbersAndSlashes($event)"
+                        (dateChange)="setConsultationDate($event)">
+                    <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+                    <mat-datepicker #picker></mat-datepicker>
+                    
+                    @for (item of errorMessages['consultation_date']; track $index) {
+                        <mat-error [hidden]="!patientRequestForm.get('consultation_date')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+            <!-- Linha: Observação -->
+            <div class="line cols-1-col">
+                <mat-form-field appearance="outline">
+                    <mat-label>Observação</mat-label>
+                    <textarea matInput rows="4" formControlName="observation"></textarea>
+                    
+                    @for (item of errorMessages['observation']; track $index) {
+                        <mat-error [hidden]="!patientRequestForm.get('observation')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+        </div>
+    </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
+    <button 
+        mat-flat-button 
+        color="primary" 
+        type="button" 
+        [disabled]="patientRequestForm.invalid || patientRequestForm.pending || patientRequestForm.pristine || isSubmitting()"
+        (click)="onSubmit()"
+    >
+        <div class="waiting">
+            @if (isSubmitting()) {
+                <mat-spinner [diameter]="20"></mat-spinner>
+            }
+            Salvar alterações
+        </div>
+    </button>
+</mat-dialog-actions>

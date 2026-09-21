@@ -1,0 +1,53 @@
+<h2 mat-dialog-title>Detalhes do parecer</h2>
+
+<mat-dialog-content>
+  <div class="details-container">
+
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>INFORMAÇÕES DO PARECER</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="line cols-1-1">
+          <div>
+            <strong>Nome:</strong> {{ data?.opinion?.name ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Status:</strong> 
+            <span [class]="data?.opinion?.is_approved ? 'valid-text' : 'invalid-text'">
+              {{ data?.opinion?.is_approved ? 'Favorável' : 'Não Favorável' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="line cols-1-col">
+          <div>
+            <strong>Profissional Responsável:</strong> {{ data?.opinion?.professional?.name ?? 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>CONTEÚDO DO PARECER</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="line cols-1-col">
+          @if (sanitizedHtml()) {
+            <div class="rich-content" [innerHTML]="sanitizedHtml()"></div>
+          } @else {
+            <div class="empty-message">
+              Nenhum conteúdo registrado para este parecer.
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+</mat-dialog-actions>

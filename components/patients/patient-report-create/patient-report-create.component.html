@@ -1,0 +1,114 @@
+<h2 mat-dialog-title>Novo laudo</h2>
+
+<mat-dialog-content>
+    <form [formGroup]="reportForm">
+        <div class="stepper">
+            
+            <!-- Linha 1: Protocolo e Ação Judicial -->
+            <div class="line cols-1-1">
+                <mat-form-field appearance="outline">
+                    <mat-label>Protocolo</mat-label>
+                    <input matInput type="text" formControlName="protocol">
+                    @for (item of errorMessages['protocol']; track $index) {
+                        <mat-error [hidden]="!reportForm.get('protocol')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+
+                <div class="toggle">
+                    <mat-slide-toggle formControlName="lawsuit" [disabled]="isSubmitting()">Ação judicial</mat-slide-toggle>
+                </div>
+            </div>
+
+            <!-- Linha 2: Especialidade -->
+            <div class="line cols-1-col">
+                <mat-form-field appearance="outline">
+                    <mat-label>Especialidade</mat-label>
+                    <input 
+                        type="text" 
+                        matInput 
+                        formControlName="specialty_search" 
+                        [matAutocomplete]="specialtyAuto">
+
+                    <mat-autocomplete #specialtyAuto="matAutocomplete" [displayWith]="displaySpecialty">
+                        @for (option of filteredSpecialtyOptions | async; track $index) {
+                            <mat-option [value]="option" (onSelectionChange)="setSpecialty(option)">
+                                {{ option.label }}
+                            </mat-option>
+                        }
+                    </mat-autocomplete>
+
+                    @for (item of errorMessages['specialty_search']; track $index) {
+                        <mat-error [hidden]="!reportForm.get('specialty_search')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+            <!-- Linha 3: CID -->
+            <div class="line cols-1-col">
+                <mat-form-field appearance="outline">
+                    <mat-label>CID</mat-label>
+                    <input 
+                        type="text" 
+                        matInput 
+                        formControlName="cid_search" 
+                        [matAutocomplete]="cidAuto" 
+                        [readonly]="cidReadOnly()">
+                    
+                    @if (cidLoading()) {
+                        <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
+                    }
+
+                    <mat-autocomplete #cidAuto="matAutocomplete" [displayWith]="displayCid">
+                        @for (option of filteredCidOptions | async; track $index) {
+                            <mat-option [value]="option" (onSelectionChange)="setCid(option)">
+                                {{ option.code }} - {{ option.name }}
+                            </mat-option>
+                        }
+                    </mat-autocomplete>
+
+                    @for (item of errorMessages['cid_search']; track $index) {
+                        <mat-error [hidden]="!reportForm.get('cid_search')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+            <!-- Linha 4: Diagnóstico -->
+            <div class="line cols-1-col">
+                <mat-form-field appearance="outline">
+                    <mat-label>Diagnóstico</mat-label>
+                    <textarea matInput rows="6" formControlName="diagnosis"></textarea>
+                    @for (item of errorMessages['diagnosis']; track $index) {
+                        <mat-error [hidden]="!reportForm.get('diagnosis')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+        </div>
+    </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
+    <button 
+        mat-flat-button 
+        color="primary" 
+        type="button" 
+        [disabled]="reportForm.invalid || reportForm.pending || isSubmitting()" 
+        (click)="onSubmit()"
+    >
+        <div class="waiting">
+            @if (isSubmitting()) {
+                <mat-spinner [diameter]="20"></mat-spinner>
+            }
+            Criar laudo
+        </div>
+    </button>
+</mat-dialog-actions>

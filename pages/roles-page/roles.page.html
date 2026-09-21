@@ -1,0 +1,55 @@
+<section>
+  <div class="table">
+    <div class="search">
+      <mat-form-field appearance="outline">
+        <mat-label>Buscar</mat-label>
+        <input matInput (keyup)="applyFilter($event)" placeholder="Buscar regra" #roleInput>
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+    </div>
+    
+    <table mat-table [dataSource]="dataSource" matSort #roleSort="matSort">
+      
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header class="name-column-header"> Nome </th>
+        <td mat-cell *matCellDef="let element"> {{ element.name?.split('/')?.pop() || element.name }} </td>
+      </ng-container>
+    
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="center actions-column-header"> Ações </th>
+        <td mat-cell *matCellDef="let element" class="center actions-cell">
+          <button mat-icon-button 
+                  type="button"
+                  matTooltip="Atualizar regra" 
+                  (click)="roleUpdate(element)"
+                  [disabled]="ownerRole(element) || checkPermissions('tfd/regra atualizar')">
+            <mat-icon>drive_file_rename_outline</mat-icon>
+          </button>
+          
+          <button mat-icon-button 
+                  type="button"
+                  matTooltip="Deletar regra" 
+                  (click)="roleDelete(element)"
+                  [disabled]="ownerRole(element) || checkPermissions('tfd/regra deletar')">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+    
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell center" [attr.colspan]="displayedColumns.length">
+          <p>Nenhum resultado encontrado.</p>
+        </td>
+      </tr>
+    </table>
+
+    <mat-paginator 
+      #rolePaginator 
+      [pageSize]="8"
+      [hidePageSize]="true">
+    </mat-paginator>
+  </div>
+</section>

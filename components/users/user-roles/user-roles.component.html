@@ -1,0 +1,58 @@
+<h2 mat-dialog-title>Gerenciar Permissões</h2>
+
+<form [formGroup]="userRolesForm">
+  <mat-dialog-content>
+    @if (isLoading()) {
+      <div class="loading-container">
+        <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+      </div>
+    } @else {
+      <p class="subtitle">
+        Ajuste os papéis de acesso para o usuário: <strong>{{ data?.user?.professional?.name || data?.user?.name }}</strong>
+      </p>
+      
+      <div class="details-container">
+        <div class="line cols-1-1">
+          @for (item of roles(); track $index) {
+            <mat-card appearance="outlined" class="detail-card role-card">
+              <mat-card-content class="role-card-content">
+                <span class="role-name">{{ formatRoleName(item.name!) }}</span>
+                <mat-slide-toggle
+                  [checked]="checkRole(item.id!)"
+                  [disabled]="isSubmitting()"
+                  (toggleChange)="toggleRole(item)"
+                  color="primary">
+                </mat-slide-toggle>
+              </mat-card-content>
+            </mat-card>
+          } @empty {
+            <div class="empty-container">
+              <p class="empty-msg">Nenhuma permissão disponível encontrada.</p>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </mat-dialog-content>
+  
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
+      Fechar
+    </button>
+    
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="button" 
+      [disabled]="userRolesForm.invalid || userRolesForm.pristine || isSubmitting()"
+      (click)="onSubmit()"
+      >
+      <div class="waiting">
+        @if (isSubmitting()) {
+          <mat-spinner [diameter]="20"></mat-spinner>
+        }
+        <span>{{ isSubmitting() ? 'Salvando...' : 'Salvar Alterações' }}</span>
+      </div>
+    </button>
+  </mat-dialog-actions>
+</form>

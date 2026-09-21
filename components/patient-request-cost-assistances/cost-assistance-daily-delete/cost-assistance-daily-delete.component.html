@@ -1,0 +1,24 @@
+<h2 mat-dialog-title>Deletar diária</h2>
+
+<mat-dialog-content>
+  <p>
+    Você tem certeza que deseja remover a diária 
+    <strong>{{ data?.cost_assistance_daily?.daily_cost?.name ?? 'Não informado' }}</strong>? 
+    <br><span>Esta ação não poderá ser desfeita.</span>
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+    Cancelar
+  </button>
+
+  <button mat-flat-button color="warn" type="button" [disabled]="isSubmitting()" (click)="onSubmit()">
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      <span>{{ isSubmitting() ? 'Excluindo...' : 'Confirmar exclusão' }}</span>
+    </div>
+  </button>
+</mat-dialog-actions>

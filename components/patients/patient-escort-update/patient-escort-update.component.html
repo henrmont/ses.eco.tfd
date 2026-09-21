@@ -1,0 +1,209 @@
+<h2 mat-dialog-title>Atualizar acompanhante</h2>
+
+<mat-dialog-content>
+    <mat-stepper #stepper>
+        
+        <!-- ETAPA 1: DADOS DE IDENTIFICAÇÃO -->
+        <mat-step [stepControl]="personalForm">
+            <ng-template matStepLabel>Dados de identificação</ng-template>
+            <form [formGroup]="personalForm">
+                <div class="stepper">
+                    
+                    <div class="line cols-1-1">
+                        <mat-form-field appearance="outline">
+                            <mat-label>CNS</mat-label>
+                            <input matInput type="text" mask="000 0000 0000 0000" formControlName="cns">
+                            @for (item of errorMessages['cns']; track $index) {
+                                <mat-error [hidden]="!personalForm.get('cns')?.hasError(item.type)">{{ item.message }}</mat-error>
+                            }
+                        </mat-form-field>
+                        
+                        <div class="file-actions-cell">
+                            <button class="btn-archive" type="button" mat-icon-button [disabled]="!data?.patient_escort?.file_cns_id || isSubmitting()" (click)="download(data?.patient_escort?.file_cns_id, 'cns')">
+                                <mat-icon>download</mat-icon>
+                            </button>
+                            <input type="file" hidden (change)="onFileSelected($event, 'cns')" #fileCNS [disabled]="isSubmitting()">
+                            <button mat-raised-button type="button" (click)="fileCNS.click()" [matTooltip]="files.cns.label()" [disabled]="isSubmitting()">
+                                <mat-icon>attach_file</mat-icon>
+                                Anexar CNS
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="line cols-1-1">
+                        <mat-form-field appearance="outline">
+                            <mat-label>CPF</mat-label>
+                            <input matInput type="text" mask="000.000.000-00" formControlName="document">
+                            @for (item of errorMessages['document']; track $index) {
+                                <mat-error [hidden]="!personalForm.get('document')?.hasError(item.type)">{{ item.message }}</mat-error>
+                            }
+                        </mat-form-field>
+                        
+                        <div class="file-actions-cell">
+                            <button class="btn-archive" type="button" mat-icon-button [disabled]="!data?.patient_escort?.file_document_id || isSubmitting()" (click)="download(data?.patient_escort?.file_document_id, 'document')">
+                                <mat-icon>download</mat-icon>
+                            </button>
+                            <input type="file" hidden (change)="onFileSelected($event, 'document')" #fileDocument [disabled]="isSubmitting()">
+                            <button mat-raised-button type="button" (click)="fileDocument.click()" [matTooltip]="files.document.label()" [disabled]="isSubmitting()">
+                                <mat-icon>attach_file</mat-icon>
+                                Anexar documento
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="line cols-1-col">
+                        <mat-form-field appearance="outline">
+                            <mat-label>Nome Completo</mat-label>
+                            <input matInput type="text" formControlName="name">
+                            @for (item of errorMessages['name']; track $index) {
+                                <mat-error [hidden]="!personalForm.get('name')?.hasError(item.type)">{{ item.message }}</mat-error>
+                            }
+                        </mat-form-field>
+                    </div>
+
+                    <div class="line cols-1-1">
+                        <mat-form-field appearance="outline">
+                            <mat-label>Data de Nascimento</mat-label>
+                            <input 
+                                matInput 
+                                [matDatepicker]="picker" 
+                                formControlName="birth_date"
+                                placeholder="DD/MM/AAAA"
+                                (keypress)="onlyNumbersAndSlashes($event)"
+                                (dateChange)="setBirthDate($event)">
+                            <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+                            <mat-datepicker #picker></mat-datepicker>
+                            @for (item of errorMessages['birth_date']; track $index) {
+                                <mat-error [hidden]="!personalForm.get('birth_date')?.hasError(item.type)">
+                                    {{ item.message }}
+                                </mat-error>
+                            }
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline">
+                            <mat-label>Gênero</mat-label>
+                            <mat-select formControlName="gender">
+                                @for (item of options.genders; track $index) {
+                                    <mat-option [value]="item">{{ item }}</mat-option>
+                                }
+                            </mat-select>
+                            @for (item of errorMessages['gender']; track $index) {
+                                <mat-error [hidden]="!personalForm.get('gender')?.hasError(item.type)">{{ item.message }}</mat-error>
+                            }
+                        </mat-form-field>
+                    </div>
+
+                    <div class="line cols-1-1">
+                        <mat-form-field appearance="outline">
+                            <mat-label>Parentesco / Relação</mat-label>
+                            <input matInput type="text" placeholder="Ex: Mãe, Filho, Cônjuge" formControlName="relation">
+                        </mat-form-field>
+                        
+                        <div class="toggle">
+                            <mat-slide-toggle formControlName="is_same_address" [disabled]="isSubmitting()">Reside no mesmo endereço?</mat-slide-toggle>
+                        </div>
+                    </div>
+
+                </div>
+            </form>
+        </mat-step>
+
+        <!-- ETAPA 2: DADOS DE ENDEREÇO -->
+        <mat-step [stepControl]="addressForm">
+            <ng-template matStepLabel>Dados de endereço</ng-template>
+            <form [formGroup]="addressForm">
+                <div class="stepper">
+                    
+                    <div class="line cols-1-2">
+                        <mat-form-field appearance="outline">
+                            <mat-label>CEP</mat-label>
+                            <input matInput type="text" mask="00000-000" formControlName="cep">
+                            @for (item of errorMessages['cep']; track $index) {
+                                <mat-error [hidden]="!addressForm.get('cep')?.hasError(item.type)">{{ item.message }}</mat-error>
+                            }
+                        </mat-form-field>
+                        
+                        <div class="file-actions-cell">
+                            <button class="btn-archive" type="button" mat-icon-button [disabled]="!data?.patient_escort?.file_address_id || isSubmitting()" (click)="download(data?.patient_escort?.file_address_id, 'address')">
+                                <mat-icon>download</mat-icon>
+                            </button>
+                            <input type="file" hidden (change)="onFileSelected($event, 'address')" #fileAddress [disabled]="isSameAddressSignal() || isSubmitting()">
+                            <button mat-raised-button type="button" (click)="fileAddress.click()" [matTooltip]="files.address.label()" [disabled]="isSameAddressSignal() || isSubmitting()">
+                                <mat-icon>attach_file</mat-icon>
+                                Comprovante de endereço
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <mat-form-field appearance="outline">
+                        <mat-label>Endereço</mat-label>
+                        <input matInput type="text" formControlName="address">
+                        @for (item of errorMessages['address']; track $index) {
+                            <mat-error [hidden]="!addressForm.get('address')?.hasError(item.type)">{{ item.message }}</mat-error>
+                        }
+                    </mat-form-field>
+                    
+                    <mat-form-field appearance="outline">
+                        <mat-label>Complemento</mat-label>
+                        <input matInput type="text" formControlName="complement">
+                    </mat-form-field>
+                    
+                    <div class="line cols-1-1">
+                        <mat-form-field appearance="outline">
+                            <mat-label>Número</mat-label>
+                            <input matInput type="text" formControlName="number">
+                            @for (item of errorMessages['number']; track $index) {
+                                <mat-error [hidden]="!addressForm.get('number')?.hasError(item.type)">{{ item.message }}</mat-error>
+                            }
+                        </mat-form-field>
+                        
+                        <mat-form-field appearance="outline">
+                            <mat-label>Bairro</mat-label>
+                            <input matInput type="text" formControlName="neighborhood">
+                            @for (item of errorMessages['neighborhood']; track $index) {
+                                <mat-error [hidden]="!addressForm.get('neighborhood')?.hasError(item.type)">{{ item.message }}</mat-error>
+                            }
+                        </mat-form-field>
+                    </div>
+                    
+                    <div class="line cols-1-1">
+                        <mat-form-field appearance="outline">
+                            <mat-label>Cidade</mat-label>
+                            <input matInput type="text" formControlName="city">
+                        </mat-form-field>
+                        
+                        <mat-form-field appearance="outline" class="uf-field">
+                            <mat-label>UF</mat-label>
+                            <input type="text" matInput formControlName="state" [matAutocomplete]="state">
+                            <mat-autocomplete autoActiveFirstOption #state="matAutocomplete">
+                                @for (option of filteredUfsOptions | async; track $index) {
+                                    <mat-option [value]="option">{{ option }}</mat-option>
+                                }
+                            </mat-autocomplete>
+                        </mat-form-field>
+                    </div>
+
+                </div>
+            </form>
+        </mat-step>
+
+    </mat-stepper>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
+    <button 
+        mat-flat-button 
+        color="primary" 
+        type="button" 
+        [disabled]="personalForm.invalid || (addressForm.invalid && !isSameAddressSignal()) || personalForm.pending || isFormsPristine() || isSubmitting()" 
+        (click)="onSubmit()"
+    >
+        <div class="waiting">
+            @if (isSubmitting()) {
+                <mat-spinner [diameter]="20"></mat-spinner>
+            }
+            Salvar alterações
+        </div>
+    </button>
+</mat-dialog-actions>

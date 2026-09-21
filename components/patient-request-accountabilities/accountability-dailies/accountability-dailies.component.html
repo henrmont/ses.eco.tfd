@@ -1,0 +1,103 @@
+<h2 mat-dialog-title>Diárias</h2>
+
+<mat-dialog-content>
+  <div class="dailies-container">
+
+    @if (isLoading()) {
+      <div class="loading-shade">
+        <mat-spinner [diameter]="40"></mat-spinner>
+      </div>
+    } @else {
+      <div class="table-responsive">
+        <table mat-table [dataSource]="dataSource">
+          
+          <!-- Coluna Nome -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef> Nome </th>
+            <td mat-cell *matCellDef="let element"> {{ element.daily_cost?.name }} </td>
+            <td mat-footer-cell *matFooterCellDef></td>
+          </ng-container>
+
+          <!-- Coluna Valor -->
+          <ng-container matColumnDef="value">
+            <th mat-header-cell *matHeaderCellDef> Valor </th>
+            <td mat-cell *matCellDef="let element"> {{ element.daily_cost?.value | currency: 'BRL' }} </td>
+            <td mat-footer-cell *matFooterCellDef></td>
+          </ng-container>
+
+          <!-- Coluna Quantidade -->
+          <ng-container matColumnDef="amount">
+            <th mat-header-cell *matHeaderCellDef> Quantidade </th>
+            <td mat-cell *matCellDef="let element"> {{ element.amount }} </td>
+            <td mat-footer-cell *matFooterCellDef><strong>Total</strong></td>
+          </ng-container>
+
+          <!-- Coluna Parcial -->
+          <ng-container matColumnDef="partial">
+            <th mat-header-cell *matHeaderCellDef> Parcial </th>
+            <td mat-cell *matCellDef="let element"> {{ element.partial | currency: 'BRL' }} </td>
+            <td mat-footer-cell *matFooterCellDef><strong>{{ totalValue() | currency: 'BRL' }}</strong></td>
+          </ng-container>
+
+          <!-- Coluna Ações -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="center actions-column-header"> Ações </th>
+            <td mat-cell *matCellDef="let element" class="center actions-cell">
+              <div class="actions-wrapper">
+                <!-- Atualizar -->
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Atualizar diária" 
+                  (click)="accountabilityDailyUpdate(element)"
+                >
+                  <mat-icon class="icon-edit">drive_file_rename_outline</mat-icon>
+                </button>
+
+                <!-- Deletar -->
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Deletar diária" 
+                  (click)="accountabilityDailyDelete(element)"
+                >
+                  <mat-icon color="warn">delete</mat-icon>
+                </button>
+              </div>
+            </td>
+            <td mat-footer-cell *matFooterCellDef></td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+          <!-- Exibe o rodapé passando as colunas apenas se houver registros, ou array vazio para ocultar -->
+          <tr mat-footer-row *matFooterRowDef="footerColumns()"></tr>
+
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell" [attr.colspan]="displayedColumns.length">
+              <div class="empty-state">
+                <p>Nenhuma diária cadastrada.</p>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    }
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="true">Fechar</button>
+  <button 
+    mat-flat-button 
+    color="primary" 
+    type="button" 
+    [disabled]="isLoading()" 
+    (click)="accountabilityDailyCreate()"
+  >
+    <mat-icon>add</mat-icon>
+    Nova diária
+  </button>
+</mat-dialog-actions>

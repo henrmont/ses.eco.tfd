@@ -1,0 +1,75 @@
+<h2 mat-dialog-title>Atualizar diária</h2>
+
+<form [formGroup]="updateAccountabilityDailyForm">
+  <mat-dialog-content>
+    <div class="stepper">
+
+      <!-- Linha 1: Tipo de diária -->
+      <div class="line cols-1-col">
+        <mat-form-field appearance="outline">
+          <mat-label>Tipo de diária</mat-label>
+          <mat-select 
+            formControlName="daily_cost_id" 
+            placeholder="Selecione o tipo de diária"
+          >
+            @if (isLoadingOptions()) {
+              <mat-option disabled>Carregando opções...</mat-option>
+            } @else {
+              @for (item of dailyCostsOptions(); track item.id) {
+                <mat-option [value]="item.id">{{ item.name }}</mat-option>
+              }
+            }
+          </mat-select>
+          
+          @for (item of errorMessages['daily_cost_id']; track $index) {
+            <mat-error [hidden]="!updateAccountabilityDailyForm.get('daily_cost_id')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <!-- Linha 2: Quantidade -->
+      <div class="line cols-1-col">
+        <mat-form-field appearance="outline">
+          <mat-label>Quantidade</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            mask="0*"
+            formControlName="amount" 
+            placeholder="Informe a quantidade"
+          >
+          
+          @for (item of errorMessages['amount']; track $index) {
+            <mat-error [hidden]="!updateAccountabilityDailyForm.get('amount')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+      Cancelar
+    </button>
+    
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="button" 
+      [disabled]="updateAccountabilityDailyForm.invalid || updateAccountabilityDailyForm.pending || updateAccountabilityDailyForm.pristine || isSubmitting()"
+      (click)="onSubmit()"
+    >
+      <div class="waiting">
+        @if (isSubmitting()) {
+          <mat-spinner [diameter]="20"></mat-spinner>
+        }
+        <span>{{ isSubmitting() ? 'Atualizando...' : 'Atualizar' }}</span>
+      </div>
+    </button>
+  </mat-dialog-actions>
+</form>

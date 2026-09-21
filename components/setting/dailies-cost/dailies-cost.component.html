@@ -1,0 +1,47 @@
+<mat-card class="dailies-card">
+  <mat-card-header>
+    <div class="title">
+      <mat-icon>monetization_on</mat-icon>
+      <mat-card-title>Custos de Diárias</mat-card-title>
+    </div>
+  </mat-card-header>
+  
+  <mat-card-content>
+    @if (isLoading()) {
+      <div class="loading-container">
+        <mat-progress-spinner mode="indeterminate" [diameter]="48"></mat-progress-spinner>
+      </div>
+    } @else {
+      <mat-list class="dailies-list">
+        @for (item of dailiesCost(); track $index) {
+          <mat-list-item class="daily-item">
+            @if (item.overnight) {
+              <mat-icon matListItemIcon matTooltip="Pernoite" class="icon-variant icon-night">dark_mode</mat-icon>
+            } @else {
+              <mat-icon matListItemIcon matTooltip="Diurna" class="icon-variant icon-day">wb_sunny</mat-icon>
+            }
+            
+            <div matListItemTitle class="daily-title">
+              {{ item.name }} — <strong>{{ item.value | currency: 'BRL' }}</strong>
+            </div>
+            
+            <div matListItemMeta>
+              <button 
+                mat-icon-button 
+                type="button"
+                matTooltip="Atualizar valor da diária" 
+                (click)="updateDailyCost(item)">
+                <mat-icon>drive_file_rename_outline</mat-icon>
+              </button>
+            </div>
+          </mat-list-item>
+        } @empty {
+          <div class="empty-container">
+            <mat-icon class="empty-icon">account_balance_wallet</mat-icon>
+            <p>Nenhum custo de diária cadastrado ou encontrado.</p>
+          </div>
+        }
+      </mat-list>
+    }
+  </mat-card-content>
+</mat-card>

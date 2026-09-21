@@ -1,0 +1,61 @@
+<h2 mat-dialog-title>Detalhes do Usuário</h2>
+
+<mat-dialog-content>
+  <div class="details-container">
+    
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>DADOS DA CONTA</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="line cols-1-1">
+          <div>
+            <strong>Nome:</strong> {{ data?.user?.professional?.name ?? data?.user?.name ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>E-mail:</strong> {{ data?.user?.email ?? 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>VÍNCULO PROFISSIONAL</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="line cols-1-1">
+          <div>
+            <strong>Tipo de Profissional:</strong> {{ data?.user?.professional?.type ?? data?.user?.type ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>CNS:</strong> 
+            {{ data?.user?.professional?.cns ? (data.user.professional.cns | mask: '000 0000 0000 0000') : 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-1">
+          <div>
+            <strong>Matrícula:</strong> {{ data?.user?.professional?.registration ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Registro Profissional:</strong> {{ data?.user?.professional?.professional_register ?? 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-col">
+          <div>
+            <strong>CBO:</strong> {{ data?.user?.professional?.cbo ?? 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+</mat-dialog-actions>

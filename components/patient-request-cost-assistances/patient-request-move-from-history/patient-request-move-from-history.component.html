@@ -1,0 +1,30 @@
+<h2 mat-dialog-title>Mover para minha caixa</h2>
+
+<mat-dialog-content>
+  <p>
+    Você tem certeza que deseja mover a solicitação do paciente 
+    <strong>{{ data?.patient_request?.report?.patient_care?.patient?.name || 'este paciente' }}</strong> 
+    para a sua caixa?
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button [disabled]="isSubmitting()" [mat-dialog-close]="false" type="button">
+    Cancelar
+  </button>
+
+  <button 
+    mat-flat-button 
+    color="primary" 
+    [disabled]="isSubmitting()" 
+    (click)="onSubmit()"
+    type="button"
+  >
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      <span>{{ isSubmitting() ? 'Movendo...' : 'Confirmar' }}</span>
+    </div>
+  </button>
+</mat-dialog-actions>

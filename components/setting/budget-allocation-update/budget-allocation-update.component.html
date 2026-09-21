@@ -1,0 +1,91 @@
+<h2 mat-dialog-title>Atualizar Alocação Orçamentária</h2>
+
+<form [formGroup]="budgetAllocationForm" (ngSubmit)="onSubmit()">
+  <mat-dialog-content>
+    
+    <div class="line">
+      <mat-form-field appearance="outline">
+        <mat-label>Programa</mat-label>
+        <input 
+          matInput 
+          type="text" 
+          placeholder="Ex: Programa de Gestão" 
+          formControlName="program"
+        >
+        @for (item of errorMessages['program']; track $index) {
+          <mat-error [hidden]="!budgetAllocationForm.get('program')?.hasError(item.type)">
+            {{ item.message }}
+          </mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Projeto Ativo</mat-label>
+        <input 
+          matInput 
+          type="text" 
+          placeholder="Ex: Projeto Expansão" 
+          formControlName="active_project"
+        >
+        @for (item of errorMessages['active_project']; track $index) {
+          <mat-error [hidden]="!budgetAllocationForm.get('active_project')?.hasError(item.type)">
+            {{ item.message }}
+          </mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    <div class="line">
+      <mat-form-field appearance="outline">
+        <mat-label>Natureza da Despesa</mat-label>
+        <input 
+          matInput 
+          type="text" 
+          placeholder="Ex: 3.3.90.30" 
+          formControlName="nature_of_expenditure"
+        >
+        @for (item of errorMessages['nature_of_expenditure']; track $index) {
+          <mat-error [hidden]="!budgetAllocationForm.get('nature_of_expenditure')?.hasError(item.type)">
+            {{ item.message }}
+          </mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Fonte</mat-label>
+        <input 
+          matInput 
+          type="text" 
+          placeholder="Ex: Recursos Próprios / Tesouro" 
+          formControlName="source"
+        >
+        @for (item of errorMessages['source']; track $index) {
+          <mat-error [hidden]="!budgetAllocationForm.get('source')?.hasError(item.type)">
+            {{ item.message }}
+          </mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+  </mat-dialog-content>
+  
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
+      Fechar
+    </button>
+    
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="submit" 
+      [disabled]="budgetAllocationForm.invalid || budgetAllocationForm.pending || budgetAllocationForm.pristine || isSubmitting()"
+    >
+      <div class="waiting">
+        @if (isSubmitting()) {
+          <mat-spinner [diameter]="20"></mat-spinner>
+        }
+        <span>Salvar alterações</span>
+      </div>
+    </button>
+  </mat-dialog-actions>
+</form>

@@ -1,0 +1,79 @@
+<h2 mat-dialog-title>Detalhes do laudo</h2>
+
+<mat-dialog-content>
+  <div class="details-container">
+
+    <!-- Card: Informações do Laudo -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>INFORMAÇÕES DO LAUDO</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="line cols-1-1">
+          <div>
+            <strong>Protocolo:</strong> {{ data?.patient_report?.protocol ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Ação judicial:</strong> {{ data?.patient_report?.lawsuit ? 'Sim' : 'Não' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-col">
+          <div>
+            <strong>Especialidade:</strong> {{ specialtyLabel }}
+          </div>
+        </div>
+
+        <div class="line cols-1-col">
+          <div>
+            <strong>CID:</strong> 
+            <span>
+              {{ data?.patient_report?.cid?.code ? (data.patient_report.cid.code + ' - ' + data.patient_report.cid.name) : 'Não informado' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="line cols-1-col">
+          <div>
+            <strong>Diagnóstico:</strong> {{ data?.patient_report?.diagnosis ?? 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Card: Arquivos Anexados -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>ARQUIVOS ANEXADOS</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @for (item of data?.patient_report?.attachments; track item.archive_id ?? item.name) {
+          <div class="line cols-1-col">
+            <div class="action-cell">
+              <strong>Nome do Arquivo:</strong> 
+              <span>{{ item?.name ?? 'Sem nome' }}</span>
+              <button 
+                mat-icon-button 
+                type="button" 
+                matTooltip="Download do arquivo" 
+                [disabled]="!item?.archive_id" 
+                (click)="download(item.archive_id, item.name)"
+              >
+                <mat-icon>download</mat-icon>
+              </button>
+            </div>
+          </div>
+        } @empty {
+          <div class="empty-message">
+            Nenhum arquivo anexado ao laudo.
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+</mat-dialog-actions>

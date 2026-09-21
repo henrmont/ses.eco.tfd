@@ -1,0 +1,127 @@
+<h2 mat-dialog-title>Editar passageiro</h2>
+
+<form [formGroup]="passengerForm">
+  <mat-dialog-content>
+    <div class="stepper">
+
+      <!-- Linha 1: Nome do Passageiro (Apenas exibição / Read-only fixo de UI) -->
+      <div class="line cols-1-col">
+        <mat-form-field appearance="outline">
+          <mat-label>Passageiro</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            [value]="passengerDisplayName()" 
+            disabled
+          >
+          <mat-icon matSuffix class="locked-icon">lock</mat-icon>
+        </mat-form-field>
+      </div>
+
+      <!-- Linha 2: Tarifa, Taxa e Desconto (%) -->
+      <div class="line cols-1-1-1">
+        <mat-form-field appearance="outline">
+          <mat-label>Tarifa</mat-label>
+          <input 
+            matInput 
+            type="number" 
+            formControlName="tariff" 
+            placeholder="0.00"
+          >
+
+          @for (item of errorMessages['tariff']; track $index) {
+            <mat-error [hidden]="!passengerForm.get('tariff')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Taxa</mat-label>
+          <input 
+            matInput 
+            type="number" 
+            formControlName="tax" 
+            placeholder="0.00"
+          >
+
+          @for (item of errorMessages['tax']; track $index) {
+            <mat-error [hidden]="!passengerForm.get('tax')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Desconto</mat-label>
+          <input 
+            matInput 
+            type="number" 
+            formControlName="discount" 
+            placeholder="0"
+          >
+          <mat-icon matSuffix>percent</mat-icon>
+
+          @for (item of errorMessages['discount']; track $index) {
+            <mat-error [hidden]="!passengerForm.get('discount')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <!-- Linha 3: Sexo, Assento e Bilhete -->
+      <div class="line cols-1-1-1">
+        <mat-form-field appearance="outline">
+          <mat-label>Sexo</mat-label>
+          <mat-select formControlName="gender">
+            <mat-option [value]="null">Selecione...</mat-option>
+            @for (gender of genders; track gender.key) {
+              <mat-option [value]="gender.key">{{ gender.value }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Assento</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="seat"
+          >
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Bilhete</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="ticket"
+          >
+        </mat-form-field>
+      </div>
+
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+      Cancelar
+    </button>
+
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="button" 
+      [disabled]="passengerForm.invalid || passengerForm.pending || passengerForm.pristine || isSubmitting()"
+      (click)="onSubmit()"
+    >
+      <div class="waiting">
+        @if (isSubmitting()) {
+          <mat-spinner [diameter]="20"></mat-spinner>
+        }
+        <span>{{ isSubmitting() ? 'Salvando...' : 'Salvar' }}</span>
+      </div>
+    </button>
+  </mat-dialog-actions>
+</form>

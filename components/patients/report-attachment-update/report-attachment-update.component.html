@@ -1,0 +1,83 @@
+<h2 mat-dialog-title>Atualizar anexo do laudo</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="attachmentForm">
+    <div class="stepper">
+      
+      <!-- Linha 1: Nome do Anexo -->
+      <div class="line cols-1-col">
+        <mat-form-field appearance="outline">
+          <mat-label>Nome</mat-label>
+          <input matInput type="text" formControlName="name">
+          
+          @for (item of errorMessages['name']; track $index) {
+            <mat-error [hidden]="!attachmentForm.get('name')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <!-- Linha 2: Ações de Arquivo (Download e Substituição) -->
+      <div class="line cols-1-col">
+        <div class="file-actions-cell">
+          
+          <button 
+            class="btn-archive" 
+            type="button" 
+            mat-icon-button 
+            [disabled]="!(data?.report_attachment?.archive_id) || isSubmitting()" 
+            (click)="download(data?.report_attachment?.archive_id, attachmentForm.get('name')?.value)"
+            matTooltip="Baixar arquivo atual"
+          >
+            <mat-icon>download</mat-icon>
+          </button>
+
+          <input 
+            type="file" 
+            class="file-input"
+            (change)="onFileSelected($event)" 
+            [disabled]="isSubmitting()"
+            #fileInput
+            hidden
+          >
+
+          <button 
+            mat-raised-button
+            color="primary"
+            type="button" 
+            (click)="fileInput.click()" 
+            [disabled]="isSubmitting()"
+            [matTooltip]="fileLabel()"
+          >
+            <mat-icon>attach_file</mat-icon>
+            {{ hasFile() ? 'Substituir arquivo' : 'Anexar arquivo' }}
+          </button>
+          
+        </div>
+      </div>
+
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+    Cancelar
+  </button>
+  
+  <button 
+    mat-flat-button 
+    color="primary" 
+    type="button" 
+    [disabled]="attachmentForm.invalid || attachmentForm.pending || isFormsPristine() || isSubmitting()"
+    (click)="onSubmit()"
+  >
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      <span>{{ isSubmitting() ? 'Salvando...' : 'Salvar alterações' }}</span>
+    </div>
+  </button>
+</mat-dialog-actions>

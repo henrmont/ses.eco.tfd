@@ -1,0 +1,45 @@
+<mat-drawer-container>
+  <mat-drawer mode="side" opened>
+    <mat-action-list>
+      
+      <input type="file" name="competence" #competence style="display: none;" accept=".zip" (change)="onFileChange($event)" />
+
+      @for (group of menuGroups; track group.subHeader) {
+        @if (checkPermission(group.requiredRoles)) {
+          
+          <div mat-subheader>{{ group.subHeader }}</div>
+          
+          @for (item of group.items; track item.label) {
+            @if (checkPermission(item.permissions)) {
+              
+              @if (item.routerLink) {
+                <button mat-list-item [routerLink]="item.routerLink" routerLinkActive="active">
+                  <div class="link">
+                    <mat-icon>{{ item.icon }}</mat-icon>
+                    <div>{{ item.label }}</div>
+                  </div>
+                </button>
+              }
+              
+              @if (item.action) {
+                <button mat-list-item (click)="item.action()">
+                  <div class="link">
+                    <mat-icon>{{ item.icon }}</mat-icon>
+                    <div>{{ item.label }}</div>
+                  </div>
+                </button>
+              }
+
+            }
+          }
+
+        }
+      }
+
+    </mat-action-list>
+  </mat-drawer>
+
+  <mat-drawer-content>
+    <router-outlet></router-outlet>
+  </mat-drawer-content>
+</mat-drawer-container>

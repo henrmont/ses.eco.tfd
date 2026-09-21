@@ -1,0 +1,81 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+.details-container {
+  padding: $spacing-sm 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+mat-card {
+  background: $color-card-bg;
+  border-radius: $radius-md; 
+  box-shadow: $shadow-soft; 
+  
+  mat-card-header {
+    padding: $spacing-md $spacing-md $spacing-xs; 
+  }
+
+  mat-card-content {
+    padding: 0 $spacing-md $spacing-md; 
+  }
+}
+
+.title-header {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs; 
+  color: $color-text-main;
+
+  mat-icon {
+    color: $color-text-variant; 
+  }
+
+  mat-card-title {
+    margin-left: $spacing-sm;
+    font-size: $font-size-lg;
+  }
+}
+
+.group-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); 
+  gap: $spacing-md; 
+  padding: $spacing-sm 0;
+
+  .toggle-item {
+    display: flex;
+    align-items: center;
+  }
+}
+
+.line {
+  display: grid;
+  gap: $spacing-xl; 
+  align-items: center;
+
+  &.cols-1-col { 
+    grid-template-columns: 1fr; 
+  }
+}
+
+.loading-container {
+  @include flex-center;
+  min-height: 200px;
+  width: 100%;
+}
+
+.permissions-error {
+  display: block;
+  margin-top: $spacing-sm;
+  padding: 0 $spacing-xs;
+}

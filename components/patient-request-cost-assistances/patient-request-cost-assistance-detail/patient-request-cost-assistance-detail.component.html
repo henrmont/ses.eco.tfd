@@ -1,0 +1,101 @@
+<h2 mat-dialog-title>Detalhes da ajuda de custo</h2>
+
+<mat-dialog-content>
+  <div class="details-container">
+
+    <!-- Card: Dados da Ajuda de Custo -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>DADOS DA AJUDA DE CUSTO</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        <div class="line cols-1-1">
+          <div>
+            <strong>Nome:</strong> {{ data?.cost_assistance?.name ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Total:</strong> {{ (data?.cost_assistance?.total_dailies | currency: 'BRL') ?? 'R$ 0,00' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-1">
+          <div>
+            <strong>Tipo:</strong> {{ data?.cost_assistance?.type ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Data de criação:</strong> 
+            {{ data?.cost_assistance?.created_at ? (data.cost_assistance.created_at | date: 'dd/MM/yyyy') : 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-col">
+          <div>
+            <strong>Passageiro:</strong> 
+            {{ passengerName() }} 
+            @if (passengerTypeLabel()) {
+              ({{ passengerTypeLabel() }})
+            }
+          </div>
+        </div>
+
+        <div class="line cols-1-1-1">
+          <div>
+            <strong>Banco:</strong> {{ data?.cost_assistance?.bank ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Agência:</strong> {{ data?.cost_assistance?.agency ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Conta:</strong> {{ data?.cost_assistance?.account ?? 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Card: Diárias Vinculadas -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>DIÁRIAS VINCULADAS</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        @if (data?.cost_assistance?.cost_assistance_dailies?.length) {
+          <div class="table-responsive">
+            <table class="mat-mdc-table custom-detail-table">
+              <thead>
+                <tr class="mat-mdc-header-row">
+                  <th class="mat-mdc-header-cell">Diária</th>
+                  <th class="mat-mdc-header-cell">Valor Unitário</th>
+                  <th class="mat-mdc-header-cell center">Qtd.</th>
+                  <th class="mat-mdc-header-cell">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of data?.cost_assistance?.cost_assistance_dailies; track item.id || $index) {
+                  <tr class="mat-mdc-row">
+                    <td class="mat-mdc-cell">{{ item?.daily_cost?.name ?? 'Não informado' }}</td>
+                    <td class="mat-mdc-cell">{{ item?.daily_cost?.value | currency: 'BRL' }}</td>
+                    <td class="mat-mdc-cell center">{{ item?.amount ?? 0 }}</td>
+                    <td class="mat-mdc-cell">
+                      {{ ((item?.amount ?? 0) * (item?.daily_cost?.value ?? 0)) | currency: 'BRL' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="empty-message">
+            Nenhuma diária vinculada a esta ajuda de custo.
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+</mat-dialog-actions>

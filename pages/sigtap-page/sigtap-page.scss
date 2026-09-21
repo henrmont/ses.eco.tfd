@@ -1,0 +1,39 @@
+:host {
+    display: flex;
+    justify-content: center;
+}
+
+section {
+    margin-top: 20px;
+    width: 50%;
+}
+
+section div.search {
+    width: auto; 
+    display: flex; 
+    justify-content: center; 
+    gap: 60px;
+}
+
+mat-form-field {
+    width: 80%;
+}
+
+button.add-user {
+    position: fixed; 
+    bottom: 100px; 
+    right: 100px;
+}
+
+.center {
+    text-align: center;
+}
+
+.center div {
+    display: flex; 
+    justify-content: space-around;
+}
+
+.valid {
+    color: green;
+}

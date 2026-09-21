@@ -1,0 +1,99 @@
+<section>
+  <div class="table">
+    <div class="search">
+      <mat-form-field appearance="outline">
+        <mat-label>Buscar</mat-label>
+        <input matInput (keyup)="applyFilter($event)" placeholder="Buscar paciente arquivado" #archiveInput>
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+    </div>
+    
+    <table mat-table [dataSource]="archivedDataSource" matSort #archiveSort="matSort">
+        
+      <!-- Nome -->
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Nome </th>
+        <td mat-cell *matCellDef="let element"> {{ element.name }} </td>
+      </ng-container>
+
+      <!-- CNS -->
+      <ng-container matColumnDef="cns">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> CNS </th>
+        <td mat-cell *matCellDef="let element"> {{ element.cns | mask:'000 0000 0000 0000' }} </td>
+      </ng-container>
+
+      <!-- Responsável -->
+      <ng-container matColumnDef="responsible">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Responsável </th>
+        <td mat-cell *matCellDef="let element"> {{ element.responsible }} </td>
+      </ng-container>
+    
+      <!-- Status / Ativo -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef class="center"> Ativo </th>
+        <td mat-cell *matCellDef="let element" class="center">
+          @if (element.status) {
+            <button mat-icon-button type="button" disabled>
+              <mat-icon [className]="element.is_valid ? 'valid' : 'invalid'">
+                {{ element.is_valid ? 'check' : 'close' }}
+              </mat-icon>
+            </button>
+          } @else {
+            <button mat-icon-button type="button" disabled>
+              <mat-icon class="invalid">priority_high</mat-icon>
+            </button>
+          }
+        </td>
+      </ng-container>
+    
+      <!-- Ações -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="center"> Ações </th>
+        <td mat-cell *matCellDef="let element" class="actions-cell">
+          <button mat-icon-button type="button" matTooltip="Detalhes do paciente" (click)="patientDetail(element)">
+            <mat-icon>visibility</mat-icon>
+          </button>
+
+          <button mat-icon-button 
+                  type="button" 
+                  matTooltip="Acompanhantes" 
+                  (click)="patientEscorts(element)" 
+                  [disabled]="checkPermissions('tfd/paciente acompanhantes')">
+            <mat-icon>group</mat-icon>
+          </button>
+
+          <button mat-icon-button 
+                  type="button" 
+                  matTooltip="Laudos" 
+                  (click)="patientReports(element)" 
+                  [disabled]="checkPermissions('tfd/paciente laudos')">
+            <mat-icon>medical_information</mat-icon>
+          </button>
+
+          <button mat-icon-button 
+                  type="button" 
+                  matTooltip="Mover para minha caixa" 
+                  (click)="patientMoveFromArchive(element)" 
+                  [disabled]="checkPermissions('tfd/paciente atualizar')">
+            <mat-icon>move_to_inbox</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+    
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell center" [attr.colspan]="displayedColumns.length">
+          <p>Nenhum resultado encontrado.</p>
+        </td>
+      </tr>
+    </table>
+
+    <mat-paginator 
+      #archivePaginator 
+      [pageSize]="8"
+      hidePageSize="true">
+    </mat-paginator>
+  </div>
+</section>

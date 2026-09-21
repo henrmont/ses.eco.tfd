@@ -1,0 +1,191 @@
+<h2 mat-dialog-title>Detalhes do paciente</h2>
+
+<mat-dialog-content>
+  <div class="details-container">
+
+    <!-- DADOS PESSOAIS -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>DADOS PESSOAIS</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="line cols-4-1">
+          <div>
+            <strong>Nome:</strong> {{ data?.patient?.name ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Sigadoc:</strong> {{ data?.patient?.sigadoc ?? 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-2-3-2">
+          <div>
+            <strong>Tipo de Documento:</strong> {{ data?.patient?.document_type ?? 'Não informado' }}
+          </div>
+          <div class="action-cell">
+            <strong>Documento:</strong> 
+            {{ data?.patient?.document ? (data.patient.document | mask: (data.patient.document_type === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00')) : 'Não informado' }}
+            <button 
+              mat-icon-button 
+              type="button"
+              [disabled]="!data?.patient?.file_document_id" 
+              (click)="download(data.patient.file_document_id, 'documento')"
+            >
+              <mat-icon>download</mat-icon>
+            </button>
+          </div>
+          <div class="action-cell">
+            <strong>CNS:</strong> 
+            {{ data?.patient?.cns ? (data.patient.cns | mask: '000 0000 0000 0000') : 'Não informado' }}
+            <button 
+              mat-icon-button 
+              type="button"
+              [disabled]="!data?.patient?.file_cns_id" 
+              (click)="download(data.patient.file_cns_id, 'cns')"
+            >
+              <mat-icon>download</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="line cols-15-1-1-1-1">
+          <div>
+            <strong>Data de Nascimento:</strong> {{ data?.patient?.birth_date ? (data.patient.birth_date | date: 'dd/MM/yyyy') : 'Não informado' }}
+          </div>
+          <div>
+            <strong>Sexo:</strong> {{ data?.patient?.gender ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Recém Nascido:</strong> {{ data?.patient?.newborn ? 'Sim' : 'Não' }}
+          </div>
+          <div>
+            <strong>Raça:</strong> {{ data?.patient?.race ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Estado Civil:</strong> {{ data?.patient?.marital_status ?? 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-1">
+          <div>
+            <strong>Nome do Pai:</strong> {{ data?.patient?.father_name ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Nome da Mãe:</strong> {{ data?.patient?.mother_name ?? 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-1-1">
+          <div>
+            <strong>Naturalidade:</strong> {{ data?.patient?.naturalness ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Profissão:</strong> {{ data?.patient?.profession ?? 'Não informado' }}
+          </div>
+          <div class="action-cell">
+            <strong>Deficiência:</strong> {{ data?.patient?.deficiency ?? 'Não informado' }}
+            <button 
+              mat-icon-button 
+              type="button"
+              [disabled]="!data?.patient?.file_deficiency_id" 
+              (click)="download(data.patient.file_deficiency_id, 'laudo_deficiencia')"
+            >
+              <mat-icon>download</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="line cols-1-1-1">
+          <div>
+            <strong>Telefone:</strong> {{ data?.patient?.phone ? (data.patient.phone | mask: '(00) 0000-0000') : 'Não informado' }}
+          </div>
+          <div>
+            <strong>Celular:</strong> {{ data?.patient?.cell_phone ? (data.patient.cell_phone | mask: '(00) 00000-0000') : 'Não informado' }}
+          </div>
+          <div>
+            <strong>E-mail:</strong> {{ data?.patient?.email ?? 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- DADOS DE ENDEREÇO -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>DADOS DE ENDEREÇO</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="line cols-1-2">
+          <div>
+            <strong>CEP:</strong> {{ data?.patient?.cep ? (data.patient.cep | mask: '00000-000') : 'Não informado' }}
+          </div>
+          <div class="action-cell">
+            <strong>Endereço:</strong> {{ data?.patient?.address ?? 'Não informado' }}
+            <button 
+              mat-icon-button 
+              type="button"
+              [disabled]="!data?.patient?.file_address_id" 
+              (click)="download(data.patient.file_address_id, 'comprovante_endereco')"
+            >
+              <mat-icon>download</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="line cols-1-2">
+          <div>
+            <strong>Número:</strong> {{ data?.patient?.number ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Complemento:</strong> {{ data?.patient?.complement ?? 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-2-2-1">
+          <div>
+            <strong>Bairro:</strong> {{ data?.patient?.neighborhood ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Cidade:</strong> {{ data?.patient?.city ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Estado:</strong> {{ data?.patient?.state ?? 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- DADOS ADICIONAIS -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>DADOS ADICIONAIS</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="line cols-1-1">
+          <div class="action-cell">
+            <strong>Número de Controle:</strong> {{ data?.patient?.patient_info?.control_number ?? 'Não informado' }}
+            <button 
+              mat-icon-button 
+              type="button"
+              [disabled]="!data?.patient?.patient_info?.file_protocol_id" 
+              (click)="download(data.patient.patient_info.file_protocol_id, 'protocolo_municipal')"
+            >
+              <mat-icon>download</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="line cols-1-col">
+          <div>
+            <strong>Observação:</strong> {{ data?.patient?.patient_info?.observation ?? 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+</mat-dialog-actions>

@@ -1,0 +1,22 @@
+<h2 mat-dialog-title>Finalizar retorno da solicitação</h2>
+
+<mat-dialog-content>
+  <p>
+    <strong>{{data?.patient_request?.back_to_travel}}</strong>?
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+    Cancelar
+  </button>
+
+  <button mat-flat-button color="primary" type="button" [disabled]="isSubmitting()" (click)="onSubmit()">
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      <span>{{ isSubmitting() ? 'Finalizando...' : 'Finalizar' }}</span>
+    </div>
+  </button>
+</mat-dialog-actions>

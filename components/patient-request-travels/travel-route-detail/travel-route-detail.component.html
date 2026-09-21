@@ -1,0 +1,101 @@
+<h2 mat-dialog-title>Detalhes da rota</h2>
+
+<mat-dialog-content>
+  <div class="details-container">
+    
+    <!-- Card 1: Itinerário e Distância -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>ITINERÁRIO E DISTÂNCIA</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="line cols-1-1">
+          <div>
+            <strong>Trecho:</strong> 
+            @if (data?.route?.origin || data?.route?.destination) {
+              {{ data?.route?.origin ?? 'N/I' }} - {{ data?.route?.destination ?? 'N/I' }}
+            } @else {
+              Não informado
+            }
+          </div>
+          <div>
+            <strong>Distância:</strong> 
+            {{ data?.route?.distance ? (data.route.distance | number:'1.2-2') + ' km' : '0,00 km' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Card 2: Horários e Cronograma -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>CRONOGRAMA DE VIAGEM</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="line cols-1-1">
+          <div>
+            <strong>Saída:</strong> 
+            {{ (data?.route?.departure | date:'dd/MM/yyyy HH:mm') || 'Não informado' }}
+          </div>
+          <div>
+            <strong>Chegada:</strong> 
+            {{ (data?.route?.arrival | date:'dd/MM/yyyy HH:mm') || 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Card 3: Informações de Voo e Embarque -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>INFORMAÇÕES DE VOO E EMBARQUE</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="line cols-1-1-1">
+          <div>
+            <strong>Companhia Aérea:</strong> 
+            {{ getAirlineCompanyLabel(data?.route?.travel?.company) }}
+          </div>
+          <div>
+            <strong>Nº do Voo:</strong> 
+            {{ data?.route?.flight || 'Não informado' }}
+          </div>
+          <div>
+            <strong>Aeronave:</strong> 
+            {{ data?.route?.airplane || 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-1-1">
+          <div>
+            <strong>Classe:</strong> 
+            {{ data?.route?.class || 'Não informado' }}
+          </div>
+          <div>
+            <strong>Escala:</strong> 
+            {{ data?.route?.scales || 'Não informado' }}
+          </div>
+          <div>
+            <strong>Família:</strong> 
+            {{ data?.route?.family || 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-col">
+          <div>
+            <strong>Localizador:</strong> 
+            {{ data?.route?.travel?.locator || 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+</mat-dialog-actions>

@@ -1,0 +1,17 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+// Layout de grid para os campos de entrada (2 colunas no desktop, 1 coluna no mobile)
+.line {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: $spacing-form-gap $spacing-xl;
+}

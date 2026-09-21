@@ -1,0 +1,160 @@
+<h2 mat-dialog-title>Nova viagem</h2>
+
+<mat-dialog-content>
+    <form [formGroup]="createTravelForm">
+        <div class="stepper">
+
+            <!-- Linha 1: Transporte e OS -->
+            <div class="line cols-1-1">
+                <mat-form-field appearance="outline">
+                    <mat-label>Transporte</mat-label>
+                    <mat-select formControlName="transportation">
+                        @for (item of transportations; track $index) {
+                            <mat-option [value]="item">{{ item }}</mat-option>
+                        }
+                    </mat-select>
+                    
+                    @for (item of errorMessages['transportation']; track $index) {
+                        <mat-error [hidden]="!createTravelForm.get('transportation')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                    <mat-label>OS</mat-label>
+                    <input matInput type="text" formControlName="os">
+                </mat-form-field>
+            </div>
+
+            <!-- Linha 2: Tipo de Viagem, Localizador e Companhia Aérea -->
+            <div class="line cols-1-1-1">
+                <mat-form-field appearance="outline">
+                    <mat-label>Tipo</mat-label>
+                    <mat-select formControlName="type" (selectionChange)="onSelection($event)">
+                        <mat-option [value]="null">Selecione...</mat-option>
+                        @for (item of types; track $index) {
+                            <mat-option [value]="item">{{ item }}</mat-option>
+                        }
+                    </mat-select>
+
+                    @for (item of errorMessages['type']; track $index) {
+                        <mat-error [hidden]="!createTravelForm.get('type')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                    <mat-label>Localizador</mat-label>
+                    <input matInput type="text" formControlName="locator">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                    <mat-label>Companhia Aérea</mat-label>
+                    <mat-select formControlName="company">
+                        <mat-option [value]="null">Selecione...</mat-option>
+                        @for (airline of airlines; track $index) {
+                            <mat-option [value]="airline.key">{{ airline.value }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+            </div>
+
+            <!-- Linha 3: Data de Ida e Data de Volta -->
+            <div class="line cols-1-1">
+                <mat-form-field appearance="outline">
+                    <mat-label>Data de ida</mat-label>
+                    <input 
+                        matInput 
+                        [matDatepicker]="pickerDeparture" 
+                        formControlName="departure_date" 
+                        placeholder="DD/MM/AAAA"
+                        (keypress)="onlyNumbersAndSlashes($event)"
+                        (dateChange)="setDepartureDate($event)"
+                    >
+                    <mat-datepicker-toggle matIconSuffix [for]="pickerDeparture"></mat-datepicker-toggle>
+                    <mat-datepicker #pickerDeparture></mat-datepicker>
+
+                    @for (item of errorMessages['departure_date']; track $index) {
+                        <mat-error [hidden]="!createTravelForm.get('departure_date')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                    <mat-label>Data de volta</mat-label>
+                    <input 
+                        matInput 
+                        [matDatepicker]="pickerReturn" 
+                        formControlName="return_date" 
+                        placeholder="DD/MM/AAAA"
+                        (keypress)="onlyNumbersAndSlashes($event)"
+                        (dateChange)="setReturnDate($event)"
+                    >
+                    <mat-datepicker-toggle matIconSuffix [for]="pickerReturn"></mat-datepicker-toggle>
+                    <mat-datepicker #pickerReturn></mat-datepicker>
+
+                    @for (item of errorMessages['return_date']; track $index) {
+                        <mat-error [hidden]="!createTravelForm.get('return_date')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+            <!-- Linha 4: Origem e Destino -->
+            <div class="line cols-1-1">
+                <mat-form-field appearance="outline">
+                    <mat-label>Origem</mat-label>
+                    <input matInput type="text" formControlName="origin">
+
+                    @for (item of errorMessages['origin']; track $index) {
+                        <mat-error [hidden]="!createTravelForm.get('origin')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                    <mat-label>Destino</mat-label>
+                    <input matInput type="text" formControlName="destination">
+
+                    @for (item of errorMessages['destination']; track $index) {
+                        <mat-error [hidden]="!createTravelForm.get('destination')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+            <!-- Linha 5: Descrição -->
+            <div class="line cols-1-col">
+                <mat-form-field appearance="outline">
+                    <mat-label>Descrição</mat-label>
+                    <textarea matInput rows="4" formControlName="description"></textarea>
+                </mat-form-field>
+            </div>
+
+        </div>
+    </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">Cancelar</button>
+    <button 
+        mat-flat-button 
+        color="primary" 
+        type="button" 
+        [disabled]="createTravelForm.invalid || createTravelForm.pending || isSubmitting()"
+        (click)="onSubmit()"
+    >
+        <div class="waiting">
+            @if (isSubmitting()) {
+                <mat-spinner [diameter]="20"></mat-spinner>
+            }
+            Criar
+        </div>
+    </button>
+</mat-dialog-actions>

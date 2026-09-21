@@ -1,0 +1,96 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+// Container do formulário em formato stepper/flow
+.stepper {
+  margin-top: $spacing-form-gap; 
+  display: flex; 
+  flex-direction: column; 
+  gap: $spacing-form-gap;
+}
+
+// Estrutura de Linhas com Grid
+.line {
+  display: grid; 
+  grid-template-columns: var(--grid-cols, 1fr); 
+  column-gap: $spacing-xl; 
+  row-gap: $spacing-form-gap; 
+  align-items: start;
+  min-height: $material-field-outline-height;
+
+  // Alinhamento vertical do slide toggle
+  .toggle-cell {
+    display: flex;
+    align-items: center;
+    height: $material-field-outline-height;
+
+    mat-slide-toggle {
+      span {
+        font-size: $font-size-md;
+        color: $color-text-variant;
+      }
+    }
+  }
+
+  // Mapeamento dinâmico de colunas sem inline styling
+  &.cols-1-1 { 
+    --grid-cols: 1fr 1fr; 
+  }
+  
+  &.cols-1-col { 
+    --grid-cols: 1fr; 
+  }
+}
+
+// Estilização customizada e isolada para o contêiner do NgxEditor
+.my-custom-editor {
+  position: relative;
+  padding-bottom: $spacing-xl; 
+
+  .NgxEditor__Wrapper {
+    border-radius: $radius-sm;
+    background-color: $color-surface;
+    overflow: hidden;
+    min-height: 320px !important;
+    transition: border-color $transition-fast, box-shadow $transition-fast;
+    
+    &:focus-within {
+      border-color: $color-primary;
+      box-shadow: 0 0 0 1px $color-primary;
+    }
+    
+    .NgxEditor__MenuBar {
+      background-color: $color-table-header-bg;
+      border-bottom: 1px solid $color-border-subtle;
+    }
+    
+    .NgxEditor {
+      min-height: 200px;
+      padding: $spacing-md;
+    }
+  }
+
+  // Posicionamento do erro do editor sem impactar o fluxo do DOM
+  .mat-mdc-form-field-error {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    margin: 0;
+    font-size: 12px;
+    color: $color-danger; 
+    padding: 0 16px;
+  }
+}
+
+// Alinhamento do spinner no campo de input
+.field-spinner {
+  margin-right: $spacing-sm;
+}

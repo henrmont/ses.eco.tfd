@@ -1,0 +1,23 @@
+<h2 mat-dialog-title>Retirar do Arquivo</h2>
+
+<mat-dialog-content>
+  <p>
+    Você tem certeza que deseja retirar a solicitação do paciente 
+    <strong>{{ data?.payment?.patient_request?.report?.patient_care?.patient?.name ?? 'Não informado' }}</strong> do arquivo e movê-la para a sua caixa?
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+    Cancelar
+  </button>
+
+  <button mat-flat-button color="primary" type="button" [disabled]="isSubmitting()" (click)="onSubmit()">
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      <span>{{ isSubmitting() ? 'Movendo...' : 'Confirmar' }}</span>
+    </div>
+  </button>
+</mat-dialog-actions>

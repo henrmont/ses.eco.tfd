@@ -1,0 +1,87 @@
+<h2 mat-dialog-title>Atualizar pagamento</h2>
+
+<form [formGroup]="updatePaymentForm">
+  <mat-dialog-content>
+    <div class="stepper">
+
+      <!-- Linha 1: SIGADOC -->
+      <div class="line cols-1-col">
+        <mat-form-field appearance="outline">
+          <mat-label>SIGADOC</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="sigadoc" 
+            placeholder="Informe o número do SIGADOC"
+          >
+
+          @for (item of errorMessages['sigadoc']; track $index) {
+            <mat-error [hidden]="!updatePaymentForm.get('sigadoc')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <!-- Linha 2: Credor -->
+      <div class="line cols-1-col">
+        <mat-form-field appearance="outline">
+          <mat-label>Código do credor</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="creditor" 
+            placeholder="Informe o código do credor"
+          >
+
+          @for (item of errorMessages['creditor']; track $index) {
+            <mat-error [hidden]="!updatePaymentForm.get('creditor')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <!-- Linha 3: Número do Documento -->
+      <div class="line cols-1-col">
+        <mat-form-field appearance="outline">
+          <mat-label>Número do documento</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="document_number" 
+            placeholder="Informe o número do documento"
+          >
+
+          @for (item of errorMessages['document_number']; track $index) {
+            <mat-error [hidden]="!updatePaymentForm.get('document_number')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+      Cancelar
+    </button>
+    
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="button" 
+      [disabled]="updatePaymentForm.invalid || updatePaymentForm.pending || updatePaymentForm.pristine || isSubmitting()"
+      (click)="onSubmit()"
+    >
+      <div class="waiting">
+        @if (isSubmitting()) {
+          <mat-spinner [diameter]="20"></mat-spinner>
+        }
+        <span>{{ isSubmitting() ? 'Atualizando...' : 'Atualizar' }}</span>
+      </div>
+    </button>
+  </mat-dialog-actions>
+</form>

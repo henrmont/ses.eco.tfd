@@ -1,0 +1,49 @@
+<h2 mat-dialog-title>Atualizar prestação de contas</h2>
+
+<form [formGroup]="updateAccountabilityForm">
+  <mat-dialog-content>
+    <div class="stepper">
+
+      <!-- Linha 1: Nome -->
+      <div class="line cols-1-col">
+        <mat-form-field appearance="outline">
+          <mat-label>Nome</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="name" 
+            placeholder="Nome da prestação de contas"
+          >
+
+          @for (item of errorMessages['name']; track $index) {
+            <mat-error [hidden]="!updateAccountabilityForm.get('name')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+      Cancelar
+    </button>
+    
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="button" 
+      [disabled]="updateAccountabilityForm.invalid || updateAccountabilityForm.pending || updateAccountabilityForm.pristine || isSubmitting()"
+      (click)="onSubmit()"
+    >
+      <div class="waiting">
+        @if (isSubmitting()) {
+          <mat-spinner [diameter]="20"></mat-spinner>
+        }
+        <span>{{ isSubmitting() ? 'Atualizando...' : 'Atualizar' }}</span>
+      </div>
+    </button>
+  </mat-dialog-actions>
+</form>

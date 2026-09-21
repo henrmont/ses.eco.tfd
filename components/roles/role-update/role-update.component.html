@@ -1,0 +1,74 @@
+<h2 mat-dialog-title>Atualizar regra</h2>
+
+<form [formGroup]="roleForm">
+  <mat-dialog-content>
+    @if (isLoading()) {
+      <div class="loading-container">
+        <mat-progress-spinner mode="indeterminate" [diameter]="40"></mat-progress-spinner>
+      </div>
+    } @else {
+      <div class="line cols-1-col">
+        <mat-form-field appearance="outline">
+          <mat-label>Nome</mat-label>
+          <input matInput type="text" formControlName="name">
+          @for (item of errorMessages['name']; track $index) {
+            <mat-error [hidden]="!roleForm.get('name')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <div class="details-container">
+        @for (group of permissionGroups; track $index) {
+          <mat-card appearance="outlined" class="detail-card permission-card">
+            <mat-card-header>
+              <div class="title-header">
+                <mat-icon>{{ group.icon }}</mat-icon>
+                <mat-card-title>{{ group.label }}</mat-card-title>
+              </div>
+            </mat-card-header>
+            
+            <mat-card-content>
+              <div class="group-grid">
+                @for (item of getFilteredRole(group.filter); track $index) {
+                  <div class="toggle-item">
+                    <mat-slide-toggle 
+                      [checked]="checkPermission(item.id)"
+                      [disabled]="isSubmitting()" 
+                      (toggleChange)="togglePermission(item)"
+                      color="primary">
+                      {{ item.name.split('/').pop() }}
+                    </mat-slide-toggle>
+                  </div>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+        }
+      </div>
+
+      @for (item of errorMessages['permissions']; track $index) {
+        <mat-error class="permissions-error" [hidden]="!roleForm.get('permissions')?.hasError(item.type)">
+          {{ item.message }}
+        </mat-error>
+      }
+    }
+  </mat-dialog-content>
+  
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
+    
+    <button mat-flat-button color="primary" type="button" 
+            [disabled]="roleForm.invalid || roleForm.pristine || roleForm.pending || isSubmitting()"
+            (click)="onSubmit()"
+            >
+      <div class="waiting">
+        @if (isSubmitting()) {
+          <mat-spinner [diameter]="20"></mat-spinner>
+        }
+        Salvar alterações
+      </div>
+    </button>
+  </mat-dialog-actions>
+</form>

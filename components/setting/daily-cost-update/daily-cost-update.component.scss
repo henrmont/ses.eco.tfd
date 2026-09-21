@@ -1,0 +1,17 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+// Grid estrutural para linhas do formulário
+.line {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: $spacing-xl;
+}

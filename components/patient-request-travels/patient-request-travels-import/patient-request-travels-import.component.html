@@ -1,0 +1,27 @@
+<h2 mat-dialog-title>Importar passagens</h2>
+<form [formGroup]="importTicketForm" (ngSubmit)="onImportTicketSubmit()">
+    <mat-dialog-content>
+        <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+            <div class="line" style="grid-template-columns: 1fr;">
+                <mat-form-field appearance="outline">
+                    <mat-label>Data da importação</mat-label>
+                    <input matInput [matDatepicker]="importAtPicker" formControlName="import_at">
+                    <mat-error>Data da importação</mat-error>
+                    <mat-datepicker-toggle matIconSuffix [for]="importAtPicker"></mat-datepicker-toggle>
+                    <mat-datepicker #importAtPicker></mat-datepicker>
+                </mat-form-field>
+            </div>
+        </div>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+        <button matButton="filled" type="submit" [disabled]="importTicketForm.invalid || wSubmit()">
+            <div class="waiting">
+                @if (wSubmit()) {
+                    <mat-spinner matPrefix [diameter]="20"></mat-spinner>
+                }
+                Importar
+            </div>
+        </button>
+        <button matButton [mat-dialog-close]="false">Fechar</button>
+    </mat-dialog-actions>
+</form>

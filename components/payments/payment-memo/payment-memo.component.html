@@ -1,0 +1,96 @@
+<h2 mat-dialog-title>Memorando de Pagamento</h2>
+
+<mat-dialog-content class="memo-content" #memoContent>
+  <p class="paragraph">
+    Prezado(a) Senhor(a):<br />
+    Vimos solicitar, por meio deste pagamento de ajuda de custo paro o 
+    <strong>{{ data?.payment?.sigadoc }}</strong> e código do credor 
+    <strong>{{ data?.payment?.creditor }}</strong> referente ao (a) paciente 
+    <strong>{{ data?.payment?.patient_request?.report?.patient_care?.patient?.name }}</strong> 
+    com diagnóstico de <strong>{{ data?.payment?.patient_request?.report?.cid?.name }}</strong> 
+    de CID <strong>{{ data?.payment?.patient_request?.report?.cid?.code }}</strong> e tem como acompanhante 
+    <strong>{{ getEscortNames(data) }}</strong> 
+    e realiza tratamento no <strong>{{ data?.payment?.patient_request?.hospital_unity?.name }}</strong> 
+    na cidade de <strong>{{ data?.payment?.patient_request?.hospital_unity?.city ?? 'Não informada' }} - {{ data?.payment?.patient_request?.hospital_unity?.state ?? 'Não informado' }}</strong>. 
+    Autorização dada pelo (a) médico (a) regulador (a) Dr. 
+    <strong>{{ data?.payment?.patient_request?.medical_professional?.name }}</strong>, conforme especificação abaixo:
+  </p>
+
+  <div class="table-container">
+    <table class="memo-table">
+        <thead>
+            <tr>
+            <th>DATA DA CONSULTA</th>
+            <th>QUANTIDADE DE DIÁRIAS</th>
+            <th>VALOR DE DIÁRIAS</th>
+            <th>VALOR TOTAL DE DIÁRIAS</th>
+            <th>VALOR TOTAL A PAGAR</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (daily of data?.payment?.cost_assistance?.cost_assistance_dailies; track $index; let first = $first) {
+            <tr>
+                @if (first) {
+                <td [attr.rowspan]="data?.payment?.cost_assistance?.cost_assistance_dailies?.length">
+                    {{ data?.payment?.travel?.departure_date | date:'dd/MM/yyyy' }} A {{ data?.payment?.travel?.return_date | date:'dd/MM/yyyy' }}
+                </td>
+                }
+                <td>{{ daily?.amount }} {{ daily?.daily_cost?.name }}</td>
+                <td>{{ daily?.amount }} x {{ (daily?.amount * daily?.daily_cost?.value) | currency:'BRL':'symbol':'1.2-2' }}</td>
+                <td>{{ daily?.amount }} x {{ (daily?.amount * daily?.daily_cost?.value) | currency:'BRL':'symbol':'1.2-2' }}</td>
+                <td>{{ (daily?.amount * daily?.daily_cost?.value) | currency:'BRL':'symbol':'1.2-2' }}</td>
+            </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+            <td colspan="2"><strong>Total:</strong> {{ data?.payment?.cost_assistance?.total_amount }}</td>
+            <td colspan="2"><strong>Valor Total:</strong> {{ data?.payment?.cost_assistance?.total_dailies | currency:'BRL':'symbol':'1.2-2' }}</td>
+            <td><strong>{{ data?.payment?.cost_assistance?.total_dailies | currency:'BRL':'symbol':'1.2-2' }}</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+  </div>
+
+  <p class="legend">PCT = Paciente / AC = Acompanhante / DOA = Doador</p>
+  <p class="obs"><strong>OBS:</strong> VALOR REQUERIDO CONSIDERANDO PERÍODO DE INTERNAÇÃO DE PACIENTE</p>
+
+  <p class="paragraph">
+    Solicitação se embasa na Portaria SAS/MS n° 055 de 24/02/1999, Resolução CIB/MT n° 294 de 06/07/2023 e n° 776, de 02/10/2007; para as viagens realizadas a partir de 10/03/2022, da Portaria 241/2022/GBSES de 11/04/2022 e para as viagens a partir de 14/08/2023 a Portaria 589/2023/GBSES, que dispões sobre o Financiamento Estadual no valor específico da tabela SIGTAP para o procedimento de ajuda de custo ao paciente em Tratamento Fora de Domicílio do Sistema ùnico de Saúde - SUS dos pacientes do Estado de MT.
+  </p>
+
+  <p class="paragraph">
+    A quantidade de diárias solicitadas obedece ao Manual de Normatização do Tratamento Fora de Domicílio/TFD do Estado de Mato Grosso, aprovado pela Resolução CIB/MT n° 776, de 14/12/2023, confomr item 9.0-DA AJUDA DE CUSTO, subitem 9.1 e 9.2.
+  </p>
+
+  <p class="paragraph">
+    Informamos que a classificação no Plano de Trabalho Anual/PTA 2026 é a seguinte:
+  </p>
+
+  <mat-card class="budget-card" appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>DOTAÇÃO ORÇAMENTÁRIA</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p><strong>Programa:</strong> {{ data?.payment?.budget_allocation?.program }}</p>
+      <p><strong>Projeto Atividade:</strong> {{ data?.payment?.budget_allocation?.active_project }}</p>
+      <p><strong>Natureza da Despesa:</strong> {{ data?.payment?.budget_allocation?.nature_of_expenditure }}</p>
+      <p><strong>Fonte:</strong> {{ data?.payment?.budget_allocation?.source }}</p>
+    </mat-card-content>
+  </mat-card>
+</mat-dialog-content>
+
+<mat-dialog-actions class="dialog-actions">
+  <div class="action-buttons">
+    <button mat-icon-button matTooltip="Copiar texto" (click)="onCopyText()">
+      <mat-icon>content_copy</mat-icon>
+    </button>
+    <button mat-icon-button matTooltip="Baixar PDF" (click)="downloadMemoPdf()">
+      <mat-icon>save_alt</mat-icon>
+    </button>
+  </div>
+
+  <button mat-button mat-dialog-close>
+    Fechar
+  </button>
+</mat-dialog-actions>

@@ -1,0 +1,49 @@
+<h2 mat-dialog-title>
+  @if (data?.type === 'medical') {
+    {{ data?.patient_request?.is_medical_bookmark ? 'Desmarcar sobrestado' : 'Marcar sobrestado' }}
+  } @else {
+    {{ data?.patient_request?.is_social_bookmark ? 'Desmarcar sobrestado' : 'Marcar sobrestado' }}
+  }
+</h2>
+
+<mat-dialog-content>
+  <p>
+    Você deseja realmente 
+    @if (data?.type === 'medical') {
+      <strong>{{ data?.patient_request?.is_medical_bookmark ? 'desmarcar' : 'marcar' }}</strong>
+    } @else {
+      <strong>{{ data?.patient_request?.is_social_bookmark ? 'desmarcar' : 'marcar' }}</strong>
+    }
+    em sobrestado a solicitação do paciente 
+    <strong>{{ data?.patient_request?.name ?? data?.patient_request?.report?.patient_care?.patient?.name ?? 'Não informado' }}</strong>?
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+    Cancelar
+  </button>
+  
+  <button mat-flat-button color="primary" type="button" [disabled]="isSubmitting()" (click)="onSubmit()">
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      <span>
+        @if (isSubmitting()) {
+          @if (data?.type === 'medical') {
+            {{ data?.patient_request?.is_medical_bookmark ? 'Desmarcando...' : 'Marcando...' }}
+          } @else {
+            {{ data?.patient_request?.is_social_bookmark ? 'Desmarcando...' : 'Marcando...' }}
+          }
+        } @else {
+          @if (data?.type === 'medical') {
+            {{ data?.patient_request?.is_medical_bookmark ? 'Desmarcar' : 'Marcar' }}
+          } @else {
+            {{ data?.patient_request?.is_social_bookmark ? 'Desmarcar' : 'Marcar' }}
+          }
+        }
+      </span>
+    </div>
+  </button>
+</mat-dialog-actions>

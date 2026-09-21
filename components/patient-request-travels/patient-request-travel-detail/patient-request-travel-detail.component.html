@@ -1,0 +1,127 @@
+<h2 mat-dialog-title>Detalhes da viagem</h2>
+
+<mat-dialog-content>
+  <div class="details-container">
+    
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>DADOS DA VIAGEM</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="line cols-1-1">
+          <div>
+            <strong>Transporte:</strong> {{ data?.travel?.transportation ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>OS:</strong> {{ data?.travel?.os ?? 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-1">
+          <div>
+            <strong>Tipo:</strong> {{ data?.travel?.type ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Localizador:</strong> {{ data?.travel?.locator ?? 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-1">
+          <div>
+            <strong>Data de ida:</strong> 
+            {{ data?.travel?.departure_date ? (data.travel.departure_date | date: 'dd/MM/yyyy') : 'Não informado' }}
+          </div>
+          <div>
+            <strong>Data de volta:</strong> 
+            {{ data?.travel?.return_date ? (data.travel.return_date | date: 'dd/MM/yyyy') : 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-1">
+          <div>
+            <strong>Companhia Aérea:</strong> {{ getAirlineCompanyLabel(data?.travel?.company) }}
+          </div>
+          <div>
+            <strong>Trecho:</strong> {{ data?.travel?.origin ?? 'Não informado' }} - {{ data?.travel?.destination ?? 'Não informado' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-col">
+          <div>
+            <strong>Descrição:</strong> {{ data?.travel?.description ?? 'Nenhuma descrição informada.' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>PASSAGEIROS</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        @for (item of data?.travel?.passengers; track item.id || $index) {
+          <div class="line cols-1-1-1 passenger-row">
+            @if (item.is_patient) {
+              <div>
+                <strong>Nome:</strong> {{ item.patient?.name ?? 'Não informado' }}
+              </div>
+              <div>
+                <strong>Tipo:</strong> <span class="highlight">PACIENTE</span>
+              </div>
+              <div>
+                <strong>CPF:</strong> {{ item.patient?.document ? (item.patient.document | mask: '000.000.000-00') : 'Não informado' }}
+              </div>
+            } @else {
+              <div>
+                <strong>Nome:</strong> {{ item.escort?.name ?? 'Não informado' }}
+              </div>
+              <div>
+                <strong>Tipo:</strong> ACOMPANHANTE
+              </div>
+              <div>
+                <strong>CPF:</strong> {{ item.escort?.document ? (item.escort.document | mask: '000.000.000-00') : 'Não informado' }}
+              </div>
+            }
+          </div>
+        } @empty {
+          <div class="empty-message">
+            Nenhum passageiro vinculado à viagem.
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>ROTAS</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        @for (item of data?.travel?.travel_routes; track item.id || $index) {
+          <div class="line cols-1-1-1">
+            <div>
+              <strong>Trecho:</strong> {{ item.origin ?? 'Não informado' }} - {{ item.destination ?? 'Não informado' }}
+            </div>
+            <div>
+              <strong>Voo:</strong> {{ item.flight ?? 'Não informado' }}
+            </div>
+            <div>
+              <strong>Avião:</strong> {{ item.airplane ?? 'Não informado' }}
+            </div>
+          </div>
+        } @empty {
+          <div class="empty-message">
+            Nenhuma rota vinculada à viagem.
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+</mat-dialog-actions>

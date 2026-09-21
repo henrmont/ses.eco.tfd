@@ -1,0 +1,28 @@
+<h2 mat-dialog-title>
+  {{ data?.user?.module?.pivot?.is_editable ? 'Travar usuário' : 'Destravar usuário' }}
+</h2>
+
+<mat-dialog-content>
+  <p>
+    @if (data?.user?.module?.pivot?.is_editable) {
+      Você deseja travar a edição do usuário <strong>{{ data?.user?.professional?.name || data?.user?.name }}</strong>?
+    } @else {
+      Você deseja destravar a edição do usuário <strong>{{ data?.user?.professional?.name || data?.user?.name }}</strong>?
+    }
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
+    Fechar
+  </button>
+  
+  <button mat-flat-button type="button" color="primary" [disabled]="isSubmitting()" (click)="onSubmit()">
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      {{ data?.user?.module?.pivot?.is_editable ? 'Travar' : 'Destravar' }}
+    </div>
+  </button>
+</mat-dialog-actions>

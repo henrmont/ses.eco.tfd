@@ -1,0 +1,113 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+.details-container {
+  padding: $spacing-lg 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xxl; 
+}
+
+// Estilização dos Cards de detalhamento
+mat-card {
+  &.detail-card {
+    background: $color-card-bg;
+    border-radius: $radius-md; 
+    box-shadow: $shadow-soft; 
+
+    mat-card-header {
+      margin-bottom: $spacing-sm;
+      
+      mat-card-subtitle {
+        letter-spacing: 0.5px;
+        color: $color-text-variant;
+      }
+    }
+  }
+}
+
+// Mensagem amigável para listas vazias nos cards
+.empty-message {
+  padding: $spacing-md;
+  color: $color-text-muted;
+  font-style: italic;
+  font-size: $font-size-md;
+}
+
+// Estrutura de Linha/Grid para exibição dos dados
+.line {
+  display: grid;
+  gap: $spacing-md; 
+  padding: 0 $spacing-md; 
+  align-items: center; 
+  color: $color-text-main;
+  min-height: $line-height-min-item; 
+
+  strong {
+    color: $color-text-variant;
+    font-weight: $font-weight-semibold;
+  }
+
+  .highlight {
+    font-weight: $font-weight-medium;
+    color: $color-primary;
+  }
+
+  .action-cell {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    height: 100%; 
+  }
+
+  // --- Definições Semânticas das Colunas da Grid ---
+  &.cols-1-col   { grid-template-columns: 1fr; }
+  &.cols-1-1     { grid-template-columns: 1fr 1fr; }
+  &.cols-1-1-1   { grid-template-columns: repeat(3, 1fr); }
+}
+
+// --- Tabela Customizada para Detalhes de Diárias ---
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  box-sizing: border-box;
+}
+
+table.custom-detail-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: $radius-md;
+  background: transparent;
+  overflow: hidden;
+
+  th.mat-mdc-header-cell {
+    font-weight: $font-weight-semibold;
+    color: $color-text-variant;
+    background-color: transparent !important;
+    padding: $spacing-sm $spacing-md;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  }
+
+  td.mat-mdc-cell {
+    padding: $spacing-sm $spacing-md;
+    vertical-align: middle;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  tr.mat-mdc-row:last-child td.mat-mdc-cell {
+    border-bottom: none;
+  }
+
+  .center {
+    text-align: center;
+  }
+}

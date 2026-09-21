@@ -1,0 +1,49 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+.details-container {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xxl;
+  padding: $spacing-lg 0 0;
+}
+
+// Estilização dos Cards de detalhamento da rota
+mat-card {
+  background: $color-card-bg;
+  border-radius: $radius-md;
+  box-shadow: $shadow-soft;
+}
+
+// Estrutura de Linha/Grid para exibição dos dados
+.line {
+  display: grid;
+  align-items: center;
+  gap: $spacing-md;
+  min-height: $line-height-min-item;
+  padding: 0 $spacing-md;
+  color: $color-text-main;
+
+  strong {
+    color: $color-text-variant;
+    font-weight: $font-weight-semibold;
+  }
+
+  .highlight {
+    color: $color-primary;
+    font-weight: $font-weight-medium;
+  }
+
+  // --- Definições Semânticas das Colunas da Grid ---
+  &.cols-1-col { grid-template-columns: 1fr; }
+  &.cols-1-1   { grid-template-columns: 1fr 1fr; }
+  &.cols-1-1-1 { grid-template-columns: 1fr 1fr 1fr; }
+}

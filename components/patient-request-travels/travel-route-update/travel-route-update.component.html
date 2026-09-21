@@ -1,0 +1,180 @@
+<h2 mat-dialog-title>Atualizar rota</h2>
+
+<form [formGroup]="updateRouteForm">
+  <mat-dialog-content>
+    <div class="stepper">
+
+      <!-- Linha 1: Vôo e Aeronave -->
+      <div class="line cols-1-1">
+        <mat-form-field appearance="outline">
+          <mat-label>Vôo</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="flight" 
+            placeholder="Número do vôo"
+          >
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Aeronave</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="airplane" 
+            placeholder="Modelo da aeronave"
+          >
+        </mat-form-field>
+      </div>
+
+      <!-- Linha 2: Data de Saída e Data de Chegada -->
+      <div class="line cols-1-1">
+        <mat-form-field appearance="outline">
+          <mat-label>Data de saída</mat-label>
+          <input 
+            matInput 
+            [matDatepicker]="departurePicker" 
+            formControlName="departure" 
+            placeholder="DD/MM/YYYY"
+            (dateChange)="setDepartureDate($event)"
+            (keypress)="onlyNumbersAndSlashes($event)"
+          >
+          <mat-datepicker-toggle matIconSuffix [for]="departurePicker"></mat-datepicker-toggle>
+          <mat-datepicker #departurePicker></mat-datepicker>
+
+          @for (item of errorMessages['departure']; track $index) {
+            <mat-error [hidden]="!updateRouteForm.get('departure')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Data de chegada</mat-label>
+          <input 
+            matInput 
+            [matDatepicker]="arrivalPicker" 
+            formControlName="arrival" 
+            placeholder="DD/MM/YYYY"
+            (dateChange)="setArrivalDate($event)"
+            (keypress)="onlyNumbersAndSlashes($event)"
+          >
+          <mat-datepicker-toggle matIconSuffix [for]="arrivalPicker"></mat-datepicker-toggle>
+          <mat-datepicker #arrivalPicker></mat-datepicker>
+
+          @for (item of errorMessages['arrival']; track $index) {
+            <mat-error [hidden]="!updateRouteForm.get('arrival')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <!-- Linha 3: Origem, Destino e Distância (km) -->
+      <div class="line cols-1-1-1">
+        <mat-form-field appearance="outline">
+          <mat-label>Origem</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="origin" 
+            placeholder="Cidade de origem"
+          >
+
+          @for (item of errorMessages['origin']; track $index) {
+            <mat-error [hidden]="!updateRouteForm.get('origin')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Destino</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="destination" 
+            placeholder="Cidade de destino"
+          >
+
+          @for (item of errorMessages['destination']; track $index) {
+            <mat-error [hidden]="!updateRouteForm.get('destination')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Distância (km)</mat-label>
+          <input 
+            matInput 
+            type="number" 
+            formControlName="distance" 
+            placeholder="0.00"
+          >
+
+          @for (item of errorMessages['distance']; track $index) {
+            <mat-error [hidden]="!updateRouteForm.get('distance')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <!-- Linha 4: Classe, Escalas e Família -->
+      <div class="line cols-1-1-1">
+        <mat-form-field appearance="outline">
+          <mat-label>Classe</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="class" 
+            placeholder="Classe do vôo"
+          >
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Escalas</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="scales" 
+            placeholder="Escalas / Conexões"
+          >
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Família</mat-label>
+          <input 
+            matInput 
+            type="text" 
+            formControlName="family" 
+            placeholder="Família da tarifa"
+          >
+        </mat-form-field>
+      </div>
+
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+      Cancelar
+    </button>
+    
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="button" 
+      [disabled]="updateRouteForm.invalid || updateRouteForm.pending || isSubmitting()"
+      (click)="onSubmit()"
+    >
+      <div class="waiting">
+        @if (isSubmitting()) {
+          <mat-spinner [diameter]="20"></mat-spinner>
+        }
+        <span>{{ isSubmitting() ? 'Atualizando...' : 'Atualizar' }}</span>
+      </div>
+    </button>
+  </mat-dialog-actions>
+</form>

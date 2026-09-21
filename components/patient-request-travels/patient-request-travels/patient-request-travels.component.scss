@@ -1,0 +1,123 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+}
+
+.travels-container {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+}
+
+.table-responsive {
+  padding: $spacing-lg; 
+  width: 100%;
+  overflow-x: auto;
+  box-sizing: border-box;
+}
+
+// Estilização da Tabela Angular Material
+table.mat-mdc-table {
+  margin: 0 auto $spacing-sm auto;
+  width: 100%;
+  background: $color-surface;
+  border-radius: $radius-md; 
+  overflow: hidden;
+  box-shadow: $shadow-card; 
+  border-collapse: separate; 
+
+  tr.mat-mdc-header-row {
+    height: $material-field-outline-height;
+  }
+
+  tr.mat-mdc-row {
+    height: 52px;
+    transition: background-color $transition-fast;
+  }
+
+  th, td {
+    padding: $spacing-md $spacing-lg; 
+    vertical-align: middle;
+  }
+
+  th {
+    font-weight: $font-weight-semibold;
+    background-color: $color-table-header-bg;
+    color: $color-table-header-text;
+  }
+
+  // Alinhamentos
+  .center {
+    text-align: center;
+    div {
+      @include flex-center($spacing-xs);
+    }
+  }
+
+  // Alinhamento à direita para cabeçalho e células
+  .right {
+    text-align: right;
+  }
+
+  // Alinha os botões com a lateral direita
+  td.actions-cell {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: $spacing-xs;
+
+    .actions-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: $spacing-xs;
+    }
+  }
+
+  // Estados Semânticos
+  .valid { color: $color-success; }
+  .invalid { color: $color-danger; }
+  .bookmark, .warning { color: $color-warning; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  // --- Larguras das Colunas: Viagens ---
+  th.mat-column-os             { width: 10%; }
+  th.mat-column-type           { width: 12%; }
+  th.mat-column-route          { width: 12%; }
+  th.mat-column-company        { width: 16%; }
+  th.mat-column-departure_date { width: 12%; }
+  th.mat-column-return_date    { width: 12%; }
+  th.mat-column-status         { width: 6%; }
+  th.mat-column-actions        { width: 20%; }
+}
+
+// Loading e Estados Vazios
+.loading-shade {
+  @include flex-center(0);
+  padding: $spacing-xxl 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl;
+  color: $color-text-variant;
+
+  p {
+    margin: 0;
+    font-size: $font-size-md;
+  }
+}

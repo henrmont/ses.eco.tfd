@@ -1,0 +1,23 @@
+<h2 mat-dialog-title>Deletar regra</h2>
+
+<mat-dialog-content>
+  <p>
+    Você deseja realmente deletar a regra <strong>{{ data?.role?.name?.split('/')?.pop() || data?.role?.name }}</strong>?<br> 
+    <span>Esta ação não poderá ser desfeita.</span>
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
+    Cancelar
+  </button>
+  
+  <button mat-flat-button color="warn" type="button" [disabled]="isSubmitting()" (click)="onSubmit()">
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      <span>{{ isSubmitting() ? 'Excluindo...' : 'Confirmar Exclusão' }}</span>
+    </div>
+  </button>
+</mat-dialog-actions>

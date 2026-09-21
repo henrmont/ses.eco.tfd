@@ -1,0 +1,76 @@
+<h2 mat-dialog-title>Detalhes da prestação de contas</h2>
+
+<mat-dialog-content>
+  <div class="details-container">
+
+    <!-- Card: Dados da Prestação de Contas -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>DADOS DA PRESTAÇÃO DE CONTAS</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        <div class="line cols-1-1">
+          <div>
+            <strong>Nome:</strong> {{ data?.accountability?.name ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Total:</strong> {{ (data?.accountability?.total_dailies | currency: 'BRL') ?? 'R$ 0,00' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-1">
+          <div>
+            <strong>Data de criação:</strong> 
+            {{ data?.accountability?.created_at ? (data.accountability.created_at | date: 'dd/MM/yyyy') : 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Card: Diárias Vinculadas -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>DIÁRIAS VINCULADAS</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        @if (data?.accountability?.accountability_dailies?.length) {
+          <div class="table-responsive">
+            <table class="mat-mdc-table custom-detail-table">
+              <thead>
+                <tr class="mat-mdc-header-row">
+                  <th class="mat-mdc-header-cell">Diária</th>
+                  <th class="mat-mdc-header-cell">Valor Unitário</th>
+                  <th class="mat-mdc-header-cell center">Qtd.</th>
+                  <th class="mat-mdc-header-cell">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of data?.accountability?.accountability_dailies; track item.id || $index) {
+                  <tr class="mat-mdc-row">
+                    <td class="mat-mdc-cell">{{ item?.daily_cost?.name ?? 'Não informado' }}</td>
+                    <td class="mat-mdc-cell">{{ item?.daily_cost?.value | currency: 'BRL' }}</td>
+                    <td class="mat-mdc-cell center">{{ item?.amount ?? 0 }}</td>
+                    <td class="mat-mdc-cell">
+                      {{ ((item?.amount ?? 0) * (item?.daily_cost?.value ?? 0)) | currency: 'BRL' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="empty-message">
+            Nenhuma diária vinculada a esta prestação de contas.
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+</mat-dialog-actions>

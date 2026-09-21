@@ -1,0 +1,38 @@
+<h2 mat-dialog-title>
+  {{ data?.patient_request?.is_cost_assistance_bookmark ? 'Desmarcar sobrestado' : 'Marcar sobrestado' }}
+</h2>
+
+<mat-dialog-content>
+  @if (data?.patient_request?.is_cost_assistance_bookmark) {
+    <p>
+      Você deseja realmente desmarcar em sobrestado a solicitação do paciente 
+      <strong>{{ data?.patient_request?.report?.patient_care?.patient?.name ?? 'Não informado' }}</strong>?
+    </p>
+  } @else {
+    <p>
+      Você deseja realmente marcar em sobrestado a solicitação do paciente 
+      <strong>{{ data?.patient_request?.report?.patient_care?.patient?.name ?? 'Não informado' }}</strong>?
+    </p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+    Cancelar
+  </button>
+  
+  <button mat-flat-button color="primary" type="button" [disabled]="isSubmitting()" (click)="onSubmit()">
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      <span>
+        @if (isSubmitting()) {
+          {{ data?.patient_request?.is_cost_assistance_bookmark ? 'Desmarcando...' : 'Marcando...' }}
+        } @else {
+          {{ data?.patient_request?.is_cost_assistance_bookmark ? 'Desmarcar' : 'Marcar' }}
+        }
+      </span>
+    </div>
+  </button>
+</mat-dialog-actions>

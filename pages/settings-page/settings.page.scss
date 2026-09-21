@@ -1,0 +1,22 @@
+@use 'variables' as *;
+
+:host {
+  display: block;
+  width: 100%;
+  min-height: calc(100vh - 100px);
+}
+
+.settings-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: $spacing-xxl 0; // Dá um respiro tanto no topo quanto na base
+}
+
+.page-content {
+  width: 75%;
+  max-width: 1200px; // Evita que em telas ultrawide fique demasiadamente esticado
+  display: flex;
+  flex-direction: column;
+  gap: calc($spacing-xxl * 1.5); // Aumenta o espaçamento entre os cards (ex: ~36px)
+}

@@ -1,0 +1,134 @@
+<h2 mat-dialog-title>Acompanhantes do paciente</h2>
+
+<mat-dialog-content>
+  @if (isLoading()) {
+    <div class="loading-container">
+      <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+    </div>
+  } @else {
+    <mat-accordion [multi]="false">
+      @for (escort of escorts(); track escort.id || $index) {
+        <mat-expansion-panel class="accordion">
+          
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              {{ escort.name }}
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <div class="details-container">
+
+            <!-- Card: Dados Pessoais -->
+            <mat-card appearance="outlined" class="detail-card">
+              <mat-card-header>
+                <mat-card-subtitle>DADOS PESSOAIS</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="line cols-1-1">
+                  <div>
+                    <strong>Nome:</strong> {{ escort.name }}
+                  </div>
+                  <div>
+                    <strong>Vínculo / Parentesco:</strong> {{ escort.relation ?? 'Não informado' }}
+                  </div>
+                </div>
+
+                <div class="line cols-1-1">
+                  <div class="action-cell">
+                    <strong>CPF:</strong> 
+                    {{ escort.document ? (escort.document | mask: '000.000.000-00') : 'Não informado' }}
+                    <button 
+                      mat-icon-button 
+                      type="button"
+                      [disabled]="!escort.file_document_id" 
+                      (click)="clickEvent($event); download(escort.file_document_id, 'documento_acompanhante')"
+                    >
+                      <mat-icon>download</mat-icon>
+                    </button>
+                  </div>
+                  <div class="action-cell">
+                    <strong>CNS:</strong> 
+                    {{ escort.cns ? (escort.cns | mask: '000 0000 0000 0000') : 'Não informado' }}
+                    <button 
+                      mat-icon-button 
+                      type="button"
+                      [disabled]="!escort.file_cns_id" 
+                      (click)="clickEvent($event); download(escort.file_cns_id, 'cns_acompanhante')"
+                    >
+                      <mat-icon>download</mat-icon>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="line cols-1-1">
+                  <div>
+                    <strong>Data de Nascimento:</strong> {{ escort.birth_date ? (escort.birth_date | date: 'dd/MM/yyyy') : 'Não informado' }}
+                  </div>
+                  <div>
+                    <strong>Sexo:</strong> {{ escort.gender ?? 'Não informado' }}
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- Card: Dados de Endereço -->
+            <mat-card appearance="outlined" class="detail-card">
+              <mat-card-header>
+                <mat-card-subtitle>DADOS DE ENDEREÇO</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="line cols-1-2">
+                  <div>
+                    <strong>CEP:</strong> {{ escort.cep ? (escort.cep | mask: '00000-000') : 'Não informado' }}
+                  </div>
+                  <div class="action-cell">
+                    <strong>Endereço:</strong> {{ escort.address ?? 'Não informado' }}
+                    <button 
+                      mat-icon-button 
+                      type="button"
+                      [disabled]="!escort.file_address_id" 
+                      (click)="clickEvent($event); download(escort.file_address_id, 'comprovante_endereco_acompanhante')"
+                    >
+                      <mat-icon>download</mat-icon>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="line cols-1-2">
+                  <div>
+                    <strong>Número:</strong> {{ escort.number ?? 'Não informado' }}
+                  </div>
+                  <div>
+                    <strong>Complemento:</strong> {{ escort.complement ?? 'Não informado' }}
+                  </div>
+                </div>
+
+                <div class="line cols-2-2-1">
+                  <div>
+                    <strong>Bairro:</strong> {{ escort.neighborhood ?? 'Não informado' }}
+                  </div>
+                  <div>
+                    <strong>Cidade:</strong> {{ escort.city ?? 'Não informado' }}
+                  </div>
+                  <div>
+                    <strong>Estado:</strong> {{ escort.state ?? 'Não informado' }}
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+          </div>
+
+        </mat-expansion-panel>
+      } @empty {
+        <div class="line empty-row">
+          Nenhum acompanhante encontrado.
+        </div>
+      }
+    </mat-accordion>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+</mat-dialog-actions>

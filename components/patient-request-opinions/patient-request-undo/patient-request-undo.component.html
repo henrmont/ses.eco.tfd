@@ -1,0 +1,62 @@
+<h2 mat-dialog-title>Retornar solicitação</h2>
+
+<form [formGroup]="undoForm">
+  <mat-dialog-content>
+    <div class="stepper">
+      
+      <div class="line cols-1-col">
+        <!-- Seleção de Destino -->
+        <mat-form-field appearance="outline">
+          <mat-label>Para</mat-label>
+          <mat-select formControlName="to">
+            <mat-option value="user">{{ data?.patient_request?.report?.patient_care?.user?.professional?.name ?? 'Não informado' }} - PACIENTE</mat-option>
+            <mat-option value="owner">{{ data?.patient_request?.owner_professional?.name ?? 'Não informado' }} - SOLICITAÇÃO</mat-option>
+            @if (data?.type === 'social') {
+              <mat-option value="medical">{{ data?.patient_request?.medical_professional?.name ?? 'Não informado' }}</mat-option>
+            }
+          </mat-select>
+          
+          @for (item of errorMessages['to']; track $index) {
+            <mat-error [hidden]="!undoForm.get('to')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+
+        <!-- Motivo / Justificativa -->
+        <mat-form-field appearance="outline">
+          <mat-label>Motivo</mat-label>
+          <textarea matInput rows="4" formControlName="reason" [readonly]="isSubmitting()"></textarea>
+          
+          @for (item of errorMessages['reason']; track $index) {
+            <mat-error [hidden]="!undoForm.get('reason')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+      Cancelar
+    </button>
+    
+    <button 
+      mat-flat-button
+      color="primary"
+      type="button" 
+      [disabled]="undoForm.invalid || undoForm.pending || isSubmitting()"
+      (click)="onSubmit()"
+    >
+      <div class="waiting">
+        @if (isSubmitting()) {
+          <mat-spinner [diameter]="20"></mat-spinner>
+        }
+        <span>{{ isSubmitting() ? 'Retornando...' : 'Retornar' }}</span>
+      </div>
+    </button>
+  </mat-dialog-actions>
+</form>

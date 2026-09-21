@@ -1,0 +1,25 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: $spacing-xl;
+  row-gap: $spacing-form-gap;
+
+  &.double-columns {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.locked-icon {
+  opacity: $opacity-disabled;
+}

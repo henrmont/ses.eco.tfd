@@ -1,0 +1,153 @@
+<h2 mat-dialog-title>Ajudas de custo</h2>
+
+<mat-dialog-content>
+  <div class="cost-assistances-container">
+
+    @if (isLoading()) {
+      <div class="loading-shade">
+        <mat-spinner [diameter]="40"></mat-spinner>
+      </div>
+    } @else {
+      <div class="table-responsive">
+        <table mat-table [dataSource]="dataSource">
+          
+          <!-- Coluna Nome -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef> Nome </th>
+            <td mat-cell *matCellDef="let element"> {{ element.name }} </td>
+            <td mat-footer-cell *matFooterCellDef></td>
+          </ng-container>
+
+          <!-- Coluna Tipo -->
+          <ng-container matColumnDef="type">
+            <th mat-header-cell *matHeaderCellDef> Tipo </th>
+            <td mat-cell *matCellDef="let element"> {{ element.type }} </td>
+            <td mat-footer-cell *matFooterCellDef></td>
+          </ng-container>
+
+          <!-- Coluna Criada em -->
+          <ng-container matColumnDef="created_at">
+            <th mat-header-cell *matHeaderCellDef> Criada em </th>
+            <td mat-cell *matCellDef="let element"> {{ element.created_at | date: 'dd/MM/yyyy' }} </td>
+            <td mat-footer-cell *matFooterCellDef><strong>Total</strong></td>
+          </ng-container>
+
+          <!-- Coluna Diárias -->
+          <ng-container matColumnDef="dailies">
+            <th mat-header-cell *matHeaderCellDef> Diárias </th>
+            <td mat-cell *matCellDef="let element"> {{ element.total_dailies | currency: 'BRL' }} </td>
+            <td mat-footer-cell *matFooterCellDef><strong>{{ totalCostAssistances() | currency: 'BRL' }}</strong></td>
+          </ng-container>
+
+          <!-- Coluna Status -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef> Status </th>
+            <td mat-cell *matCellDef="let element">
+              <button mat-icon-button type="button" disabled>
+                <mat-icon [className]="element.status ? 'valid' : 'invalid'">
+                  {{ element.status ? 'check' : 'priority_high' }}
+                </mat-icon>
+              </button>
+            </td>
+            <td mat-footer-cell *matFooterCellDef></td>
+          </ng-container>
+
+          <!-- Coluna Ações -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="center actions-column-header"> Ações </th>
+            <td mat-cell *matCellDef="let element" class="center actions-cell">
+              <div class="actions-wrapper">
+                <!-- Visualizar -->
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Visualizar ajuda de custo" 
+                  (click)="patientRequestCostAssistanceDetail(element)"
+                >
+                  <mat-icon>visibility</mat-icon>
+                </button>
+
+                <!-- Diárias -->
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Diárias" 
+                  [disabled]="checkPermissions('tfd/ajuda de custo atualizar')"
+                  (click)="costAssistanceDailies(element)"
+                >
+                  <mat-icon>hotel</mat-icon>
+                </button>
+
+                <!-- Atualizar -->
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Atualizar ajuda de custo" 
+                  [disabled]="checkPermissions('tfd/ajuda de custo atualizar')"
+                  (click)="patientRequestCostAssistanceUpdate(element)"
+                >
+                  <mat-icon class="icon-edit">drive_file_rename_outline</mat-icon>
+                </button>
+
+                <!-- Deletar -->
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Deletar ajuda de custo" 
+                  [disabled]="element.payment || checkPermissions('tfd/ajuda de custo deletar')"
+                  (click)="patientRequestCostAssistanceDelete(element)"
+                >
+                  <mat-icon color="warn">delete</mat-icon>
+                </button>
+              </div>
+            </td>
+            <td mat-footer-cell *matFooterCellDef></td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+          <!-- Exibe o rodapé apenas se houver registros (via computed footerColumns) -->
+          <tr mat-footer-row *matFooterRowDef="footerColumns()"></tr>
+
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell" [attr.colspan]="displayedColumns.length">
+              <div class="empty-state">
+                <p>Nenhuma ajuda de custo cadastrada.</p>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    }
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-actions-container">
+  <!-- Informação do Saldo Acumulado à esquerda -->
+  <div class="patient-balance-info">
+    <span>Saldo: </span>
+    <strong>{{ totalValue() | currency: 'BRL' }}</strong>
+  </div>
+
+  <!-- Grupo de Botões à direita -->
+  <div class="actions-buttons-group">
+    <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="button" 
+      [disabled]="
+        isLoading() || 
+        checkPermissions('tfd/ajuda de custo criar') || 
+        totalValue() >= 2000 || 
+        hasCostAssistanceWithoutDailies()
+      " 
+      (click)="patientRequestCostAssistanceCreate()"
+    >
+      <mat-icon>add</mat-icon>
+      Nova ajuda de custo
+    </button>
+  </div>
+</mat-dialog-actions>

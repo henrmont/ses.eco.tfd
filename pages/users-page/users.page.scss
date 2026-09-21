@@ -1,0 +1,83 @@
+@use 'variables' as *;
+
+:host {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: calc(100vh - $layout-header-height);
+}
+
+section {
+  margin-top: $spacing-xxl; 
+  width: $page-content-width;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl; 
+
+  // Container interno da tabela
+  div.table {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xl;
+    width: 100%;
+    padding: $spacing-lg;
+    box-sizing: border-box;
+  }
+
+  // Container de busca
+  div.search {
+    display: flex; 
+    justify-content: center; 
+    width: 100%;
+
+    mat-form-field {
+      width: 100%;
+      max-width: $search-input-max-width; 
+    }
+  }
+
+  // Estilização da Tabela Angular Material
+  table.mat-mdc-table {
+    margin: 0 auto $spacing-sm auto;
+    background: $color-surface;
+    border-radius: $radius-md; 
+    overflow: hidden;
+    box-shadow: $shadow-card; 
+    border-collapse: separate;
+
+    th, td {
+      padding: $spacing-md $spacing-lg; 
+      vertical-align: middle;
+    }
+
+    th {
+      font-weight: $font-weight-semibold;
+      background-color: $color-table-header-bg;
+      color: $color-table-header-text;
+    }
+
+    .center {
+      text-align: center;
+      div {
+        @include flex-center($spacing-xs);
+      }
+    }
+
+    // Estados Semânticos
+    .valid { color: $color-success; }
+    .invalid { color: $color-danger; }
+    .bookmark, .warning { color: $color-warning; }
+
+    // Colunas de Largura Fixa
+    th.mat-column-is_editable { width: 5%; }
+    th.mat-column-email { width: 27%; }
+    th.mat-column-name { width: 32%; }
+    th.mat-column-type { width: 15%; }
+    th.mat-column-is_valid    { width: 6%; }
+    th.mat-column-actions     { width: 15%; }
+
+    td.actions-cell {
+      @include flex-center($spacing-xs);
+    }
+  }
+}

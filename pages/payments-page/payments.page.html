@@ -1,0 +1,232 @@
+<section>
+    <mat-tab-group dynamicHeight animationDuration="0ms">
+        
+        <!-- Aba Minha Caixa -->
+        <mat-tab>
+            <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">inbox</mat-icon>
+                Minha caixa
+            </ng-template>
+            
+            <div class="table">
+                <div class="search">
+                    <mat-form-field appearance="outline">
+                        <mat-label>Buscar</mat-label>
+                        <input matInput (keyup)="applyOwnerFilter($event)" placeholder="Buscar solicitação" #ownerInput>
+                        <mat-icon matSuffix>search</mat-icon>
+                    </mat-form-field>
+                </div>
+                
+                <table mat-table [dataSource]="ownerDataSource" matSort #ownerSort="matSort">
+
+                    <!-- Marcador de Sobrestado -->
+                    <ng-container matColumnDef="bookmark">
+                        <th mat-header-cell *matHeaderCellDef style="width: 4%;"></th>
+                        <td mat-cell *matCellDef="let element" class="center">
+                            <button mat-icon-button 
+                                    type="button" 
+                                    [matTooltip]="element.is_payment_bookmark ? 'Desmarcar sobrestado' : 'Marcar sobrestado'"
+                                    [disabled]="element.back_to_travel"
+                                    (click)="paymentHalted(element)">
+                                <mat-icon [className]="element.is_payment_bookmark ? 'bookmark' : null">
+                                    {{ element.is_payment_bookmark ? 'bookmark' : 'bookmark_border' }}
+                                </mat-icon>
+                            </button>
+                        </td>
+                    </ng-container>
+
+                    <!-- Paciente -->
+                    <ng-container matColumnDef="patient">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Paciente </th>
+                        <td mat-cell *matCellDef="let element"> {{ element.name }} </td>
+                    </ng-container>
+                    
+                    <!-- CNS -->
+                    <ng-container matColumnDef="cns">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> CNS </th>
+                        <td mat-cell *matCellDef="let element"> {{ element.cns | mask:'000 0000 0000 0000' }} </td>
+                    </ng-container>
+
+                    <!-- Tipo -->
+                    <ng-container matColumnDef="type">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Tipo </th>
+                        <td mat-cell *matCellDef="let element"> {{ element.type }} </td>
+                    </ng-container>
+
+                    <!-- Data da Consulta -->
+                    <ng-container matColumnDef="consultation_date">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Data da consulta </th>
+                        <td mat-cell *matCellDef="let element"> {{ element.consultation_date ? (element.consultation_date | date: 'dd/MM/y') : 'Não aplicável' }} </td>
+                    </ng-container>
+
+                    <!-- Status -->
+                    <ng-container matColumnDef="status">
+                        <th mat-header-cell *matHeaderCellDef class="center status-column-header"> Status </th>
+                        <td mat-cell *matCellDef="let element" class="center">
+                            <button mat-icon-button type="button" disabled>
+                                <mat-icon [className]="element.status ? 'valid' : 'invalid'">
+                                    {{ element.status ? 'check' : 'priority_high' }}
+                                </mat-icon>
+                            </button>
+                        </td>
+                    </ng-container>
+
+                    <!-- Ações -->
+                    <ng-container matColumnDef="actions">
+                        <th mat-header-cell *matHeaderCellDef class="center actions-column-header-owner"> Ações </th>
+                        <td mat-cell *matCellDef="let element" class="center actions-cell">
+                            <button mat-icon-button 
+                                    type="button" 
+                                    matTooltip="Detalhes da solicitação" 
+                                    (click)="patientRequestDetail(element.patient_request)">
+                                <mat-icon>visibility</mat-icon>
+                            </button>
+
+                            <button mat-icon-button 
+                                    type="button" 
+                                    matTooltip="Atualizar pagamento" 
+                                    (click)="paymentUpdate(element)">
+                                <mat-icon aria-hidden="true">drive_file_rename_outline</mat-icon>
+                            </button>
+
+                            <button mat-icon-button 
+                                    type="button" 
+                                    matTooltip="Baixar PDF unificado do processo" 
+                                    (click)="downloadMergedPdf(element)">
+                              <mat-icon>save_alt</mat-icon>
+                            </button>
+
+                            <button mat-icon-button 
+                                    type="button" 
+                                    matTooltip="Baixar PDF unificado do processo" 
+                                    [disabled]="!element.status" 
+                                    (click)="paymentMemo(element)">
+                              <mat-icon>description</mat-icon>
+                            </button>
+
+                            <button mat-icon-button 
+                                    type="button" 
+                                    matTooltip="Voltar solicitação" 
+                                    [disabled]="element.is_payment_bookmark" 
+                                    (click)="patientRequestUndo(element.patient_request)">
+                                <mat-icon>undo</mat-icon>
+                            </button>
+
+                            <button mat-icon-button 
+                                    type="button" 
+                                    matTooltip="Arquivar" 
+                                    (click)="paymentArchive(element)" 
+                                    [disabled]="element.is_payment_bookmark || !element.status || checkPermissions('tfd/pagamento atualizar')">
+                                <mat-icon>inventory_2</mat-icon>
+                            </button>
+                        </td>
+                    </ng-container>
+                    
+                    <tr mat-header-row *matHeaderRowDef="displayedOwnerColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedOwnerColumns;"></tr>
+                    
+                    <tr class="mat-row" *matNoDataRow>
+                        <td class="mat-cell center" [attr.colspan]="displayedOwnerColumns.length">
+                            <p>Nenhum resultado encontrado.</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <mat-paginator 
+                    #ownerPaginator 
+                    [pageSize]="8"
+                    hidePageSize="true">
+                </mat-paginator>
+            </div>
+        </mat-tab>
+
+        <!-- Aba Outras Caixas -->
+        <mat-tab>
+            <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">all_inbox</mat-icon>
+                Outras caixas
+            </ng-template>
+            
+            <div class="table">
+                <div class="search">
+                    <mat-form-field appearance="outline">
+                        <mat-label>Buscar</mat-label>
+                        <input matInput (keyup)="applyOthersFilter($event)" placeholder="Buscar solicitação" #othersInput>
+                        <mat-icon matSuffix>search</mat-icon>
+                    </mat-form-field>
+                </div>
+                
+                <table mat-table [dataSource]="othersDataSource" matSort #othersSort="matSort">
+
+                    <!-- Paciente -->
+                    <ng-container matColumnDef="patient">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Paciente </th>
+                        <td mat-cell *matCellDef="let element"> {{ element.name }} </td>
+                    </ng-container>
+                    
+                    <!-- CNS -->
+                    <ng-container matColumnDef="cns">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> CNS </th>
+                        <td mat-cell *matCellDef="let element"> {{ element.cns | mask:'000 0000 0000 0000' }} </td>
+                    </ng-container>
+
+                    <!-- Tipo -->
+                    <ng-container matColumnDef="type">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Tipo </th>
+                        <td mat-cell *matCellDef="let element"> {{ element.type }} </td>
+                    </ng-container>
+
+                    <!-- Data da Consulta -->
+                    <ng-container matColumnDef="consultation_date">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Data da consulta </th>
+                        <td mat-cell *matCellDef="let element"> {{ element.consultation_date ? (element.consultation_date | date: 'dd/MM/y') : 'Não aplicável' }} </td>
+                    </ng-container>
+
+                    <!-- Responsável -->
+                    <ng-container matColumnDef="responsible">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Responsável </th>
+                        <td mat-cell *matCellDef="let element"> {{ element.payment_professional?.name || 'Nenhum profissional' }} </td>
+                    </ng-container>
+
+                    <!-- Ações -->
+                    <ng-container matColumnDef="actions">
+                        <th mat-header-cell *matHeaderCellDef class="center actions-column-header-others"> Ações </th>
+                        <td mat-cell *matCellDef="let element" class="center actions-cell">
+                            <button mat-icon-button 
+                                    type="button" 
+                                    matTooltip="Detalhes da solicitação" 
+                                    (click)="patientRequestDetail(element)" 
+                                    [disabled]="checkPermissions('tfd/solicitação listar')">
+                                <mat-icon>visibility</mat-icon>
+                            </button>
+                            
+                            <button mat-icon-button 
+                                    type="button" 
+                                    matTooltip="Mover para minha caixa" 
+                                    (click)="paymentMoveFromOthers(element)" 
+                                    [disabled]="checkPermissions('tfd/solicitação atualizar')">
+                                <mat-icon aria-hidden="true">move_to_inbox</mat-icon>
+                            </button>
+                        </td>
+                    </ng-container>
+                    
+                    <tr mat-header-row *matHeaderRowDef="displayedOthersColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedOthersColumns;"></tr>
+                    
+                    <tr class="mat-row" *matNoDataRow>
+                        <td class="mat-cell center" [attr.colspan]="displayedOthersColumns.length">
+                            <p>Nenhum resultado encontrado.</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <mat-paginator 
+                    #othersPaginator 
+                    [pageSize]="8"
+                    hidePageSize="true">
+                </mat-paginator>
+            </div>
+        </mat-tab>
+
+    </mat-tab-group>
+</section>

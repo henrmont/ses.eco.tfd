@@ -1,0 +1,120 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+}
+
+.dailies-container {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+}
+
+.table-responsive {
+  padding: $spacing-lg; 
+  width: 100%;
+  overflow-x: auto;
+  box-sizing: border-box;
+}
+
+// Estilização da Tabela Angular Material
+table.mat-mdc-table {
+  margin: 0 auto $spacing-sm auto;
+  width: 100%;
+  background: $color-surface;
+  border-radius: $radius-md; 
+  overflow: hidden;
+  box-shadow: $shadow-card; 
+  border-collapse: separate; 
+
+  tr.mat-mdc-header-row {
+    height: $material-field-outline-height;
+  }
+
+  tr.mat-mdc-row {
+    height: 52px;
+    transition: background-color $transition-fast;
+  }
+
+  tr.mat-mdc-footer-row {
+    height: 48px;
+    
+    td.mat-mdc-footer-cell {
+      padding: $spacing-md $spacing-lg;
+      vertical-align: middle;
+      border-top: 1px solid rgba(0, 0, 0, 0.12);
+      background-color: $color-surface;
+    }
+  }
+
+  th, td {
+    padding: $spacing-md $spacing-lg; 
+    vertical-align: middle;
+  }
+
+  th {
+    font-weight: $font-weight-semibold;
+    background-color: $color-table-header-bg;
+    color: $color-table-header-text;
+  }
+
+  // Alinhamentos
+  .center {
+    text-align: center;
+    div {
+      @include flex-center($spacing-xs);
+    }
+  }
+
+  .right {
+    text-align: right;
+  }
+
+  // Célula de Ações alinhada à direita conforme padrão
+  td.actions-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: $spacing-xs;
+    height: 100%;
+
+    .actions-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: $spacing-xs;
+    }
+  }
+
+  // --- Larguras das Colunas: Diárias ---
+  th.mat-column-name    { width: 32%; }
+  th.mat-column-value   { width: 18%; }
+  th.mat-column-amount  { width: 16%; }
+  th.mat-column-partial { width: 18%; }
+  th.mat-column-actions { width: 16%; }
+}
+
+// Loading e Estados Vazios
+.loading-shade {
+  @include flex-center(0);
+  padding: $spacing-xxl 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl;
+  color: $color-text-variant;
+
+  p {
+    margin: 0;
+    font-size: $font-size-md;
+  }
+}

@@ -1,0 +1,35 @@
+mat-drawer-container {
+  width: 100%;
+  z-index: 10;
+}
+
+mat-drawer {
+  background-color: rgb(230, 230, 230);
+  position: fixed;
+  margin-top: 80px;
+  width: 300px;
+}
+
+mat-action-list {
+  width: 100%;
+
+  button {
+    // Efeito de transição suave ao passar o mouse ou ativar o link
+    transition: background-color 0.2s ease-in-out;
+
+    div.link {
+      display: flex;
+      align-items: center;
+
+      mat-icon {
+        margin-right: 10px;
+      }
+    }
+
+    // Estilização do link ativo via routerLinkActive
+    &.active {
+      background-color: rgb(215, 215, 215);
+      font-weight: 500; // Um leve destaque no peso da fonte do link ativo
+    }
+  }
+}

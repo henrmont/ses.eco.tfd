@@ -1,0 +1,56 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+.details-container {
+  padding: $spacing-lg 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xxl; 
+}
+
+mat-card {
+  background: $color-card-bg;
+  border-radius: $radius-md; 
+  box-shadow: $shadow-soft; 
+}
+
+.line {
+  display: grid;
+  gap: $spacing-md; 
+  padding: 0 $spacing-md; 
+  align-items: center; 
+  color: $color-text-main;
+  min-height: $line-height-min-item; 
+
+  strong {
+    color: $color-text-variant;
+    font-weight: $font-weight-semibold;
+  }
+
+  .action-cell {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    height: 100%; 
+  }
+}
+
+// --- Definições Semânticas das Colunas da Grid ---
+.line {
+  &.cols-1-col         { grid-template-columns: 1fr; }
+  &.cols-1-1           { grid-template-columns: 1fr 1fr; }
+  &.cols-1-2           { grid-template-columns: 1fr 2fr; }
+  &.cols-4-1           { grid-template-columns: 4fr 1fr; }
+  &.cols-1-1-1         { grid-template-columns: repeat(3, 1fr); }
+  &.cols-2-2-1         { grid-template-columns: 2fr 2fr 1fr; }
+  &.cols-2-3-2         { grid-template-columns: 2fr 3fr 2fr; }
+  &.cols-15-1-1-1-1    { grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr; }
+}

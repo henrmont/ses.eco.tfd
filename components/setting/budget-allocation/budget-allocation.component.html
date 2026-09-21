@@ -1,0 +1,54 @@
+<mat-card class="budget-card">
+  <mat-card-header>
+    <div class="title">
+      <mat-icon>account_balance</mat-icon>
+      <mat-card-title>Alocação Orçamentária</mat-card-title>
+    </div>
+  </mat-card-header>
+  
+  <mat-card-content>
+    @if (isLoading()) {
+      <div class="loading-container">
+        <mat-progress-spinner mode="indeterminate" [diameter]="48"></mat-progress-spinner>
+      </div>
+    } @else if (budgetAllocation(); as item) {
+      <div class="budget-grid">
+        <div class="budget-item">
+          <div class="budget-details">
+            <div class="detail-row">
+              <span class="label">Programa:</span>
+              <span class="value">{{ item.program || 'N/A' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Projeto Ativo:</span>
+              <span class="value">{{ item.active_project || 'N/A' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Natureza da Despesa:</span>
+              <span class="value">{{ item.nature_of_expenditure || 'N/A' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Fonte:</span>
+              <span class="value">{{ item.source || 'N/A' }}</span>
+            </div>
+          </div>
+          
+          <div class="budget-actions">
+            <button 
+              mat-icon-button 
+              type="button"
+              matTooltip="Atualizar dotação orçamentária" 
+              (click)="budgetAllocationUpdate(item)">
+              <mat-icon>drive_file_rename_outline</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    } @else {
+      <div class="empty-container">
+        <mat-icon class="empty-icon">folder_off</mat-icon>
+        <p>Nenhuma alocação orçamentária cadastrada ou encontrada.</p>
+      </div>
+    }
+  </mat-card-content>
+</mat-card>

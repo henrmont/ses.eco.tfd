@@ -1,0 +1,61 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+.details-container {
+  padding: $spacing-lg 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xxl; 
+}
+
+// Estilização e espaçamento dos Cards de detalhamento
+mat-card {
+  background: $color-card-bg;
+  border-radius: $radius-md; 
+  box-shadow: $shadow-soft; 
+}
+
+// Mensagem amigável para listas vazias nos cards
+.empty-message {
+  padding: $spacing-md;
+  color: $color-text-muted;
+  font-style: italic;
+  font-size: $font-size-md;
+}
+
+// Estrutura de Linha/Grid para exibição limpa dos dados
+.line {
+  display: grid;
+  gap: $spacing-md; 
+  padding: 0 $spacing-md; 
+  align-items: center; 
+  color: $color-text-main;
+  min-height: $line-height-min-item; 
+
+  strong {
+    color: $color-text-variant;
+    font-weight: $font-weight-semibold;
+  }
+
+  // Células com botões de ação e download alinhados ao texto
+  .action-cell {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    height: 100%; 
+  }
+}
+
+// --- Definições Semânticas das Colunas da Grid ---
+.line {
+  &.cols-1-col   { grid-template-columns: 1fr; }
+  &.cols-1-1     { grid-template-columns: 1fr 1fr; }
+}

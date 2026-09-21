@@ -1,0 +1,86 @@
+<h2 mat-dialog-title>Detalhes do passageiro</h2>
+
+<mat-dialog-content>
+  <div class="details-container">
+    
+    <!-- Card 1: Dados Pessoais / Identificação -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>IDENTIFICAÇÃO</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="line cols-1-1-1">
+          <div>
+            <strong>Nome:</strong> 
+            {{ data?.passenger?.patient?.name || data?.passenger?.escort?.name || 'Não informado' }}
+          </div>
+          <div>
+            <strong>Vínculo:</strong> 
+            @if (data?.passenger?.is_patient) {
+              <span class="highlight">PACIENTE</span>
+            } @else {
+              <span>ACOMPANHANTE</span>
+            }
+          </div>
+          <div>
+            <strong>Tipo:</strong> 
+            {{ getPassengerTypeLabel(data?.passenger?.type) }}
+          </div>
+        </div>
+
+        <div class="line cols-1-1">
+          <div>
+            <strong>CPF:</strong> 
+            @let document = data?.passenger?.patient?.document || data?.passenger?.escort?.document;
+            {{ document ? (document | mask: '000.000.000-00') : 'Não informado' }}
+          </div>
+          <div>
+            <strong>Sexo:</strong> 
+            {{ getGenderLabel(data?.passenger?.gender) }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Card 2: Detalhes de Valores e Bilhete -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>VALORES E EMBARQUE</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="line cols-1-1-1">
+          <div>
+            <strong>Tarifa:</strong> 
+            {{ data?.passenger?.tariff !== null && data?.passenger?.tariff !== undefined ? (data.passenger.tariff | currency: 'BRL' : 'symbol' : '1.2-2') : 'R$ 0,00' }}
+          </div>
+          <div>
+            <strong>Taxa:</strong> 
+            {{ data?.passenger?.tax !== null && data?.passenger?.tax !== undefined ? (data.passenger.tax | currency: 'BRL' : 'symbol' : '1.2-2') : 'R$ 0,00' }}
+          </div>
+          <div>
+            <strong>Desconto:</strong> 
+            {{ data?.passenger?.discount ? (data.passenger.discount + '%') : '0%' }}
+          </div>
+        </div>
+
+        <div class="line cols-1-1">
+          <div>
+            <strong>Assento:</strong> 
+            {{ data?.passenger?.seat ?? 'Não informado' }}
+          </div>
+          <div>
+            <strong>Bilhete:</strong> 
+            {{ data?.passenger?.ticket ?? 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+</mat-dialog-actions>

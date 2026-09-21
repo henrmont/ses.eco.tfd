@@ -1,0 +1,62 @@
+<h2 mat-dialog-title>Histórico de solicitações</h2>
+
+<mat-dialog-content>
+  @if (isLoading()) {
+    <div class="loading-container">
+      <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+    </div>
+  } @else {
+    <mat-accordion [multi]="false">
+      @for (item of patient_requests(); track item.id || $index) {
+        <mat-expansion-panel class="accordion">
+          
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              {{ item.consultation_date | date: 'dd/MM/yyyy' }}
+            </mat-panel-title>
+            <mat-panel-description>
+              <span>{{ item.type }}</span>
+              <button mat-icon-button matTooltip="Detalhes solicitação" (click)="clickEvent($event); showPatientRequest(item)">
+                <mat-icon>visibility</mat-icon>
+              </button>
+            </mat-panel-description>
+          </mat-expansion-panel-header>
+
+          @for (opinion of item.opinions; track opinion.id || $index) {
+            <div class="line opinion-row">
+              <div class="opinion-name">
+                {{ opinion.name }}
+              </div>
+              <div class="opinion-professional">
+                {{ opinion.professional?.name }}
+              </div>
+              <div class="opinion-actions">
+                <button mat-icon-button disabled>
+                  <mat-icon [className]="opinion.is_approved ? 'valid' : 'invalid'">
+                    {{ opinion.is_approved ? 'check' : 'close' }}
+                  </mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Detalhes do parecer" (click)="showOpinion(opinion)">
+                  <mat-icon>edit_note</mat-icon>
+                </button>
+              </div>
+            </div>
+          } @empty {
+            <div class="line empty-row">
+              Nenhum parecer vinculado à solicitação.
+            </div>
+          }
+
+        </mat-expansion-panel>
+      } @empty {
+        <div class="line empty-row">
+          Nenhuma solicitação encontrada.
+        </div>
+      }
+    </mat-accordion>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button [mat-dialog-close]="false">Fechar</button>
+</mat-dialog-actions>

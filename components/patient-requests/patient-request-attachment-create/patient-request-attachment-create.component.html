@@ -1,0 +1,66 @@
+<h2 mat-dialog-title>Novo arquivo</h2>
+
+<mat-dialog-content>
+    <form [formGroup]="attachmentForm">
+        <div class="stepper">
+            
+            <!-- Linha 1: Nome do arquivo -->
+            <div class="line cols-1-col">
+                <mat-form-field appearance="outline">
+                    <mat-label>Nome</mat-label>
+                    <input matInput type="text" formControlName="name">
+                    
+                    @for (item of errorMessages['name']; track $index) {
+                        <mat-error [hidden]="!attachmentForm.get('name')?.hasError(item.type)">
+                            {{ item.message }}
+                        </mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+            <!-- Linha 2: Seletor de Arquivo -->
+            <div class="line cols-1-col">
+                <div class="upload-container">
+                    <input 
+                        type="file" 
+                        class="file-input" 
+                        (change)="onFileSelected($event)" 
+                        [disabled]="isSubmitting()"
+                        #fileInput 
+                        hidden>
+                    
+                    <button 
+                        mat-raised-button
+                        color="primary"
+                        type="button" 
+                        (click)="fileInput.click()" 
+                        [disabled]="isSubmitting()"
+                        [matTooltip]="fileLabel()"
+                    >
+                        <mat-icon>attach_file</mat-icon>
+                        {{ hasFile() ? 'Substituir arquivo' : 'Anexar arquivo' }}
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
+    <button 
+        mat-flat-button 
+        color="primary" 
+        type="button" 
+        [disabled]="attachmentForm.invalid || !hasFile() || attachmentForm.pending || isSubmitting()" 
+        (click)="onSubmit()"
+    >
+        <div class="waiting">
+            @if (isSubmitting()) {
+                <mat-spinner [diameter]="20"></mat-spinner>
+            }
+            Criar
+        </div>
+    </button>
+</mat-dialog-actions>

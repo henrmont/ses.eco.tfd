@@ -1,0 +1,146 @@
+<h2 mat-dialog-title>Viagens</h2>
+
+<mat-dialog-content>
+  <div class="travels-container">
+
+    @if (isLoading()) {
+      <div class="loading-shade">
+        <mat-spinner [diameter]="40"></mat-spinner>
+      </div>
+    } @else {
+      <div class="table-responsive">
+        <table mat-table [dataSource]="dataSource">
+            
+          <!-- Coluna OS -->
+          <ng-container matColumnDef="os">
+            <th mat-header-cell *matHeaderCellDef> OS </th>
+            <td mat-cell *matCellDef="let element"> {{ element.os }} </td>
+          </ng-container>
+
+          <!-- Coluna Tipo -->
+          <ng-container matColumnDef="type">
+            <th mat-header-cell *matHeaderCellDef> Tipo </th>
+            <td mat-cell *matCellDef="let element"> {{ element.type ?? 'Não informado' }} </td>
+          </ng-container>
+
+          <!-- Coluna Trecho -->
+          <ng-container matColumnDef="route">
+            <th mat-header-cell *matHeaderCellDef> Trecho </th>
+            <td mat-cell *matCellDef="let element"> {{ element.origin ?? 'Não informado' }} - {{ element.destination ?? 'Não informado' }} </td>
+          </ng-container>
+
+          <!-- Coluna Companhia Aérea -->
+          <ng-container matColumnDef="company">
+            <th mat-header-cell *matHeaderCellDef> Companhia Aérea </th>
+            <td mat-cell *matCellDef="let element"> {{ getAirlineCompanyLabel(element.company) }} </td>
+          </ng-container>
+
+          <!-- Coluna Data de Ida -->
+          <ng-container matColumnDef="departure_date">
+            <th mat-header-cell *matHeaderCellDef> Data de ida </th>
+            <td mat-cell *matCellDef="let element"> {{ element.departure_date ? (element.departure_date | date: 'dd/MM/y') : 'Não informada' }} </td>
+          </ng-container>
+
+          <!-- Coluna Data da Volta -->
+          <ng-container matColumnDef="return_date">
+            <th mat-header-cell *matHeaderCellDef> Data da volta </th>
+            <td mat-cell *matCellDef="let element"> {{ element.return_date ? (element.return_date | date: 'dd/MM/y') : 'Não informada' }} </td>
+          </ng-container>
+
+          <!-- Coluna Status -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef> Status </th>
+            <td mat-cell *matCellDef="let element">
+              <button mat-icon-button type="button" disabled>
+                <mat-icon [className]="element.status ? 'valid' : 'invalid'">
+                  {{ element.status ? 'check' : 'priority_high' }}
+                </mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <!-- Coluna Ações -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="center actions-column-header"> Ações </th>
+            <td mat-cell *matCellDef="let element" class="center actions-cell">
+              <div class="actions-wrapper">
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Detalhes da viagem" 
+                  (click)="patientRequestTravelDetail(element)"
+                >
+                  <mat-icon color="primary">visibility</mat-icon>
+                </button>
+
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Atualizar viagem" 
+                  (click)="patientRequestTravelUpdate(element)"
+                  [disabled]="checkPermissions('tfd/passagem atualizar')"
+                >
+                  <mat-icon class="icon-edit">drive_file_rename_outline</mat-icon>
+                </button>
+
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Passageiros" 
+                  (click)="travelPassengers(element)"
+                >
+                  <mat-icon>airline_seat_recline_normal</mat-icon>
+                </button>
+
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Rotas" 
+                  (click)="travelRoutes(element)"
+                >
+                  <mat-icon>routes</mat-icon>
+                </button>
+
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Deletar viagem" 
+                  (click)="patientRequestTravelDelete(element)"
+                  [disabled]="checkPermissions('tfd/passagem deletar')"
+                >
+                  <mat-icon color="warn">delete</mat-icon>
+                </button>
+              </div>
+            </td>
+          </ng-container>
+  
+          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell" [attr.colspan]="displayedColumns.length">
+              <div class="empty-state">
+                <p>Nenhuma viagem cadastrada.</p>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    }
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Cancelar</button>
+  <button 
+    mat-flat-button 
+    color="primary" 
+    type="button" 
+    [disabled]="checkPermissions('tfd/passagem criar') || isLoading()" 
+    (click)="patientRequestTravelCreate()"
+  >
+    <mat-icon>add</mat-icon>
+    Nova viagem
+  </button>
+</mat-dialog-actions>

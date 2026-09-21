@@ -1,0 +1,72 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+.details-container {
+  padding: $spacing-lg 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xxl; 
+}
+
+// Estilização dos Cards de detalhamento da viagem
+mat-card {
+  background: $color-card-bg;
+  border-radius: $radius-md; 
+  box-shadow: $shadow-soft; 
+}
+
+.payment-subtitle {
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: $color-text-variant;
+  margin: $spacing-lg $spacing-md $spacing-sm;
+}
+
+// Mensagem amigável para listas vazias nos cards (ex: sem passageiros)
+.empty-message {
+  padding: $spacing-md;
+  color: $color-text-muted;
+  font-style: italic;
+  font-size: $font-size-md;
+}
+
+// Estrutura de Linha/Grid para exibição dos dados da viagem
+.line {
+  display: grid;
+  gap: $spacing-md; 
+  padding: 0 $spacing-md; 
+  align-items: center; 
+  color: $color-text-main;
+  min-height: $line-height-min-item; 
+
+  strong {
+    color: $color-text-variant;
+    font-weight: $font-weight-semibold;
+  }
+
+  .highlight {
+    font-weight: $font-weight-medium;
+    color: $color-primary;
+  }
+
+  .action-cell {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    height: 100%; 
+  }
+
+  // --- Definições Semânticas das Colunas da Grid ---
+  &.cols-1-col       { grid-template-columns: 1fr; }
+  &.cols-1-1         { grid-template-columns: 1fr 1fr; }
+  &.cols-1-1-1       { grid-template-columns: 1fr 1fr 1fr; }
+  &.cols-travel-grid { grid-template-columns: 2fr 1fr 1fr 1fr; }
+}

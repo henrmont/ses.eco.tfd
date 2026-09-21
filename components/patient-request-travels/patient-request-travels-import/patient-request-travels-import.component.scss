@@ -1,0 +1,19 @@
+mat-dialog-content {
+    padding-top: 10px;
+}
+
+mat-form-field {
+    width: 100%;
+}
+
+.line {
+    display: grid; 
+    grid-template-columns: 1fr; 
+    column-gap: 20px; 
+}
+
+.waiting {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}

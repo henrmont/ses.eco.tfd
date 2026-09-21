@@ -1,0 +1,53 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+.stepper {
+  margin-top: $spacing-form-gap; 
+  display: flex; 
+  flex-direction: column; 
+  gap: $spacing-form-gap;
+}
+
+// Estrutura base de Linhas em Grid
+.line {
+  display: grid; 
+  grid-template-columns: var(--grid-cols, 1fr); 
+  column-gap: $spacing-xl; 
+  row-gap: $spacing-form-gap; 
+  align-items: start;
+  min-height: $material-field-outline-height;
+
+  .file-actions-cell {
+    display: flex;
+    align-items: center;
+    column-gap: $spacing-xl;
+    height: $material-field-outline-height;
+  }
+}
+
+// --- Definições Semânticas das Colunas Utilizadas ---
+.line {
+  &.cols-1-col { --grid-cols: 1fr; }
+  &.cols-1-1   { --grid-cols: 1fr 1fr; }
+}
+
+// Container do Seletor de Arquivo Anexo
+.upload-container {
+  display: flex;
+  align-items: center;
+  gap: $spacing-lg;
+  width: 100%;
+  min-height: $material-field-outline-height;
+}

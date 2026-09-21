@@ -1,0 +1,49 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+.details-container {
+  padding: $spacing-lg 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xxl; 
+}
+
+// Estilização dos Cards de detalhamento do passageiro
+mat-card {
+  background: $color-card-bg;
+  border-radius: $radius-md; 
+  box-shadow: $shadow-soft; 
+}
+
+// Estrutura de Linha/Grid para exibição dos dados
+.line {
+  display: grid;
+  gap: $spacing-md; 
+  padding: 0 $spacing-md; 
+  align-items: center; 
+  color: $color-text-main;
+  min-height: $line-height-min-item; 
+
+  strong {
+    color: $color-text-variant;
+    font-weight: $font-weight-semibold;
+  }
+
+  .highlight {
+    font-weight: $font-weight-medium;
+    color: $color-primary;
+  }
+
+  // --- Definições Semânticas das Colunas da Grid ---
+  &.cols-1-col { grid-template-columns: 1fr; }
+  &.cols-1-1   { grid-template-columns: 1fr 1fr; }
+  &.cols-1-1-1 { grid-template-columns: 1fr 1fr 1fr; }
+}

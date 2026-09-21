@@ -1,0 +1,103 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+.details-container {
+  padding: $spacing-lg 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xxl; 
+}
+
+// Estilização e espaçamento dos Cards de detalhamento
+mat-card {
+  background: $color-card-bg;
+  border-radius: $radius-md; 
+  box-shadow: $shadow-soft; 
+}
+
+// Mensagem amigável para blocos ou listas vazias nos cards
+.empty-message {
+  padding: $spacing-md;
+  color: $color-text-muted;
+  font-style: italic;
+  font-size: $font-size-md;
+}
+
+// Feedback de status do parecer (Favorável / Não Favorável)
+.valid-text {
+  color: $color-success;
+  font-weight: $font-weight-semibold;
+}
+
+.invalid-text {
+  color: $color-danger;
+  font-weight: $font-weight-semibold;
+}
+
+// Estilização para o conteúdo HTML sanitizado do parecer
+.rich-content {
+  padding: $spacing-xs 0;
+  color: $color-text-main;
+  line-height: 1.6;
+
+  p {
+    margin-bottom: $spacing-sm;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+// Estrutura de Linha/Grid para exibição limpa dos dados
+.line {
+  display: grid;
+  gap: $spacing-md; 
+  padding: 0 $spacing-md; 
+  align-items: center; 
+  color: $color-text-main;
+  min-height: $line-height-min-item; 
+
+  strong {
+    color: $color-text-variant;
+    font-weight: $font-weight-semibold;
+  }
+
+  // Células com botões de ação e visualização alinhados ao texto
+  .action-cell {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    height: 100%; 
+    
+    .highlight {
+      font-weight: $font-weight-medium;
+      color: $color-primary;
+    }
+  }
+
+  // --- Mapeamento Semântico das Colunas do Grid ---
+  &.cols-1-col {
+    grid-template-columns: 1fr;
+  }
+
+  &.cols-1-1 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  &.cols-1-1-1 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  &.cols-travel-grid {
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+  }
+}

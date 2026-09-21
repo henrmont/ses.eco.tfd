@@ -1,0 +1,34 @@
+<section>
+    <div class="search">
+        <mat-form-field appearance="outline">
+          <mat-label>Buscar</mat-label>
+          <input matInput (keyup)="applyFilter($event)" placeholder="buscar usuário" #input>
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+    </div>
+    
+    <table mat-table [dataSource]="dataSource()">
+      <ng-container matColumnDef="competence">
+        <th mat-header-cell *matHeaderCellDef> Competência </th>
+        <td mat-cell *matCellDef="let element"> {{element.name.substring(4,6)+'/'+element.name.substring(0,4)}} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="center" style="width: 5%;"> Ações </th>
+        <td mat-cell *matCellDef="let element" class="center">
+            <div>
+                <button matIconButton disabled>
+                    <mat-icon class="valid">check</mat-icon>
+                </button>
+            </div>
+        </td>
+      </ng-container>
+    
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell center" colspan="6">Nenhum resultado encontrado.</td>
+      </tr>
+    </table>
+</section>

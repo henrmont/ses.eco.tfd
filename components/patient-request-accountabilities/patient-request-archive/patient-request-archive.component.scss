@@ -1,0 +1,26 @@
+@use 'variables' as *;
+
+:host {
+  display: block;
+  width: 100%;
+}
+
+mat-dialog-content {
+  span {
+    color: $color-danger; // Destaca visualmente a mensagem de ação irreversível
+    font-size: 13px;
+  }
+}
+
+// Container de estado de carregamento durante a ação no modal
+.waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-form-gap; // 10px padronizados do design system
+
+  mat-spinner {
+    display: inline-block;
+    flex-shrink: 0; // Impede que o layout flex esmague o spinner
+  }
+}

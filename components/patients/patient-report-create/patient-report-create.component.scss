@@ -1,0 +1,47 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+.stepper {
+  margin-top: $spacing-form-gap; 
+  display: flex; 
+  flex-direction: column; 
+  gap: $spacing-form-gap;
+}
+
+.line {
+  display: grid; 
+  grid-template-columns: var(--grid-cols, 1fr); 
+  column-gap: $spacing-xl; 
+  row-gap: $spacing-form-gap; 
+  align-items: start;
+  min-height: $material-field-outline-height;
+}
+
+// --- Definições Semânticas das Colunas Utilizadas ---
+.line {
+  &.cols-1-col { --grid-cols: 1fr; }
+  &.cols-1-1   { --grid-cols: 1fr 1fr; }
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  height: $material-field-outline-height; 
+
+  mat-slide-toggle {
+    font-size: $font-size-md;
+    color: var(--mdc-outlined-text-field-label-text-color, $color-text-label-fallback);
+  }
+}
+
+.field-spinner {
+  margin-right: $spacing-sm;
+}

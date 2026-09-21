@@ -1,0 +1,104 @@
+<h2 mat-dialog-title>Lista de pareceres</h2>
+
+<mat-dialog-content>
+  <div class="opinions-container">
+
+    @if (isLoading()) {
+      <div class="loading-shade">
+        <mat-spinner [diameter]="40"></mat-spinner>
+      </div>
+    } @else {
+      <div class="table-responsive">
+        <table mat-table [dataSource]="dataSource">
+            
+          <!-- Coluna Nome/Título -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>Nome</th>
+            <td mat-cell *matCellDef="let element">{{ element.name }}</td>
+          </ng-container>
+
+          <!-- Coluna Profissional -->
+          <ng-container matColumnDef="owner">
+            <th mat-header-cell *matHeaderCellDef>Profissional</th>
+            <td mat-cell *matCellDef="let element">{{ element.professional?.name ?? 'Não informado' }}</td>
+          </ng-container>
+
+          <!-- Coluna Status / Aprovação -->
+          <ng-container matColumnDef="is_approved">
+            <th mat-header-cell *matHeaderCellDef class="center status-column-header">Status</th>
+            <td mat-cell *matCellDef="let element" class="center">
+              <button mat-icon-button type="button" disabled>
+                <mat-icon [className]="element.is_approved ? 'valid' : 'invalid'">
+                  {{ element.is_approved ? 'check' : 'priority_high' }}
+                </mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <!-- Coluna Ações -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="center actions-column-header">Ações</th>
+            <td mat-cell *matCellDef="let element" class="center actions-cell">
+              <div class="actions-wrapper">
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Detalhes do parecer" 
+                  (click)="opinionDetail(element)"
+                >
+                  <mat-icon color="primary">visibility</mat-icon>
+                </button>
+
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Atualizar parecer" 
+                  (click)="opinionUpdate(element)"
+                  [disabled]="checkPermissions('tfd/parecer atualizar') || !element.my_opinion"
+                >
+                  <mat-icon class="icon-edit">drive_file_rename_outline</mat-icon>
+                </button>
+
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Deletar parecer" 
+                  (click)="opinionDelete(element)"
+                  [disabled]="checkPermissions('tfd/parecer deletar') || !element.my_opinion"
+                >
+                  <mat-icon color="warn">delete</mat-icon>
+                </button>
+              </div>
+            </td>
+          </ng-container>
+  
+          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell" [attr.colspan]="displayedColumns.length">
+              <div class="empty-state">
+                <p>Nenhum parecer cadastrado.</p>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    }
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+  <button 
+    mat-flat-button 
+    color="primary" 
+    type="button" 
+    [disabled]="checkPermissions('tfd/parecer criar') || isLoading()" 
+    (click)="opinionCreate()"
+  >
+    <mat-icon>add</mat-icon>
+    Novo parecer
+  </button>
+</mat-dialog-actions>

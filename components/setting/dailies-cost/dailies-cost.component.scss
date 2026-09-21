@@ -1,0 +1,95 @@
+@use 'variables' as *;
+
+:host {
+  display: block;
+  width: 100%;
+}
+
+.dailies-card {
+  width: 100%;
+  margin: 0 auto;   
+  background: $color-card-bg;
+  border-radius: $radius-md !important; 
+  box-shadow: $shadow-card !important; 
+
+  mat-card-header {
+    padding: $spacing-md $spacing-md $spacing-xs;
+  }
+
+  mat-card-content {
+    padding: 0 $spacing-md $spacing-md !important;
+  }
+}
+
+// Cabeçalho estruturado (Ícone + Título)
+.title {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs; 
+  color: $color-text-main;
+
+  mat-icon {
+    margin-right: $spacing-xs;
+    color: $color-text-variant; 
+  }
+
+  mat-card-title {
+    font-weight: $font-weight-semibold;
+    font-size: $font-size-title;
+    margin: 0;
+  }
+}
+
+// ─── GRID DE DUAS COLUNAS PARALELAS ────────────────────────────────────────
+.dailies-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: $spacing-sm $spacing-xxl;
+  padding: 0;
+  margin: 0;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Elemento individual da listagem
+.daily-item {
+  height: auto !important;
+  padding: 0 !important;
+  position: relative;
+}
+
+// Layout interno da linha (Texto e Valor)
+.daily-title {
+  display: flex;
+  align-items: center;
+  font-size: $font-size-body;
+  color: $color-text-main;
+
+  strong {
+    color: $color-text-variant;
+    font-weight: $font-weight-semibold;
+    margin-left: $spacing-xs;
+  }
+}
+
+// Estilização condicional dos ícones utilizando tons semânticos da paleta global
+.icon-variant {
+  &.icon-day {
+    color: $color-sun;
+  }
+
+  &.icon-night {
+    color: $color-moon;
+  }
+}
+
+// ─── CONTAINERS DE ESTADO (LOADING E EMPTY) ────────────────────────────────
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: $min-height-state-container;
+  width: 100%;
+}

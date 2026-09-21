@@ -1,0 +1,122 @@
+@use 'variables' as *;
+
+:host {
+  display: block;
+  width: 100%;
+}
+
+.budget-card {
+  width: 100%;
+  margin: 0 auto;   
+  background: $color-card-bg;
+  border-radius: $radius-md !important; 
+  box-shadow: $shadow-card !important; 
+
+  mat-card-header {
+    padding: $spacing-md $spacing-md $spacing-xs; 
+  }
+
+  mat-card-content {
+    padding: 0 $spacing-md $spacing-md !important; 
+  }
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs; 
+  color: $color-text-main;
+
+  mat-icon {
+    margin-right: $spacing-xs;
+    color: $color-text-variant; 
+  }
+
+  mat-card-title {
+    font-weight: $font-weight-semibold;
+    font-size: $font-size-title;
+    margin: 0;
+  }
+}
+
+.budget-grid {
+  display: flex;
+  flex-direction: column;
+  padding-top: $spacing-sm;
+}
+
+.budget-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: $spacing-md;
+  border: 1px solid $color-border-subtle;
+  border-radius: $radius-sm;
+  background-color: transparent;
+  transition: background-color $transition-fast, box-shadow $transition-fast;
+
+  &:hover {
+    background-color: $color-hover-overlay;
+  }
+}
+
+.budget-details {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  width: 100%;
+}
+
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  font-size: $font-size-body;
+
+  .label {
+    font-weight: $font-weight-medium;
+    color: $color-text-muted;
+    width: $width-label-aligned;
+    flex-shrink: 0;
+  }
+
+  .value {
+    color: $color-text-main;
+    font-weight: $font-weight-semibold;
+  }
+}
+
+.budget-actions {
+  margin-left: $spacing-sm;
+  display: flex;
+  align-items: center;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: $min-height-state-container;
+  width: 100%;
+}
+
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl 0;
+  color: $color-text-muted;
+
+  .empty-icon {
+    font-size: $icon-size-lg;
+    height: $icon-size-lg;
+    width: $icon-size-lg;
+    margin-bottom: $spacing-sm;
+    opacity: $opacity-muted;
+  }
+
+  p {
+    margin: 0;
+    font-size: $font-size-md;
+  }
+}

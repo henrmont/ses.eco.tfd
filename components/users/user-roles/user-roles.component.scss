@@ -1,0 +1,80 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+.subtitle {
+  color: $color-text-main;
+  margin-bottom: $spacing-md;
+  padding: 0 $spacing-md;
+  
+  strong {
+    color: $color-text-variant;
+    font-weight: $font-weight-semibold;
+  }
+}
+
+.details-container {
+  padding: $spacing-lg 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+mat-card {
+  background: $color-card-bg;
+  border-radius: $radius-md; 
+  box-shadow: $shadow-soft; 
+}
+
+// Consolidação da estrutura de linha e grid
+.line {
+  display: grid;
+  gap: $spacing-md; 
+  padding: 0 $spacing-md; 
+  align-items: center; 
+  color: $color-text-main;
+  min-height: $line-height-min-item; 
+
+  strong {
+    color: $color-text-variant;
+    font-weight: $font-weight-semibold;
+  }
+
+  &.cols-1-1 { 
+    grid-template-columns: 1fr 1fr; 
+  }
+}
+
+.role-card-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: $spacing-md;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+// Containers de estado usando mixins
+.loading-container {
+  @include flex-center;
+  min-height: 200px;
+  width: 100%;
+}
+
+.empty-container {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: $spacing-xl 0;
+  
+  .empty-msg {
+    color: $color-text-variant;
+    font-style: italic;
+  }
+}

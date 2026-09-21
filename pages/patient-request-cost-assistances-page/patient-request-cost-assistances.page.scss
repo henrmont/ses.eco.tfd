@@ -1,0 +1,102 @@
+@use 'variables' as *;
+
+:host {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: calc(100vh - $layout-header-height);
+}
+
+section {
+  margin-top: $spacing-xxl; 
+  width: $page-content-width;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl; 
+
+  .tab-icon {
+    margin-right: $spacing-sm;
+  }
+
+  // Container interno da tabela
+  div.table {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xl;
+    width: 100%;
+    padding: $spacing-lg;
+    box-sizing: border-box;
+  }
+
+  // Container de busca
+  div.search {
+    display: flex; 
+    justify-content: center; 
+    width: 100%;
+
+    mat-form-field {
+      width: 100%;
+      max-width: $search-input-max-width; 
+    }
+  }
+
+  // Estilização da Tabela Angular Material
+  table.mat-mdc-table {
+    margin: 0 auto $spacing-sm auto;
+    background: $color-surface;
+    border-radius: $radius-md; 
+    overflow: hidden;
+    box-shadow: $shadow-card; 
+    border-collapse: separate;
+
+    th, td {
+      padding: $spacing-md $spacing-lg; 
+      vertical-align: middle;
+    }
+
+    th {
+      font-weight: $font-weight-semibold;
+      background-color: $color-table-header-bg;
+      color: $color-table-header-text;
+    }
+
+    .center {
+      text-align: center;
+      div {
+        @include flex-center($spacing-xs);
+      }
+    }
+
+    // Estados Semânticos
+    .valid { color: $color-success; }
+    .invalid { color: $color-danger; }
+    .bookmark, .warning { color: $color-warning; }
+
+    // --- Larguras das Colunas: Aba 1 (Minha Caixa) ---
+    th.mat-column-bookmark          { width: 4%; }
+    th.mat-column-patient           { width: 22%; }
+    th.mat-column-cns               { width: 20%; }
+    th.mat-column-type              { width: 14%; }
+    th.mat-column-consultation_date { width: 14%; }
+    th.mat-column-status            { width: 4%; }
+    th.mat-column-actions           { width: 24%; }
+
+    // --- Larguras das Colunas: Aba 2 (Outras Caixas) ---
+    &.others-table {
+      th.mat-column-patient           { width: 25%; }
+      th.mat-column-cns               { width: 15%; }
+      th.mat-column-type              { width: 15%; }
+      th.mat-column-consultation_date { width: 15%; }
+      th.mat-column-responsible       { width: 22%; }
+      th.mat-column-actions           { width: 8%; }
+    }
+
+    // Célula com os botões de ações
+    td.actions-cell {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: $spacing-xs;
+    }
+  }
+}

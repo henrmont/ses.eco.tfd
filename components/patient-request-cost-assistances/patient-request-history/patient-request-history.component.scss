@@ -1,0 +1,138 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+  padding-top: $spacing-modal-pt;
+}
+
+// Container do Spinner de Carregamento
+.loading-container {
+  @include flex-center(0);
+  padding: $spacing-xxl 0;
+}
+
+// Estilização da Sanfona/Acordeão
+mat-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+
+  mat-expansion-panel.accordion {
+    background: $color-surface;
+    border-radius: $radius-md !important;
+    border: 1px solid $color-expansion-border;
+    overflow: hidden;
+    box-shadow: $shadow-soft !important;
+
+    mat-expansion-panel-header {
+      padding: 0 $spacing-lg;
+      background-color: $color-surface;
+
+      mat-panel-title {
+        color: $color-text-main;
+        font-size: $font-size-body;
+        font-weight: $font-weight-semibold;
+      }
+
+      mat-panel-description {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        color: $color-text-variant;
+
+        span {
+          font-size: $font-size-body;
+        }
+      }
+    }
+
+    // Estilização dos MatCards com borda interna e sem sombra
+    mat-card {
+      background: $color-surface;
+      border: 1px solid $color-expansion-border;
+      border-radius: $radius-md;
+      box-shadow: none !important;
+      margin-bottom: $spacing-md;
+
+      &:last-child {
+        margin-bottom: $spacing-xs;
+      }
+
+      mat-card-header {
+        margin-bottom: $spacing-xs;
+
+        mat-card-title {
+          font-size: $font-size-md;
+          font-weight: $font-weight-semibold;
+          color: $color-text-main;
+        }
+
+        mat-card-subtitle {
+          font-size: $font-size-body;
+          color: $color-text-variant;
+        }
+      }
+    }
+  }
+}
+
+// Grid de dados das linhas/itens internos
+.line {
+  display: grid;
+  gap: $spacing-md;
+  padding: $spacing-xs $spacing-md;
+  align-items: center;
+  color: $color-text-main;
+  font-size: $font-size-body;
+  min-height: $line-height-min-item;
+  // border-bottom: 1px solid $color-border;
+  transition: background-color $transition-fast;
+
+  strong {
+    color: $color-text-variant;
+    font-weight: $font-weight-semibold;
+  }
+
+  &:hover {
+    background-color: $color-table-hover;
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &.empty-row {
+    grid-template-columns: 1fr !important;
+    text-align: center;
+    color: $color-text-muted;
+    font-style: italic;
+    font-size: $font-size-md;
+    padding: $spacing-md;
+    border-bottom: none;
+
+    &:hover {
+      background-color: transparent;
+    }
+  }
+
+  // Responsividade
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr !important;
+    gap: $spacing-xs;
+    padding: $spacing-xs $spacing-md;
+  }
+}
+
+// Classes utilitárias semânticas de status
+.valid {
+  color: $color-success !important;
+}
+
+.invalid {
+  color: $color-danger !important;
+}
