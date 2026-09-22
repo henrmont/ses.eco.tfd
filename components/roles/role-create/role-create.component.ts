@@ -64,8 +64,6 @@ export class RoleCreateComponent implements OnInit {
   protected readonly permissionGroups = [
     { label: 'USUÁRIOS', icon: 'people', filter: 'usuário' },
     { label: 'REGRAS', icon: 'security', filter: 'regra' },
-    { label: 'UNIDADES HOSPITALARES', icon: 'domain', filter: 'unidade hospitalar' },
-    { label: 'DATASUS', icon: 'medical_services', filter: 'datasus' },
     { label: 'CONFIGURAÇÕES', icon: 'settings', filter: 'configuração' },
     { label: 'PACIENTES', icon: 'personal_injury', filter: 'paciente' },
     { label: 'SOLICITAÇÕES', icon: 'assignment', filter: 'solicitação' },
