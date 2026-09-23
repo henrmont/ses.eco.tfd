@@ -18,7 +18,7 @@ section {
 .line {
   display: grid;
   grid-template-columns: var(--grid-cols, 1fr);
-  column-gap: $spacing-xxl;
+  column-gap: $spacing-xxl * 1.5;
 
   &.cols-1-1 { 
     --grid-cols: 1fr 1fr; 

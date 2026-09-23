@@ -4,7 +4,7 @@ import { Routes } from '@angular/router';
 export const tfdRoutes: Routes = [
     {
         path: '',
-        loadComponent: () => import('./../pages/index-page/index-page').then( m => m.IndexPage)
+        loadComponent: () => import('./../pages/index-page/index.page').then( m => m.IndexPage)
     },
     {
         path: 'usuarios',

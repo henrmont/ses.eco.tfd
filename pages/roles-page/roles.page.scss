@@ -18,6 +18,7 @@ section {
   div.table {
     display: flex;
     flex-direction: column;
+    align-self: center;
     gap: $spacing-xl;
     width: 50%;
     padding: $spacing-lg;

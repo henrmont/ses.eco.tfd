@@ -1,0 +1,110 @@
+<div class="index-container">
+  
+  <!-- Cabeçalho com Logo e Texto de Boas-Vindas -->
+  <header class="header-section">
+    <img src="images/logo_sistfd.png" alt="Logo SISTFD" class="system-logo">
+    <div class="header-text">
+      <h1>Bem-vindo ao SISTFD</h1>
+      <p>
+        Sistema de Tratamento de Fora do Domicílio. Gerencie solicitações,
+        agendamentos e passagens com eficiência e transparência.
+      </p>
+    </div>
+  </header>
+
+  <!-- Grade de Cards com Padrão do Login -->
+  <section class="cards-grid">
+    
+    <!-- Card: Changelog -->
+    <mat-card class="login-card info-card">
+      <div class="card-header-wrapper">
+        <mat-icon class="card-icon">history</mat-icon>
+        <mat-card-header>
+          <mat-card-title>Changelog</mat-card-title>
+        </mat-card-header>
+      </div>
+
+      <mat-card-content>
+        <p>Acompanhe as últimas atualizações, melhorias e correções implementadas no sistema.</p>
+      </mat-card-content>
+
+      <mat-card-actions>
+        <button 
+          mat-flat-button 
+          color="primary" 
+          type="button" 
+          class="card-action-btn"
+          (click)="openChangelogDialog()">
+          <mat-icon>visibility</mat-icon>
+          Ver histórico
+        </button>
+      </mat-card-actions>
+    </mat-card>
+
+    <!-- Card: Manuais (Download TFD e Sistema) -->
+    <mat-card class="login-card info-card">
+      <div class="card-header-wrapper">
+        <mat-icon class="card-icon">menu_book</mat-icon>
+        <mat-card-header>
+          <mat-card-title>Manuais</mat-card-title>
+        </mat-card-header>
+      </div>
+
+      <mat-card-content>
+        <p>Acesse o passo a passo detalhado sobre como utilizar todos os módulos da plataforma.</p>
+      </mat-card-content>
+
+      <mat-card-actions>
+        <button 
+          mat-flat-button 
+          color="primary" 
+          type="button" 
+          class="card-action-btn"
+          [matMenuTriggerFor]="manualsMenu">
+          <mat-icon>file_download</mat-icon>
+          Baixar manuais
+        </button>
+
+        <!-- Menu com Opções de Download -->
+        <mat-menu #manualsMenu="matMenu">
+          <button mat-menu-item (click)="downloadManualTfd()">
+            <mat-icon>description</mat-icon>
+            <span>Manual do TFD</span>
+          </button>
+          <button mat-menu-item (click)="downloadManualSistema()">
+            <mat-icon>picture_as_pdf</mat-icon>
+            <span>Manual do Sistema</span>
+          </button>
+        </mat-menu>
+      </mat-card-actions>
+    </mat-card>
+
+    <!-- Card: Vídeo Tutoriais -->
+    <mat-card class="login-card info-card">
+      <div class="card-header-wrapper">
+        <mat-icon class="card-icon">ondemand_video</mat-icon>
+        <mat-card-header>
+          <mat-card-title>Vídeo Tutoriais</mat-card-title>
+        </mat-card-header>
+      </div>
+
+      <mat-card-content>
+        <p>Assista a vídeos explicativos práticos para tirar dúvidas frequentes do dia a dia.</p>
+      </mat-card-content>
+
+      <mat-card-actions>
+        <button 
+          mat-flat-button 
+          color="primary" 
+          type="button" 
+          class="card-action-btn"
+          (click)="openVideoTutorialDialog()">
+          <mat-icon>play_circle</mat-icon>
+          Assistir vídeos
+        </button>
+      </mat-card-actions>
+    </mat-card>
+
+  </section>
+
+</div>
