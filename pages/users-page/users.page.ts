@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, Injector, inject, OnDes
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
+import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
 import { Overlay } from '@angular/cdk/overlay';
@@ -31,13 +32,24 @@ import { UserValidateComponent } from '../../components/users/user-validate/user
 
 interface UserTableRow extends User {
   is_editable: boolean;
-  type: string;
+  cns: string;
 }
 
 @Component({
   selector: 'app-users-page',
   standalone: true,
-  imports: [MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatPaginatorModule, MatSortModule, MatTableModule, MatTooltipModule],
+  imports: [
+    MatButtonModule, 
+    MatFormFieldModule, 
+    MatIconModule, 
+    MatInputModule, 
+    MatPaginatorModule, 
+    MatSortModule, 
+    MatTableModule, 
+    MatTooltipModule,
+    NgxMaskPipe
+  ],
+  providers: [provideNgxMask()],
   templateUrl: './users.page.html',
   styleUrl: './users.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -74,7 +86,7 @@ export class UsersPage implements OnInit, OnDestroy {
     'is_editable', 
     'email', 
     'name', 
-    'type', 
+    'cns', 
     'is_valid', 
     'actions'
   ];
@@ -197,7 +209,7 @@ export class UsersPage implements OnInit, OnDestroy {
     
     return {
       ...userObj,
-      type: item.professional?.type || 'Não alocado',
+      cns: item.professional?.cns || '-',
       is_editable: this.calculateEditable(userObj)
     };
   }

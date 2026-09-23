@@ -12,30 +12,20 @@
   border-radius: $radius-md !important; 
   box-shadow: $shadow-card !important; 
 
-  mat-card-header {
-    padding: $spacing-md $spacing-md $spacing-xs; 
-  }
-
   mat-card-content {
-    padding: 0 $spacing-md $spacing-md !important; 
+    padding: 0 $spacing-md $spacing-md !important;
   }
 }
 
-.title {
+// Cabeçalho estruturado (Ícone + Título)
+.title-header {
   display: flex;
   align-items: center;
   gap: $spacing-xs; 
-  color: $color-text-main;
-
-  mat-icon {
-    margin-right: $spacing-xs;
-    color: $color-text-variant; 
-  }
 
   mat-card-title {
-    font-weight: $font-weight-semibold;
-    font-size: $font-size-title;
-    margin: 0;
+    margin-left: $spacing-sm;
+    font-size: $font-size-lg;
   }
 }
 
@@ -50,14 +40,7 @@
   justify-content: space-between;
   align-items: flex-start;
   padding: $spacing-md;
-  border: 1px solid $color-border-subtle;
-  border-radius: $radius-sm;
-  background-color: transparent;
-  transition: background-color $transition-fast, box-shadow $transition-fast;
-
-  &:hover {
-    background-color: $color-hover-overlay;
-  }
+  margin-top: 10px;
 }
 
 .budget-details {
@@ -73,14 +56,11 @@
   font-size: $font-size-body;
 
   .label {
-    font-weight: $font-weight-medium;
-    color: $color-text-muted;
     width: $width-label-aligned;
     flex-shrink: 0;
   }
 
   .value {
-    color: $color-text-main;
     font-weight: $font-weight-semibold;
   }
 }

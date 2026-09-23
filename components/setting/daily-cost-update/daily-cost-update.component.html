@@ -1,10 +1,10 @@
 <h2 mat-dialog-title>Alterar valor da diária</h2>
 
-<form [formGroup]="dailyCostForm" (ngSubmit)="onSubmit()">
+<form [formGroup]="dailyCostForm">
   <mat-dialog-content>
     
     <div class="line">
-      <mat-form-field appearance="outline">
+      <mat-form-field appearance="outline" floatLabel="always">
         <mat-label>Valor</mat-label>
         <input 
           matInput 
@@ -31,12 +31,12 @@
     <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
       Fechar
     </button>
-    
     <button 
       mat-flat-button 
       color="primary" 
-      type="submit" 
+      type="button" 
       [disabled]="dailyCostForm.invalid || dailyCostForm.pending || dailyCostForm.pristine || isSubmitting()"
+      (click)="onSubmit()"
     >
       <div class="waiting">
         @if (isSubmitting()) {

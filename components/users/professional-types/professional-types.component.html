@@ -1,0 +1,45 @@
+<h2 mat-dialog-title>Lotação do Profissional</h2>
+
+<form [formGroup]="typesForm">
+  <mat-dialog-content>
+    <p class="subtitle">
+      Selecione um ou mais tipos de atuação para este profissional:
+    </p>
+
+    <div class="details-container">
+      <div class="line cols-1-1">
+        @for (item of professionalTypes(); track $index) {
+          <mat-card appearance="outlined" class="detail-card type-card">
+            <mat-card-content class="type-card-content">
+              <span class="type-name">{{ item }}</span>
+              <mat-slide-toggle
+                [checked]="checkType(item)"
+                (toggleChange)="toggleType(item)"
+                color="primary">
+              </mat-slide-toggle>
+            </mat-card-content>
+          </mat-card>
+        } @empty {
+          <div class="empty-container">
+            <p class="empty-msg">Nenhum tipo de profissional disponível.</p>
+          </div>
+        }
+      </div>
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="null">
+      Cancelar
+    </button>
+
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="button" 
+      [disabled]="typesForm.pristine"
+      (click)="onConfirm()">
+      Confirmar
+    </button>
+  </mat-dialog-actions>
+</form>

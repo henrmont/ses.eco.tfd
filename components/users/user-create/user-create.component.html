@@ -26,19 +26,27 @@
         }
       </mat-form-field>
       
-      <mat-form-field appearance="outline">
-        <mat-label>Tipo</mat-label>
-        <mat-select formControlName="type" (selectionChange)="onSelection($event)">
-          @for (item of types; track $index) {
-            <mat-option [value]="item">{{ item }}</mat-option>
+      <!-- Container do Botão de Lotação / Tipo de Profissional -->
+      <div class="types-button-container">
+        <button 
+          mat-flat-button 
+          type="button" 
+          class="select-types-btn"
+          [disabled]="isSubmitting()"
+          (click)="openProfessionalTypesDialog()">
+          <mat-icon>workspaces</mat-icon>
+          <span>LOTAÇÃO DO PROFISSIONAL</span>
+        </button>
+
+        <!-- Exibição de Erro -->
+        @if (userForm.get('types')?.touched && userForm.get('types')?.invalid) {
+          @for (item of errorMessages['types']; track $index) {
+            @if (userForm.get('types')?.hasError(item.type)) {
+              <span class="custom-error-message">{{ item.message }}</span>
+            }
           }
-        </mat-select>
-        @for (item of errorMessages['type']; track $index) {
-          <mat-error [hidden]="!userForm.get('type')?.hasError(item.type)">
-            {{ item.message }}
-          </mat-error>
         }
-      </mat-form-field>
+      </div>
     </div>
     
     <div class="line double-columns">

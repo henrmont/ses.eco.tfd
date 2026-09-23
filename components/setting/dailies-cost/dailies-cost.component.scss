@@ -12,45 +12,31 @@
   border-radius: $radius-md !important; 
   box-shadow: $shadow-card !important; 
 
-  mat-card-header {
-    padding: $spacing-md $spacing-md $spacing-xs;
-  }
-
   mat-card-content {
     padding: 0 $spacing-md $spacing-md !important;
   }
 }
 
 // Cabeçalho estruturado (Ícone + Título)
-.title {
+.title-header {
   display: flex;
   align-items: center;
   gap: $spacing-xs; 
-  color: $color-text-main;
-
-  mat-icon {
-    margin-right: $spacing-xs;
-    color: $color-text-variant; 
-  }
 
   mat-card-title {
-    font-weight: $font-weight-semibold;
-    font-size: $font-size-title;
-    margin: 0;
+    margin-left: $spacing-sm;
+    font-size: $font-size-lg;
   }
 }
 
 // ─── GRID DE DUAS COLUNAS PARALELAS ────────────────────────────────────────
 .dailies-list {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: $spacing-sm $spacing-xxl;
   padding: 0;
   margin: 0;
-
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
-  }
+  margin-top: 20px;
 }
 
 // Elemento individual da listagem
@@ -65,13 +51,6 @@
   display: flex;
   align-items: center;
   font-size: $font-size-body;
-  color: $color-text-main;
-
-  strong {
-    color: $color-text-variant;
-    font-weight: $font-weight-semibold;
-    margin-left: $spacing-xs;
-  }
 }
 
 // Estilização condicional dos ícones utilizando tons semânticos da paleta global
@@ -92,4 +71,26 @@
   align-items: center;
   min-height: $min-height-state-container;
   width: 100%;
+}
+
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl 0;
+  color: $color-text-muted;
+
+  .empty-icon {
+    font-size: $icon-size-lg;
+    height: $icon-size-lg;
+    width: $icon-size-lg;
+    margin-bottom: $spacing-sm;
+    opacity: $opacity-muted;
+  }
+
+  p {
+    margin: 0;
+    font-size: $font-size-md;
+  }
 }

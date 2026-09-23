@@ -1,9 +1,9 @@
-<h2 mat-dialog-title>Atualizar Alocação Orçamentária</h2>
+<h2 mat-dialog-title>Atualizar alocação orçamentária</h2>
 
-<form [formGroup]="budgetAllocationForm" (ngSubmit)="onSubmit()">
+<form [formGroup]="budgetAllocationForm">
   <mat-dialog-content>
     
-    <div class="line">
+    <div class="line double-columns">
       <mat-form-field appearance="outline">
         <mat-label>Programa</mat-label>
         <input 
@@ -20,7 +20,7 @@
       </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>Projeto Ativo</mat-label>
+        <mat-label>Projeto ativo</mat-label>
         <input 
           matInput 
           type="text" 
@@ -35,9 +35,9 @@
       </mat-form-field>
     </div>
 
-    <div class="line">
+    <div class="line double-columns">
       <mat-form-field appearance="outline">
-        <mat-label>Natureza da Despesa</mat-label>
+        <mat-label>Natureza da despesa</mat-label>
         <input 
           matInput 
           type="text" 
@@ -73,12 +73,12 @@
     <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
       Fechar
     </button>
-    
     <button 
       mat-flat-button 
       color="primary" 
-      type="submit" 
+      type="button" 
       [disabled]="budgetAllocationForm.invalid || budgetAllocationForm.pending || budgetAllocationForm.pristine || isSubmitting()"
+      (click)="onSubmit()"
     >
       <div class="waiting">
         @if (isSubmitting()) {

@@ -1,3 +1,5 @@
+import { ComponentType } from '@angular/cdk/portal';
+import { Overlay } from '@angular/cdk/overlay';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, Injector, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -6,12 +8,11 @@ import { NgxMaskDirective } from 'ngx-mask';
 
 // Angular Material
 import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectChange, MatSelectModule } from '@angular/material/select';
 
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
@@ -20,6 +21,18 @@ import { MessageService } from '../../../../core/services/message-service';
 // Services, Enums & Local Components
 import { Professionals } from '../../../enums/professionals';
 import { UserService } from '../../../services/user.service';
+import { ProfessionalTypesComponent } from '../professional-types/professional-types.component';
+
+// Estrutura esperada do profissional ao atualizar
+interface ProfessionalTypeItem {
+  id?: number;
+  type: string;
+}
+
+// Define o tipo aceito para os dados do modal de tipos profissionais
+type ProfessionalTypesDialogData = {
+  selectedTypes: string[];
+};
 
 @Component({
   selector: 'app-user-update',
@@ -32,7 +45,6 @@ import { UserService } from '../../../services/user.service';
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
-    MatSelectModule,
     NgxMaskDirective,
     ReactiveFormsModule
   ],
@@ -49,6 +61,8 @@ export class UserUpdateComponent implements OnInit {
   private readonly userService = inject(UserService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<UserUpdateComponent>);
+  private readonly dialog = inject(MatDialog);
+  private readonly overlay = inject(Overlay);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
 
@@ -56,7 +70,6 @@ export class UserUpdateComponent implements OnInit {
   // Propriedades e Estado Reativo
   // ==========================================
   protected userForm!: FormGroup;
-  protected readonly types: string[] = Object.values(Professionals);
   protected readonly isSubmitting = signal<boolean>(false);
 
   // Mapeamento de Mensagens de Erro Tipado
@@ -66,11 +79,10 @@ export class UserUpdateComponent implements OnInit {
     ],
     email: [
       { type: 'required', message: 'O e-mail é obrigatório.' },
-      { type: 'email', message: 'Formato de e-mail inválido.' },
-      { type: 'emailExists', message: 'O e-mail informado já está em uso.' }
+      { type: 'email', message: 'Formato de e-mail inválido.' }
     ],
-    type: [
-      { type: 'required', message: 'Selecione o tipo de profissional.' }
+    types: [
+      { type: 'required', message: 'Selecione ao menos um tipo de profissional.' }
     ],
     cns: [
       { type: 'required', message: 'O CNS é obrigatório.' },
@@ -91,11 +103,14 @@ export class UserUpdateComponent implements OnInit {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected onSelection(event: MatSelectChange): void {
-    this.evaluateProfessionalControls(event.value);
-    this.userForm.markAsDirty();
+  protected openProfessionalTypesDialog(): void {
+    const currentTypes = this.userForm.get('types')?.value || [];
+    this.openDialog(
+      ProfessionalTypesComponent,
+      { selectedTypes: currentTypes },
+    );
   }
 
   protected onSubmit(): void {
@@ -113,6 +128,7 @@ export class UserUpdateComponent implements OnInit {
 
     this.isSubmitting.set(true);
 
+    // getRawValue() inclui os valores de campos desabilitados como 'email'
     this.userService.updateUser(userId, this.userForm.getRawValue())
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
@@ -138,14 +154,15 @@ export class UserUpdateComponent implements OnInit {
     const initialEmail = this.data?.user?.email || null;
     const initialCns = professional ? professional.cns : null;
 
+    const initialTypes: string[] = professional?.types
+      ? professional.types.map((t: ProfessionalTypeItem | string) => typeof t === 'string' ? t : t.type)
+      : [];
+
     this.userForm = this.fb.group({
       name: [professional ? professional.name : '', [Validators.required]],
-      email: [
-        initialEmail, 
-        [Validators.required, Validators.email], 
-        [this.userService.emailUserExistsValidator(initialEmail)]
-      ],
-      type: [professional ? professional.type : '', [Validators.required]],
+      // Campo e-mail inicializado como disabled
+      email: [{ value: initialEmail, disabled: true }, [Validators.required, Validators.email]],
+      types: [initialTypes, [Validators.required]],
       cns: [
         initialCns, 
         [Validators.required], 
@@ -158,10 +175,8 @@ export class UserUpdateComponent implements OnInit {
   }
 
   private loadInitialPermissions(): void {
-    const initialType = this.userForm.get('type')?.value;
-    if (initialType) {
-      this.evaluateProfessionalControls(initialType);
-    }
+    const initialTypes = this.userForm.get('types')?.value || [];
+    this.evaluateProfessionalControls(initialTypes);
   }
 
   private setupFormSubmittingHandler(): void {
@@ -172,30 +187,62 @@ export class UserUpdateComponent implements OnInit {
           this.userForm.disable({ emitEvent: false });
         } else {
           this.userForm.enable({ emitEvent: false });
-          this.evaluateProfessionalControls(this.userForm.get('type')?.value);
+          // Mantém o e-mail sempre desabilitado após reabilitar o formulário
+          this.userForm.get('email')?.disable({ emitEvent: false });
+          this.evaluateProfessionalControls(this.userForm.get('types')?.value || []);
         }
       });
   }
 
-  private evaluateProfessionalControls(selectedType: string): void {
-    const isMedico = selectedType === Professionals.MEDICO;
-    const isAssistenteSocial = selectedType === Professionals.ASSISTENTE_SOCIAL;
+  private evaluateProfessionalControls(selectedTypes: string[]): void {
+    const hasMedico = selectedTypes.includes(Professionals.MEDICO);
+    const hasAssistenteSocial = selectedTypes.includes(Professionals.ASSISTENTE_SOCIAL);
 
     const professionalRegisterCtrl = this.userForm.get('professional_register');
     const cboCtrl = this.userForm.get('cbo');
 
-    if (isMedico || isAssistenteSocial) {
+    if (hasMedico || hasAssistenteSocial) {
       professionalRegisterCtrl?.enable();
     } else {
       professionalRegisterCtrl?.disable();
       professionalRegisterCtrl?.reset();
     }
 
-    if (isMedico) {
+    if (hasMedico) {
       cboCtrl?.enable();
     } else {
       cboCtrl?.disable();
       cboCtrl?.reset();
     }
+  }
+
+  private openDialog<T>(
+    component: ComponentType<T>,
+    data: ProfessionalTypesDialogData,
+    width = '600px',
+    height = 'auto'
+  ): void {
+    this.dialog.open(component, {
+      width,
+      height,
+      disableClose: true,
+      autoFocus: false,
+      scrollStrategy: this.overlay.scrollStrategies.noop(),
+      data
+    })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((selectedTypes: string[]) => {
+        if (selectedTypes) {
+          const typesControl = this.userForm.get('types');
+
+          typesControl?.setValue(selectedTypes);
+          typesControl?.markAsTouched();
+          typesControl?.markAsDirty();
+          this.userForm.markAsDirty();
+
+          this.evaluateProfessionalControls(selectedTypes);
+        }
+      });
   }
 }

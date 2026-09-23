@@ -1,22 +1,26 @@
 @use 'variables' as *;
 
 :host {
-  display: block;
-  width: 100%;
-  min-height: calc(100vh - 100px);
-}
-
-.settings-container {
   display: flex;
   justify-content: center;
   width: 100%;
-  padding: $spacing-xxl 0; // Dá um respiro tanto no topo quanto na base
+  min-height: calc(100vh - $layout-header-height);
 }
 
-.page-content {
-  width: 75%;
-  max-width: 1200px; // Evita que em telas ultrawide fique demasiadamente esticado
+section {
+  margin-top: $spacing-xxl; 
+  width: $page-content-width;
   display: flex;
   flex-direction: column;
-  gap: calc($spacing-xxl * 1.5); // Aumenta o espaçamento entre os cards (ex: ~36px)
+  gap: $spacing-xl; 
+}
+
+.line {
+  display: grid;
+  grid-template-columns: var(--grid-cols, 1fr);
+  column-gap: $spacing-xxl;
+
+  &.cols-1-1 { 
+    --grid-cols: 1fr 1fr; 
+  }
 }

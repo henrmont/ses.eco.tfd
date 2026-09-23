@@ -9,9 +9,14 @@ mat-dialog-content {
   padding-top: $spacing-modal-pt;
 }
 
-// Layout de grid para os campos de entrada (2 colunas no desktop, 1 coluna no mobile)
+// Grid estrutural para linhas do formulário
 .line {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: $spacing-form-gap $spacing-xl;
+  grid-template-columns: 1fr;
+  column-gap: $spacing-xl;
+  row-gap: $spacing-form-gap;
+
+  &.double-columns {
+    grid-template-columns: 1fr 1fr;
+  }
 }

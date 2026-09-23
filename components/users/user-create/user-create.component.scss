@@ -19,3 +19,25 @@ mat-dialog-content {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.types-button-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+
+  .select-types-btn {
+    width: 100%;
+    height: 56px; // Altura compatível com os inputs do mat-form-field (outline)
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .custom-error-message {
+    color: var(--mdc-theme-error);
+    font-size: 12px;
+    margin-top: 4px;
+    padding-left: 16px;
+  }
+}

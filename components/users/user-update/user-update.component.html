@@ -18,7 +18,7 @@
     <div class="line double-columns">
       <mat-form-field appearance="outline">
         <mat-label>Email</mat-label>
-        <input matInput type="email" formControlName="email" readonly>
+        <input matInput type="email" formControlName="email">
         <mat-icon matSuffix class="locked-icon">lock</mat-icon>
         @for (item of errorMessages['email']; track $index) {
           <mat-error [hidden]="!userForm.get('email')?.hasError(item.type)">
@@ -27,23 +27,28 @@
         }
       </mat-form-field>
       
-      <mat-form-field appearance="outline">
-        <mat-label>Tipo</mat-label>
-        <mat-select formControlName="type" (selectionChange)="onSelection($event)">
-          @for (item of types; track $index) {
-            <mat-option [value]="item">{{ item }}</mat-option>
-          }
-        </mat-select>
-        @for (item of errorMessages['type']; track $index) {
-          <mat-error [hidden]="!userForm.get('type')?.hasError(item.type)">
-            {{ item.message }}
+      <!-- Container do Botão de Lotação / Tipo de Profissional -->
+      <div class="types-button-container">
+        <button 
+          mat-flat-button 
+          type="button" 
+          class="select-types-btn"
+          [disabled]="isSubmitting()"
+          (click)="openProfessionalTypesDialog()">
+          <mat-icon>workspaces</mat-icon>
+          <span>LOTAÇÃO DO PROFISSIONAL</span>
+        </button>
+
+        @if (userForm.get('types')?.touched && userForm.get('types')?.hasError('required')) {
+          <mat-error class="custom-error">
+            Selecione ao menos um tipo de profissional.
           </mat-error>
         }
-      </mat-form-field>
+      </div>
     </div>
     
     <div class="line double-columns">
-      <mat-form-field appearance="outline">
+      <mat-form-field appearance="outline" floatLabel="always">
         <mat-label>CNS</mat-label>
         <input matInput type="text" mask="000 0000 0000 0000" formControlName="cns">
         @for (item of errorMessages['cns']; track $index) {
@@ -53,7 +58,7 @@
         }
       </mat-form-field>
       
-      <mat-form-field appearance="outline">
+      <mat-form-field appearance="outline" floatLabel="always">
         <mat-label>Matrícula</mat-label>
         <input matInput type="text" mask="000000" formControlName="registration">
         @for (item of errorMessages['registration']; track $index) {

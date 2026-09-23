@@ -17,7 +17,7 @@ mat-dialog-content {
 }
 
 mat-card {
-  background: $color-card-bg;
+  background-color: rgb(255,255,255);
   border-radius: $radius-md; 
   box-shadow: $shadow-soft; 
   
@@ -34,12 +34,7 @@ mat-card {
   display: flex;
   align-items: center;
   gap: $spacing-xs; 
-  color: $color-text-main;
-
-  mat-icon {
-    color: $color-text-variant; 
-  }
-
+  
   mat-card-title {
     margin-left: $spacing-sm;
     font-size: $font-size-lg;

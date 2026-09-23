@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, Injector, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 
 // Angular Material
@@ -11,22 +11,25 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Core, Services & Models
+// Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+
+// Services & Models
 import { SettingService } from '../../../services/setting.service';
 
 @Component({
   selector: 'app-budget-allocation-update',
   standalone: true,
   imports: [
-    ReactiveFormsModule,
-    MatDialogModule, 
-    MatButtonModule, 
-    MatFormFieldModule, 
-    MatInputModule, 
-    MatProgressSpinnerModule, 
-    MatIconModule
+    FormsModule,
+    MatButtonModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatProgressSpinnerModule,
+    ReactiveFormsModule
   ],
   templateUrl: './budget-allocation-update.component.html',
   styleUrl: './budget-allocation-update.component.scss',
@@ -42,6 +45,7 @@ export class BudgetAllocationUpdateComponent implements OnInit {
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<BudgetAllocationUpdateComponent>);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -49,6 +53,7 @@ export class BudgetAllocationUpdateComponent implements OnInit {
   protected budgetAllocationForm!: FormGroup;
   protected readonly isSubmitting = signal<boolean>(false);
 
+  // Mapeamento de Mensagens de Erro Tipado
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
     program: [
       { type: 'required', message: 'O programa é obrigatório.' }
@@ -69,6 +74,7 @@ export class BudgetAllocationUpdateComponent implements OnInit {
   // ==========================================
   ngOnInit(): void {
     this.initForm();
+    this.setupFormSubmittingHandler();
   }
 
   // ==========================================
@@ -76,6 +82,7 @@ export class BudgetAllocationUpdateComponent implements OnInit {
   // ==========================================
   protected onSubmit(): void {
     const budgetId = this.data?.budget_allocation?.id;
+
     if (!budgetId) {
       this.messageService.showMessage('Identificador da alocação orçamentária inválido.');
       return;
@@ -106,7 +113,7 @@ export class BudgetAllocationUpdateComponent implements OnInit {
   }
 
   // ==========================================
-  // Métodos Privados / Auxiliares
+  // Métodos Privados
   // ==========================================
   private initForm(): void {
     const budget = this.data?.budget_allocation;
@@ -117,5 +124,17 @@ export class BudgetAllocationUpdateComponent implements OnInit {
       nature_of_expenditure: [budget?.nature_of_expenditure || '', [Validators.required]],
       source: [budget?.source || '', [Validators.required]]
     });
+  }
+
+  private setupFormSubmittingHandler(): void {
+    toObservable(this.isSubmitting, { injector: this.injector })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(isSubmitting => {
+        if (isSubmitting) {
+          this.budgetAllocationForm.disable({ emitEvent: false });
+        } else {
+          this.budgetAllocationForm.enable({ emitEvent: false });
+        }
+      });
   }
 }

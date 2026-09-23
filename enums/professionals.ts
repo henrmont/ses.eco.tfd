@@ -1,7 +1,7 @@
 export enum Professionals {
     ADMINISTRADOR = 'Administrador',
-    PACIENTE = 'Paciente',
-    SOLICITACAO = 'Solicitação',
+    CADASTRO = 'Cadastro',
+    ADMINISTRATIVO = 'Administrativo',
     MEDICO = 'Médico',
     ASSISTENTE_SOCIAL = 'Assistente Social',
     PASSAGEM = 'Passagem',

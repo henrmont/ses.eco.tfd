@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, Injector, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { NgxMaskDirective } from 'ngx-mask';
 
@@ -12,24 +12,26 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Core, Services & Models
+// Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
-import { DailyCost } from '../../../models/daily-cost.model';
+
+// Services & Models
 import { SettingService } from '../../../services/setting.service';
 
 @Component({
   selector: 'app-daily-cost-update',
   standalone: true,
   imports: [
-    ReactiveFormsModule, 
-    MatDialogModule, 
-    MatButtonModule, 
-    MatFormFieldModule, 
-    MatInputModule, 
-    MatProgressSpinnerModule, 
-    MatIconModule, 
-    NgxMaskDirective
+    FormsModule,
+    MatButtonModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatProgressSpinnerModule,
+    NgxMaskDirective,
+    ReactiveFormsModule
   ],
   templateUrl: './daily-cost-update.component.html',
   styleUrl: './daily-cost-update.component.scss',
@@ -45,6 +47,7 @@ export class DailyCostUpdateComponent implements OnInit {
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<DailyCostUpdateComponent>);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -52,6 +55,7 @@ export class DailyCostUpdateComponent implements OnInit {
   protected dailyCostForm!: FormGroup;
   protected readonly isSubmitting = signal<boolean>(false);
 
+  // Mapeamento de Mensagens de Erro Tipado
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
     value: [
       { type: 'required', message: 'O valor é obrigatório.' },
@@ -64,6 +68,7 @@ export class DailyCostUpdateComponent implements OnInit {
   // ==========================================
   ngOnInit(): void {
     this.initForm();
+    this.setupFormSubmittingHandler();
   }
 
   // ==========================================
@@ -102,7 +107,7 @@ export class DailyCostUpdateComponent implements OnInit {
   }
 
   // ==========================================
-  // Métodos Privados / Auxiliares
+  // Métodos Privados
   // ==========================================
   private initForm(): void {
     const dailyCost = this.data?.daily_cost;
@@ -110,5 +115,17 @@ export class DailyCostUpdateComponent implements OnInit {
     this.dailyCostForm = this.fb.group({
       value: [dailyCost?.value ?? '', [Validators.required, Validators.min(0.01)]]
     });
+  }
+
+  private setupFormSubmittingHandler(): void {
+    toObservable(this.isSubmitting, { injector: this.injector })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(isSubmitting => {
+        if (isSubmitting) {
+          this.dailyCostForm.disable({ emitEvent: false });
+        } else {
+          this.dailyCostForm.enable({ emitEvent: false });
+        }
+      });
   }
 }
