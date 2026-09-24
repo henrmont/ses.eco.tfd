@@ -29,6 +29,7 @@ import { UserLockComponent } from '../../components/users/user-lock/user-lock.co
 import { UserRolesComponent } from '../../components/users/user-roles/user-roles.component';
 import { UserUpdateComponent } from '../../components/users/user-update/user-update.component';
 import { UserValidateComponent } from '../../components/users/user-validate/user-validate.component';
+import { Role } from '../../models/role.model';
 
 interface UserTableRow extends User {
   is_editable: boolean;
@@ -80,7 +81,7 @@ export class UsersPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser: User | undefined = this.route.parent?.parent?.snapshot.data['user'];
+  private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
 
   protected readonly displayedColumns: string[] = [
     'is_editable', 
@@ -121,7 +122,7 @@ export class UsersPage implements OnInit, OnDestroy {
   protected checkPermissions(permissionName: string): boolean {
     if (!this.currentUser?.roles) return true;
 
-    const hasPermission = this.currentUser.roles.some((role: any) =>
+    const hasPermission = this.currentUser.roles.some((role: Role) =>
       role.permissions?.some((perm: Permission) => perm.name === permissionName)
     );
 
@@ -180,6 +181,7 @@ export class UsersPage implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (response) => {
+          console.log(response)
           const rawData = response || [];
           this.dataSource.data = rawData.map(item => this.mapUserToRow(item));
         },

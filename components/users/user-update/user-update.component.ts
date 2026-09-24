@@ -22,12 +22,7 @@ import { MessageService } from '../../../../core/services/message-service';
 import { Professionals } from '../../../enums/professionals';
 import { UserService } from '../../../services/user.service';
 import { ProfessionalTypesComponent } from '../professional-types/professional-types.component';
-
-// Estrutura esperada do profissional ao atualizar
-interface ProfessionalTypeItem {
-  id?: number;
-  type: string;
-}
+import { ProfessionalType } from '../../../models/professional-type.model';
 
 // Define o tipo aceito para os dados do modal de tipos profissionais
 type ProfessionalTypesDialogData = {
@@ -107,10 +102,7 @@ export class UserUpdateComponent implements OnInit {
   // ==========================================
   protected openProfessionalTypesDialog(): void {
     const currentTypes = this.userForm.get('types')?.value || [];
-    this.openDialog(
-      ProfessionalTypesComponent,
-      { selectedTypes: currentTypes },
-    );
+    this.openDialog(ProfessionalTypesComponent, { selectedTypes: currentTypes });
   }
 
   protected onSubmit(): void {
@@ -155,7 +147,7 @@ export class UserUpdateComponent implements OnInit {
     const initialCns = professional ? professional.cns : null;
 
     const initialTypes: string[] = professional?.types
-      ? professional.types.map((t: ProfessionalTypeItem | string) => typeof t === 'string' ? t : t.type)
+      ? professional.types.map((t: ProfessionalType | string) => typeof t === 'string' ? t : t.type)
       : [];
 
     this.userForm = this.fb.group({

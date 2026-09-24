@@ -18,7 +18,13 @@
                         </mat-form-field>
                         <div class="file-upload-cell">
                             <input type="file" hidden (change)="onFileSelected($event, 'cns')" #fileCNS [disabled]="isSubmitting()">
-                            <button mat-raised-button type="button" (click)="fileCNS.click()" [matTooltip]="files.cns.label()" [disabled]="isSubmitting()">
+                            <button 
+                                mat-raised-button 
+                                type="button" 
+                                [class.attached]="files.cns.hasFile()"
+                                (click)="fileCNS.click()" 
+                                [matTooltip]="files.cns.label()" 
+                                [disabled]="isSubmitting()">
                                 <mat-icon>attach_file</mat-icon>
                                 Anexar CNS
                             </button>
@@ -47,21 +53,17 @@
                         
                         <div class="file-upload-cell">
                             <input type="file" hidden (change)="onFileSelected($event, 'document')" #fileDocument>
-                            <button mat-raised-button type="button" (click)="fileDocument.click()" [matTooltip]="files.document.label()" [disabled]="isSubmitting()">
+                            <button 
+                                mat-raised-button 
+                                type="button" 
+                                [class.attached]="files.document.hasFile()"
+                                (click)="fileDocument.click()" 
+                                [matTooltip]="files.document.label()" 
+                                [disabled]="isSubmitting()">
                                 <mat-icon>attach_file</mat-icon>
                                 Anexar documento
                             </button>
                         </div>
-                    </div>
-                    
-                    <div class="line cols-1-3">
-                        <mat-form-field appearance="outline">
-                            <mat-label>Sigadoc</mat-label>
-                            <input matInput type="text" placeholder="SES-PRO-0000/00000" formControlName="sigadoc">
-                            @for (item of errorMessages['sigadoc']; track $index) {
-                                <mat-error [hidden]="!identificationForm.get('sigadoc')?.hasError(item.type)">{{ item.message }}</mat-error>
-                            }
-                        </mat-form-field>
                     </div>
                 </div>
             </form>
@@ -213,7 +215,13 @@
                         </mat-form-field>
                         <div class="file-upload-cell">
                             <input type="file" hidden (change)="onFileSelected($event, 'deficiency')" #fileDeficiency [disabled]="isSubmitting()">
-                            <button mat-raised-button type="button" (click)="fileDeficiency.click()" [matTooltip]="files.deficiency.label()" [disabled]="isSubmitting()">
+                            <button 
+                                mat-raised-button 
+                                type="button" 
+                                [class.attached]="files.deficiency.hasFile()"
+                                (click)="fileDeficiency.click()" 
+                                [matTooltip]="files.deficiency.label()" 
+                                [disabled]="isSubmitting()">
                                 <mat-icon>attach_file</mat-icon>
                                 Anexar laudo
                             </button>
@@ -238,7 +246,13 @@
                         </mat-form-field>
                         <div class="file-upload-cell">
                             <input type="file" hidden (change)="onFileSelected($event, 'address')" #fileAddress [disabled]="isSubmitting()">
-                            <button mat-raised-button type="button" (click)="fileAddress.click()" [matTooltip]="files.address.label()" [disabled]="isSubmitting()">
+                            <button 
+                                mat-raised-button 
+                                type="button" 
+                                [class.attached]="files.address.hasFile()"
+                                (click)="fileAddress.click()" 
+                                [matTooltip]="files.address.label()" 
+                                [disabled]="isSubmitting()">
                                 <mat-icon>attach_file</mat-icon>
                                 Anexar comprovante de endereço
                             </button>
@@ -308,16 +322,31 @@
                         </mat-form-field>
                     </div>
                     
-                    <div class="line cols-1-3">
+                    <div class="line cols-1-1-2">
                         <mat-form-field appearance="outline">
                             <mat-label>Número de controle</mat-label>
                             <input matInput type="text" formControlName="control_number">
                         </mat-form-field>
+
+                        <mat-form-field appearance="outline">
+                            <mat-label>Sigadoc</mat-label>
+                            <input matInput type="text" placeholder="SES-PRO-0000/00000" formControlName="sigadoc">
+                            @for (item of errorMessages['sigadoc']; track $index) {
+                                <mat-error [hidden]="!infoForm.get('sigadoc')?.hasError(item.type)">{{ item.message }}</mat-error>
+                            }
+                        </mat-form-field>
+
                         <div class="file-upload-cell">
-                            <input type="file" hidden (change)="onFileSelected($event, 'protocol')" #fileProtocol [disabled]="isSubmitting()">
-                            <button mat-raised-button type="button" (click)="fileProtocol.click()" [matTooltip]="files.protocol.label()" [disabled]="isSubmitting()">
+                            <input type="file" hidden (change)="onFileSelected($event, 'sigadoc')" #fileSigadoc [disabled]="isSubmitting()">
+                            <button 
+                                mat-raised-button 
+                                type="button" 
+                                [class.attached]="files.sigadoc.hasFile()"
+                                (click)="fileSigadoc.click()" 
+                                [matTooltip]="files.sigadoc.label()" 
+                                [disabled]="isSubmitting()">
                                 <mat-icon>attach_file</mat-icon>
-                                Anexar protocolo municipal
+                                Anexar sigadoc
                             </button>
                         </div>
                     </div>
@@ -333,7 +362,7 @@
         mat-flat-button 
         color="primary" 
         type="button" 
-        [disabled]="identificationForm.invalid || personalForm.invalid || addressForm.invalid || identificationForm.pending || isSubmitting()" 
+        [disabled]="identificationForm.invalid || personalForm.invalid || addressForm.invalid || infoForm.invalid || identificationForm.pending || isSubmitting()" 
         (click)="onSubmit()"
     >
         <div class="waiting">

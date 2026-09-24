@@ -11,13 +11,11 @@ mat-dialog-content {
 
 .line {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: var(--grid-cols, 1fr);
   column-gap: $spacing-xl;
   row-gap: $spacing-form-gap;
 
-  &.double-columns {
-    grid-template-columns: 1fr 1fr;
-  }
+  &.cols-1-1 { --grid-cols: 1fr 1fr; }
 }
 
 .types-button-container {

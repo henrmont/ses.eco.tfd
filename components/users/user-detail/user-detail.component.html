@@ -3,6 +3,7 @@
 <mat-dialog-content>
   <div class="details-container">
     
+    <!-- DADOS DA CONTA -->
     <mat-card appearance="outlined" class="detail-card">
       <mat-card-header>
         <mat-card-subtitle>DADOS DA CONTA</mat-card-subtitle>
@@ -20,6 +21,7 @@
       </mat-card-content>
     </mat-card>
 
+    <!-- VÍNCULO PROFISSIONAL -->
     <mat-card appearance="outlined" class="detail-card">
       <mat-card-header>
         <mat-card-subtitle>VÍNCULO PROFISSIONAL</mat-card-subtitle>
@@ -48,6 +50,29 @@
         <div class="line cols-1-col">
           <div>
             <strong>CBO:</strong> {{ data?.user?.professional?.cbo ?? 'Não informado' }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- PERFIS PROFISSIONAIS -->
+    <mat-card appearance="outlined" class="detail-card">
+      <mat-card-header>
+        <mat-card-subtitle>PERFIS PROFISSIONAIS</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="line cols-1-col">
+          <div>
+            @if (data?.user?.professional?.types?.length) {
+              <mat-chip-set aria-label="Tipos de perfis profissionais">
+                @for (item of data.user.professional.types; track $index) {
+                  <mat-chip>{{ item?.type }}</mat-chip>
+                }
+              </mat-chip-set>
+            } @else {
+              <span>Nenhum perfil atribuído</span>
+            }
           </div>
         </div>
       </mat-card-content>

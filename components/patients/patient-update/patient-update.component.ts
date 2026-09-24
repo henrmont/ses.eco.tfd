@@ -60,7 +60,7 @@ import { Patient } from '../../../models/patient.model';
 import { PatientService } from '../../../services/patient.service';
 
 // Types & Interfaces
-export type FileType = 'cns' | 'document' | 'deficiency' | 'address' | 'protocol';
+export type FileType = 'cns' | 'document' | 'deficiency' | 'address' | 'sigadoc';
 
 interface NaturalnessOption {
   nome: string;
@@ -187,7 +187,7 @@ export class PatientUpdateComponent implements OnInit {
     document: { file: null, label: signal('Nenhum arquivo selecionado') },
     deficiency: { file: null, label: signal('Nenhum arquivo selecionado') },
     address: { file: null, label: signal('Nenhum arquivo selecionado') },
-    protocol: { file: null, label: signal('Nenhum arquivo selecionado') }
+    sigadoc: { file: null, label: signal('Nenhum arquivo selecionado') }
   };
 
   // ==========================================
@@ -262,7 +262,7 @@ export class PatientUpdateComponent implements OnInit {
         case 'address':
           this.addressForm.markAsDirty();
           break;
-        case 'protocol':
+        case 'sigadoc':
           this.infoForm.markAsDirty();
           break;
       }
@@ -279,7 +279,7 @@ export class PatientUpdateComponent implements OnInit {
   protected download(archiveId: number | null | undefined, name: string): void {
     if (!archiveId) return;
 
-    this.storageService.download('tfd',archiveId)
+    this.storageService.download('tfd', archiveId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(response => {
         if (response?.archive) {
@@ -341,7 +341,7 @@ export class PatientUpdateComponent implements OnInit {
       file_document: this.files.document.file,
       file_deficiency: this.files.deficiency.file,
       file_address: this.files.address.file,
-      file_protocol: this.files.protocol.file
+      file_sigadoc: this.files.sigadoc.file
     };
 
     this.patientService.updatePatient(patientCareId, payload)
@@ -386,8 +386,7 @@ export class PatientUpdateComponent implements OnInit {
         patient?.document ?? null,
         [Validators.required, CustomValidators.cpfOrCnjValidator()],
         [this.patientService.documentPatientExistsValidator(patient?.document ?? null, handleFound)]
-      ],
-      sigadoc: [patient?.sigadoc ?? null, [Validators.required]]
+      ]
     });
 
     this.personalForm = this.fb.group({
@@ -423,6 +422,7 @@ export class PatientUpdateComponent implements OnInit {
 
     this.infoForm = this.fb.group({
       control_number: [patient?.patient_info?.control_number ?? null],
+      sigadoc: [patient?.patient_info?.sigadoc ?? null, [Validators.required]],
       observation: [patient?.patient_info?.observation ?? null]
     });
   }
@@ -545,8 +545,7 @@ export class PatientUpdateComponent implements OnInit {
     }
 
     this.identificationForm.patchValue({
-      document_type: response.document_type,
-      sigadoc: response.sigadoc
+      document_type: response.document_type
     }, { emitEvent: false });
 
     this.personalForm.patchValue({
@@ -581,6 +580,7 @@ export class PatientUpdateComponent implements OnInit {
     }, { emitEvent: false });
 
     this.infoForm.patchValue({
+      sigadoc: response.patient_info?.sigadoc ?? null,
       control_number: response.patient_info?.control_number ?? null,
       observation: response.patient_info?.observation ?? null
     }, { emitEvent: false });
@@ -631,7 +631,6 @@ export class PatientUpdateComponent implements OnInit {
           }
         });
 
-        // Garante que o campo de etnia permaneça desabilitado caso a raça não seja Indígena ao reativar os formulários
         if (!isSubmitting && this.personalForm.get('race')?.value !== 'Indígena') {
           this.personalForm.get('ethnicity')?.disable({ emitEvent: false });
         }

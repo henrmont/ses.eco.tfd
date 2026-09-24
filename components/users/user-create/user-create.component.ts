@@ -101,10 +101,7 @@ export class UserCreateComponent implements OnInit {
   // ==========================================
   protected openProfessionalTypesDialog(): void {
     const currentTypes = this.userForm.get('types')?.value || [];
-    this.openDialog(
-      ProfessionalTypesComponent,
-      { selectedTypes: currentTypes },
-    );
+    this.openDialog(ProfessionalTypesComponent, { selectedTypes: currentTypes });
   }
 
   protected onSubmit(): void {

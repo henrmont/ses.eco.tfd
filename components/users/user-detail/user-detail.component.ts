@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { NgxMaskPipe } from 'ngx-mask';
@@ -9,6 +10,7 @@ import { NgxMaskPipe } from 'ngx-mask';
   selector: 'app-user-detail',
   standalone: true,
   imports: [
+    MatChipsModule,
     MatButtonModule,
     MatCardModule,
     MatDialogModule,

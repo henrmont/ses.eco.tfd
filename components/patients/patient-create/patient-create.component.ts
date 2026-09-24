@@ -58,7 +58,7 @@ import { Patient } from '../../../models/patient.model';
 import { PatientService } from '../../../services/patient.service';
 
 // Types & Interfaces
-export type FileType = 'cns' | 'document' | 'deficiency' | 'address' | 'protocol';
+export type FileType = 'cns' | 'document' | 'deficiency' | 'address' | 'sigadoc';
 
 interface NaturalnessOption {
   nome: string;
@@ -68,6 +68,7 @@ interface NaturalnessOption {
 interface AttachedFileState {
   file: File | null;
   label: ReturnType<typeof signal<string>>;
+  hasFile: ReturnType<typeof signal<boolean>>;
 }
 
 @Component({
@@ -179,11 +180,11 @@ export class PatientCreateComponent implements OnInit {
   // Gerenciamento de Anexos/Arquivos
   // ==========================================
   protected readonly files: Record<FileType, AttachedFileState> = {
-    cns: { file: null, label: signal('Nenhum arquivo selecionado') },
-    document: { file: null, label: signal('Nenhum arquivo selecionado') },
-    deficiency: { file: null, label: signal('Nenhum arquivo selecionado') },
-    address: { file: null, label: signal('Nenhum arquivo selecionado') },
-    protocol: { file: null, label: signal('Nenhum arquivo selecionado') }
+    cns: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) },
+    document: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) },
+    deficiency: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) },
+    address: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) },
+    sigadoc: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) }
   };
 
   // ==========================================
@@ -246,6 +247,7 @@ export class PatientCreateComponent implements OnInit {
     if (file) {
       this.files[type].file = file;
       this.files[type].label.set(file.name);
+      this.files[type].hasFile.set(true);
       this.cdr.markForCheck();
     }
   }
@@ -286,7 +288,7 @@ export class PatientCreateComponent implements OnInit {
       file_document: this.files.document.file,
       file_deficiency: this.files.deficiency.file,
       file_address: this.files.address.file,
-      file_protocol: this.files.protocol.file
+      file_sigadoc: this.files.sigadoc.file
     };
 
     this.patientService.createPatient(payload)
@@ -323,8 +325,7 @@ export class PatientCreateComponent implements OnInit {
         null,
         [Validators.required, CustomValidators.cpfOrCnjValidator()],
         [this.patientService.documentPatientExistsValidator(null, handleFound)]
-      ],
-      sigadoc: [null, [Validators.required]]
+      ]
     });
 
     this.personalForm = this.fb.group({
@@ -357,6 +358,7 @@ export class PatientCreateComponent implements OnInit {
 
     this.infoForm = this.fb.group({
       control_number: [null],
+      sigadoc: [null, [Validators.required]],
       observation: [null]
     });
   }
@@ -474,8 +476,7 @@ export class PatientCreateComponent implements OnInit {
     }
 
     this.identificationForm.patchValue({
-      document_type: response.document_type,
-      sigadoc: response.sigadoc
+      document_type: response.document_type
     }, { emitEvent: false });
 
     this.personalForm.patchValue({
@@ -510,6 +511,7 @@ export class PatientCreateComponent implements OnInit {
     }, { emitEvent: false });
 
     this.infoForm.patchValue({
+      sigadoc: response.sigadoc,
       control_number: response.patient_info?.control_number ?? null,
       observation: response.patient_info?.observation ?? null
     }, { emitEvent: false });
@@ -554,7 +556,6 @@ export class PatientCreateComponent implements OnInit {
           }
         });
 
-        // Caso especial para o controle de etnia
         if (!isSubmitting && this.personalForm.get('race')?.value !== 'Indígena') {
           this.personalForm.get('ethnicity')?.disable({ emitEvent: false });
         }

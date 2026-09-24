@@ -1,9 +1,8 @@
-import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnDestroy, OnInit, effect, inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NgxMaskPipe } from 'ngx-mask';
+import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
 import { Overlay } from '@angular/cdk/overlay';
@@ -22,7 +21,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 // Core & Models
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
 import { PatientCare } from '../../models/patient-care.model';
+import { Patient } from '../../models/patient.model';
 import { Permission } from '../../models/permission.model';
+import { User } from '../../models/user.model';
 import { PatientService } from '../../services/patient.service';
 
 // Dialog Components
@@ -34,9 +35,23 @@ import { PatientMoveFromOthersComponent } from '../../components/patients/patien
 import { PatientReportsComponent } from '../../components/patients/patient-reports/patient-reports.component';
 import { PatientUpdateComponent } from '../../components/patients/patient-update/patient-update.component';
 import { PatientValidateComponent } from '../../components/patients/patient-validate/patient-validate.component';
-import { Patient } from '../../models/patient.model';
 
-// Define o tipo aceito para as propriedades do Modal
+// Estrutura dos dados para exibição das tabelas
+export interface OwnerPatientTableRow extends PatientCare {
+  name: string;
+  cns: string;
+  document: string;
+  document_type: string;
+}
+
+export interface OthersPatientTableRow extends PatientCare {
+  name: string;
+  cns: string;
+  document: string;
+  document_type: string;
+  professional: string;
+}
+
 type PatientDialogData = 
   | { patient: Patient | undefined }
   | { patient_care: PatientCare };
@@ -45,7 +60,6 @@ type PatientDialogData =
   selector: 'app-patients-page',
   standalone: true,
   imports: [
-    CommonModule,
     MatBadgeModule,
     MatButtonModule,
     MatFormFieldModule,
@@ -58,6 +72,7 @@ type PatientDialogData =
     MatTooltipModule,
     NgxMaskPipe
   ],
+  providers: [provideNgxMask()],
   templateUrl: './patients.page.html',
   styleUrl: './patients.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -90,13 +105,13 @@ export class PatientsPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser = this.route.parent?.parent?.snapshot.data['user'];
+  private readonly currentUser: User | undefined = this.route.parent?.parent?.snapshot.data['user'];
 
   protected readonly displayedOwnerColumns: string[] = ['name', 'cns', 'document', 'status', 'actions'];
-  protected readonly displayedOthersColumns: string[] = ['name', 'cns', 'responsible', 'status', 'actions'];
+  protected readonly displayedOthersColumns: string[] = ['name', 'cns', 'document', 'responsible', 'actions'];
 
-  protected readonly ownerDataSource = new MatTableDataSource<PatientCare>([]);
-  protected readonly othersDataSource = new MatTableDataSource<PatientCare>([]);
+  protected readonly ownerDataSource = new MatTableDataSource<OwnerPatientTableRow>([]);
+  protected readonly othersDataSource = new MatTableDataSource<OthersPatientTableRow>([]);
 
   // ==========================================
   // Ciclo de Vida (Hooks)
@@ -207,8 +222,8 @@ export class PatientsPage implements OnInit, OnDestroy {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
-          const rawData: PatientCare[] = response || [];
+        next: (response: PatientCare[]) => {
+          const rawData = response || [];
 
           const owners = rawData
             .filter((item) => item.owner)
@@ -236,22 +251,24 @@ export class PatientsPage implements OnInit, OnDestroy {
     };
   }
 
-  private mapOwnerPatientRow(item: PatientCare) {
+  private mapOwnerPatientRow(item: PatientCare): OwnerPatientTableRow {
     return {
       ...item,
-      name: item.patient?.name,
-      cns: item.patient?.cns,
-      document: item.patient?.document,
-      document_type: item.patient?.document_type
+      name: item.patient?.name || '-',
+      cns: item.patient?.cns || '-',
+      document: item.patient?.document || '-',
+      document_type: item.patient?.document_type || '-'
     };
   }
 
-  private mapOthersPatientRow(item: PatientCare) {
+  private mapOthersPatientRow(item: PatientCare): OthersPatientTableRow {
     return {
       ...item,
-      name: item.patient?.name,
-      cns: item.patient?.cns,
-      professional: item.user?.professional?.name
+      name: item.patient?.name || '-',
+      cns: item.patient?.cns || '-',
+      document: item.patient?.document || '-',
+      document_type: item.patient?.document_type || '-',
+      professional: item.user?.professional?.name || '-'
     };
   }
 
