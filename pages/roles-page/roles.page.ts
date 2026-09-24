@@ -59,7 +59,7 @@ export class RolesPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser: User | undefined = this.route.parent?.parent?.snapshot.data['user'];
+  private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
 
   protected readonly displayedColumns: string[] = ['name', 'actions'];
 

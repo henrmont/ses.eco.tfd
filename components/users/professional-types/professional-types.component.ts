@@ -27,7 +27,7 @@ export class ProfessionalTypesComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<{ selectedTypes: string[] }>(MAT_DIALOG_DATA);
+  protected readonly data = inject(MAT_DIALOG_DATA);
   private readonly fb = inject(FormBuilder);
   private readonly dialogRef = inject(MatDialogRef<ProfessionalTypesComponent>);
 

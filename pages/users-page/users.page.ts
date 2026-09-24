@@ -181,7 +181,6 @@ export class UsersPage implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (response) => {
-          console.log(response)
           const rawData = response || [];
           this.dataSource.data = rawData.map(item => this.mapUserToRow(item));
         },

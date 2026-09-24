@@ -24,11 +24,6 @@ import { UserService } from '../../../services/user.service';
 import { ProfessionalTypesComponent } from '../professional-types/professional-types.component';
 import { ProfessionalType } from '../../../models/professional-type.model';
 
-// Define o tipo aceito para os dados do modal de tipos profissionais
-type ProfessionalTypesDialogData = {
-  selectedTypes: string[];
-};
-
 @Component({
   selector: 'app-user-update',
   standalone: true,
@@ -210,7 +205,7 @@ export class UserUpdateComponent implements OnInit {
 
   private openDialog<T>(
     component: ComponentType<T>,
-    data: ProfessionalTypesDialogData,
+    data: { selectedTypes: string[] },
     width = '600px',
     height = 'auto'
   ): void {
