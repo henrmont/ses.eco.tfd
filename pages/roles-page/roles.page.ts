@@ -26,6 +26,9 @@ import { RoleService } from '../../services/role.service';
 import { RoleDeleteComponent } from '../../components/roles/role-delete/role-delete.component';
 import { RoleUpdateComponent } from '../../components/roles/role-update/role-update.component';
 
+type RolesDialogData = {
+  role: Role
+}
 
 @Component({
   selector: 'app-roles-page',
@@ -168,7 +171,7 @@ export class RolesPage implements OnInit, OnDestroy {
 
   private openDialog<T>(
     component: new (...args: any[]) => T, 
-    data: { role: Role }, 
+    data: RolesDialogData, 
     width = '400px', 
     height = 'auto', 
     requiresRefresh = true

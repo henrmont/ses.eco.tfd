@@ -36,6 +36,10 @@ interface UserTableRow extends User {
   cns: string;
 }
 
+type UsersDialogData = {
+  user: User
+}
+
 @Component({
   selector: 'app-users-page',
   standalone: true,
@@ -230,7 +234,7 @@ export class UsersPage implements OnInit, OnDestroy {
 
   private openDialog<T>(
     component: new (...args: any[]) => T, 
-    data: { user: User }, 
+    data: UsersDialogData, 
     width = '400px', 
     height = 'auto', 
     requiresRefresh = true
