@@ -7,7 +7,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Core & Services
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientService } from '../../../services/patient.service';
 
@@ -43,17 +44,19 @@ export class ReportAttachmentDeleteComponent {
   // Submissão
   // ==========================================
   protected onSubmit(): void {
+    const patientCareId = this.data?.patient_care?.id;
+    const reportId = this.data?.patient_report?.id;
     const attachmentId = this.data?.report_attachment?.id;
 
-    if (!attachmentId) {
-      this.messageService.showMessage('Identificador do anexo não encontrado.');
+    if (!patientCareId || !reportId || !attachmentId) {
+      this.messageService.showMessage('Identificadores do atendimento, laudo ou anexo não encontrados.');
       return;
     }
 
     this.isSubmitting.set(true);
     this.cdr.markForCheck();
 
-    this.patientService.deleteReportAttachment(attachmentId)
+    this.patientService.deleteReportAttachment(patientCareId, reportId, attachmentId)
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);
@@ -62,7 +65,7 @@ export class ReportAttachmentDeleteComponent {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Anexo removido com sucesso!');
           this.dialogRef.close(true);
         },

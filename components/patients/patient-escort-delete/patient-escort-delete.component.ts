@@ -2,14 +2,16 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inje
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
-// Material Modules
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
+// Core, Services & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientService } from '../../../services/patient.service';
+
 
 @Component({
   selector: 'app-patient-escort-delete',
@@ -27,7 +29,7 @@ export class PatientEscortDeleteComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject(MAT_DIALOG_DATA);
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientEscortDeleteComponent>);
@@ -43,16 +45,18 @@ export class PatientEscortDeleteComponent {
   // Submissão
   // ==========================================
   protected onSubmit(): void {
-    const pivotId = this.data?.patient_escort?.pivot?.id;
-    if (!pivotId) {
-      this.messageService.showMessage('Identificador do vínculo não encontrado.');
+    const patientCareId = this.data?.patient_care?.id;
+    const escortId = this.data?.patient_escort?.pivot?.id;
+
+    if (!patientCareId || !escortId) {
+      this.messageService.showMessage('Identificadores do atendimento ou do acompanhante não encontrados.');
       return;
     }
 
     this.isSubmitting.set(true);
     this.cdr.markForCheck();
 
-    this.patientService.deletePatientEscort(pivotId)
+    this.patientService.deletePatientEscort(patientCareId, escortId)
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);
@@ -65,7 +69,7 @@ export class PatientEscortDeleteComponent {
           this.messageService.showMessage(response?.message || 'Acompanhante removido com sucesso!');
           this.dialogRef.close(true);
         },
-        error: err => {
+        error: (err) => {
           const fallbackError = err?.error?.message || 'Ocorreu um erro ao tentar remover o acompanhante.';
           this.messageService.showMessage(fallbackError);
         }

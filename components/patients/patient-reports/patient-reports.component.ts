@@ -12,7 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core, Models e Enums
+// Core, Services & Models
 import { MessageService } from '../../../../core/services/message-service';
 import { Specialty } from '../../../enums/specialties';
 import { PatientCare } from '../../../models/patient-care.model';
@@ -26,13 +26,11 @@ import { PatientReportDetailComponent } from '../patient-report-detail/patient-r
 import { PatientReportUpdateComponent } from '../patient-report-update/patient-report-update.component';
 import { ReportAttachmentsComponent } from '../report-attachments/report-attachments.component';
 
-// Define o tipo aceito para as propriedades dos Modais de Laudo
-type PatientReportDialogData =
-  | { patient_report: PatientReport }
-  | { patient_care: PatientCare | undefined };
-
-// Constantes Locais
-const TFD_PATIENTS_CHANNEL = new BroadcastChannel('tfd-patients-channel');
+// Tipagem dos Dados do Modal
+type PatientReportDialogData = {
+  patient_care?: PatientCare;
+  patient_report?: PatientReport;
+};
 
 @Component({
   selector: 'app-patient-reports',
@@ -51,6 +49,11 @@ const TFD_PATIENTS_CHANNEL = new BroadcastChannel('tfd-patients-channel');
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PatientReportsComponent implements OnInit, OnDestroy {
+  // ==========================================
+  // Instância própria do canal
+  // ==========================================
+  private readonly patientsChannel = new BroadcastChannel('tfd-patients-channel');
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
@@ -77,7 +80,7 @@ export class PatientReportsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    TFD_PATIENTS_CHANNEL.close();
+    this.patientsChannel.close();
   }
 
   // ==========================================
@@ -89,23 +92,37 @@ export class PatientReportsComponent implements OnInit, OnDestroy {
   }
 
   protected patientReportDetail(patientReport: PatientReport): void {
-    this.openDialog(PatientReportDetailComponent, { patient_report: patientReport }, '800px', 'auto', false);
+    this.openDialog(PatientReportDetailComponent, { 
+      patient_care: this.data?.patient_care,
+      patient_report: patientReport 
+    }, '800px', 'auto', false);
   }
 
   protected patientReportCreate(): void {
-    this.openDialog(PatientReportCreateComponent, { patient_care: this.data?.patient_care });
+    this.openDialog(PatientReportCreateComponent, { 
+      patient_care: this.data?.patient_care 
+    });
   }
 
   protected patientReportUpdate(patientReport: PatientReport): void {
-    this.openDialog(PatientReportUpdateComponent, { patient_report: patientReport });
+    this.openDialog(PatientReportUpdateComponent, {
+      patient_care: this.data?.patient_care,
+      patient_report: patientReport
+    });
   }
 
   protected patientReportDelete(patientReport: PatientReport): void {
-    this.openDialog(PatientReportDeleteComponent, { patient_report: patientReport }, '400px', 'auto', true);
+    this.openDialog(PatientReportDeleteComponent, {
+      patient_care: this.data?.patient_care,
+      patient_report: patientReport
+    }, '400px', 'auto', true);
   }
 
   protected reportAttachments(patientReport: PatientReport): void {
-    this.openDialog(ReportAttachmentsComponent, { patient_report: patientReport }, '600px', 'auto', false);
+    this.openDialog(ReportAttachmentsComponent, {
+      patient_care: this.data?.patient_care,
+      patient_report: patientReport
+    }, '600px', 'auto', false);
   }
 
   // ==========================================
@@ -129,9 +146,8 @@ export class PatientReportsComponent implements OnInit, OnDestroy {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
-          const rawData: PatientReport[] = response || [];
-          this.dataSource.data = rawData;
+        next: (response: PatientReport[]) => {
+          this.dataSource.data = response || [];
         },
         error: (err) => {
           this.dataSource.data = [];
@@ -142,7 +158,7 @@ export class PatientReportsComponent implements OnInit, OnDestroy {
   }
 
   private listenToBroadcastChannel(): void {
-    TFD_PATIENTS_CHANNEL.onmessage = (message: MessageEvent<string>) => {
+    this.patientsChannel.onmessage = (message: MessageEvent<string>) => {
       if (message.data === 'update') {
         this.fetchPatientReports(false);
       }
@@ -175,6 +191,6 @@ export class PatientReportsComponent implements OnInit, OnDestroy {
 
   private handleReportChange(): void {
     this.fetchPatientReports(false);
-    TFD_PATIENTS_CHANNEL.postMessage('update');
+    this.patientsChannel.postMessage('update');
   }
 }

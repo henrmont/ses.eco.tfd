@@ -25,14 +25,11 @@ import { PatientEscortDeleteComponent } from '../patient-escort-delete/patient-e
 import { PatientEscortDetailComponent } from '../patient-escort-detail/patient-escort-detail.component';
 import { PatientEscortUpdateComponent } from '../patient-escort-update/patient-escort-update.component';
 
-// Define o tipo aceito para as propriedades dos Modais de Acompanhante
-type PatientEscortDialogData =
-  | { patient_escort: PatientEscort }
-  | { patient_care: PatientCare | undefined }
-  | { patient_care: PatientCare | undefined; patient_escort: PatientEscort };
-
-// Constantes Locais
-const TFD_PATIENTS_CHANNEL = new BroadcastChannel('tfd-patients-channel');
+// Tipagem dos Dados do Modal
+type PatientEscortDialogData = {
+  patient_care?: PatientCare;
+  patient_escort?: PatientEscort;
+};
 
 @Component({
   selector: 'app-patient-escorts',
@@ -54,6 +51,11 @@ const TFD_PATIENTS_CHANNEL = new BroadcastChannel('tfd-patients-channel');
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PatientEscortsComponent implements OnInit, OnDestroy {
+  // ==========================================
+  // Instância própria do canal
+  // ==========================================
+  private readonly patientsChannel = new BroadcastChannel('tfd-patients-channel');
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
@@ -79,18 +81,22 @@ export class PatientEscortsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    TFD_PATIENTS_CHANNEL.close();
+    this.patientsChannel.close();
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected patientEscortDetail(patientEscort: PatientEscort): void {
-    this.openDialog(PatientEscortDetailComponent, { patient_escort: patientEscort }, '800px', 'auto', false);
+    this.openDialog(PatientEscortDetailComponent, { 
+      patient_escort: patientEscort 
+    }, '800px', 'auto', false);
   }
 
   protected patientEscortCreate(): void {
-    this.openDialog(PatientEscortCreateComponent, { patient_care: this.data?.patient_care });
+    this.openDialog(PatientEscortCreateComponent, { 
+      patient_care: this.data?.patient_care 
+    });
   }
 
   protected patientEscortUpdate(patientEscort: PatientEscort): void {
@@ -101,7 +107,10 @@ export class PatientEscortsComponent implements OnInit, OnDestroy {
   }
 
   protected patientEscortDelete(patientEscort: PatientEscort): void {
-    this.openDialog(PatientEscortDeleteComponent, { patient_escort: patientEscort }, '400px', 'auto', true);
+    this.openDialog(PatientEscortDeleteComponent, { 
+      patient_care: this.data?.patient_care,
+      patient_escort: patientEscort
+    }, '400px', 'auto', true);
   }
 
   // ==========================================
@@ -125,21 +134,17 @@ export class PatientEscortsComponent implements OnInit, OnDestroy {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
-          const rawData: PatientEscort[] = response || [];
-
-          this.dataSource.data = rawData;
+        next: (response: PatientEscort[]) => {
+          this.dataSource.data = response || [];
         },
         error: () => {
           this.dataSource.data = [];
         }
       });
-
-      
   }
 
   private listenToBroadcastChannel(): void {
-    TFD_PATIENTS_CHANNEL.onmessage = (message: MessageEvent<string>) => {
+    this.patientsChannel.onmessage = (message: MessageEvent<string>) => {
       if (message.data === 'update') {
         this.fetchPatientEscorts(false);
       }
@@ -172,6 +177,6 @@ export class PatientEscortsComponent implements OnInit, OnDestroy {
 
   private handleEscortChange(): void {
     this.fetchPatientEscorts(false);
-    TFD_PATIENTS_CHANNEL.postMessage('update');
+    this.patientsChannel.postMessage('update');
   }
 }

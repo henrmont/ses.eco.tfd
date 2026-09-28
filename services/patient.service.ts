@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { AbstractControl, AsyncValidatorFn, ValidationErrors } from '@angular/forms';
 import { Observable, catchError, map, of, switchMap, timer } from 'rxjs';
@@ -29,12 +29,12 @@ export class PatientService {
   // 1. FLUXO DE PACIENTES
   // ==========================================
 
-  getPatients(): Observable<Patient[]> {
-    return this.http.get<Patient[]>(`${this.apiUrl}`);
+  getPatients(): Observable<PatientCare[]> {
+    return this.http.get<PatientCare[]>(`${this.apiUrl}`);
   }
 
-  getArchivePatients(): Observable<Patient[]> {
-    return this.http.get<Patient[]>(`${this.apiUrl}/archived`);
+  getArchivePatients(): Observable<PatientCare[]> {
+    return this.http.get<PatientCare[]>(`${this.apiUrl}/archived`);
   }
 
   createPatient(data: Patient): Observable<ApiResponse> {
@@ -77,12 +77,12 @@ export class PatientService {
     return this.http.post<ApiResponse>(`${this.apiUrl}/${patientCareId}/escorts`, this.mountFormData(data as unknown as Record<string, unknown>));
   }
 
-  updatePatientEscort(escortId: number, data: PatientEscort): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`${this.apiUrl}/escorts/${escortId}`, this.mountFormData(data as unknown as Record<string, unknown>));
+  updatePatientEscort(patientCareId: number, escortId: number, data: PatientEscort): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${this.apiUrl}/${patientCareId}/escorts/${escortId}`, this.mountFormData(data as unknown as Record<string, unknown>));
   }
 
-  deletePatientEscort(patientCareEscortId: number): Observable<ApiResponse> {
-    return this.http.delete<ApiResponse>(`${this.apiUrl}/escorts/${patientCareEscortId}`);
+  deletePatientEscort(patientCareId: number, escortId: number): Observable<ApiResponse> {
+    return this.http.delete<ApiResponse>(`${this.apiUrl}/${patientCareId}/escorts/${escortId}`);
   }
 
   // ==========================================
@@ -101,52 +101,80 @@ export class PatientService {
     return this.http.post<ApiResponse>(`${this.apiUrl}/${patientCareId}/reports`, data);
   }
 
-  updatePatientReport(reportId: number, data: PatientReport): Observable<ApiResponse> {
-    return this.http.patch<ApiResponse>(`${this.apiUrl}/reports/${reportId}`, data);
+  updatePatientReport(patientCareId: number, reportId: number, data: PatientReport): Observable<ApiResponse> {
+    return this.http.patch<ApiResponse>(`${this.apiUrl}/${patientCareId}/reports/${reportId}`, data);
   }
 
-  deletePatientReport(reportId: number): Observable<ApiResponse> {
-    return this.http.delete<ApiResponse>(`${this.apiUrl}/reports/${reportId}`);
+  deletePatientReport(patientCareId: number, reportId: number): Observable<ApiResponse> {
+    return this.http.delete<ApiResponse>(`${this.apiUrl}/${patientCareId}/reports/${reportId}`);
   }
 
   // ==========================================
   // 4. FLUXO DE ANEXOS DE LAUDO (REPORT ATTACHMENTS)
   // ==========================================
 
-  getReportAttachments(reportId: number): Observable<ReportAttachment[]> {
-    return this.http.get<ReportAttachment[]>(`${this.apiUrl}/reports/${reportId}/attachments`);
+  getReportAttachments(patientCareId: number, reportId: number): Observable<ReportAttachment[]> {
+    return this.http.get<ReportAttachment[]>(`${this.apiUrl}/${patientCareId}/reports/${reportId}/attachments`);
   }
 
-  createReportAttachment(reportId: number, data: ReportAttachment): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`${this.apiUrl}/reports/${reportId}/attachments`, this.mountFormData(data as unknown as Record<string, unknown>));
+  createReportAttachment(patientCareId: number, reportId: number, data: ReportAttachment): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${this.apiUrl}/${patientCareId}/reports/${reportId}/attachments`, this.mountFormData(data as unknown as Record<string, unknown>));
   }
 
-  updateReportAttachment(reportAttachmentId: number, data: ReportAttachment): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`${this.apiUrl}/attachments/${reportAttachmentId}`, this.mountFormData(data as unknown as Record<string, unknown>));
+  updateReportAttachment(patientCareId: number, reportId: number, attachmentId: number, data: ReportAttachment): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${this.apiUrl}/${patientCareId}/reports/${reportId}/attachments/${attachmentId}`, this.mountFormData(data as unknown as Record<string, unknown>));
   }
 
-  deleteReportAttachment(reportAttachmentId: number): Observable<ApiResponse> {
-    return this.http.delete<ApiResponse>(`${this.apiUrl}/attachments/${reportAttachmentId}`);
+  deleteReportAttachment(patientCareId: number, reportId: number, attachmentId: number): Observable<ApiResponse> {
+    return this.http.delete<ApiResponse>(`${this.apiUrl}/${patientCareId}/reports/${reportId}/attachments/${attachmentId}`);
   }
 
   // ==========================================
-  // 5. CONSULTAS DIRETAS
+  // 5. CONSULTAS DIRETAS (COM TRATAMENTO DE 404/NULL)
   // ==========================================
 
-  getPatientCns(cns: string | number): Observable<Patient & { exists_in_tfd?: boolean }> {
-    return this.http.get<Patient & { exists_in_tfd?: boolean }>(`${this.apiUrl}/cns/${cns}`);
+  getPatientCns(cns: string | number): Observable<(Patient & { exists_in_tfd?: boolean }) | null> {
+    return this.http.get<Patient & { exists_in_tfd?: boolean }>(`${this.apiUrl}/search/cns/${cns}`).pipe(
+      catchError((error: HttpErrorResponse) => {
+        if (error.status === 404) {
+          return of(null);
+        }
+        return of(null);
+      })
+    );
   }
 
-  getPatientDocument(document: string | number): Observable<Patient & { exists_in_tfd?: boolean }> {
-    return this.http.get<Patient & { exists_in_tfd?: boolean }>(`${this.apiUrl}/document/${document}`);
+  getPatientDocument(document: string | number): Observable<(Patient & { exists_in_tfd?: boolean }) | null> {
+    return this.http.get<Patient & { exists_in_tfd?: boolean }>(`${this.apiUrl}/search/document/${document}`).pipe(
+      catchError((error: HttpErrorResponse) => {
+        if (error.status === 404) {
+          return of(null);
+        }
+        return of(null);
+      })
+    );
   }
 
-  getEscortCns(cns: string | number): Observable<PatientEscort> {
-    return this.http.get<PatientEscort>(`${this.apiUrl}/escorts/cns/${cns}`);
+  getEscortCns(cns: string | number): Observable<PatientEscort | null> {
+    return this.http.get<PatientEscort>(`${this.apiUrl}/escorts/search/cns/${cns}`).pipe(
+      catchError((error: HttpErrorResponse) => {
+        if (error.status === 404) {
+          return of(null);
+        }
+        return of(null);
+      })
+    );
   }
 
-  getEscortDocument(document: string | number): Observable<PatientEscort> {
-    return this.http.get<PatientEscort>(`${this.apiUrl}/escorts/document/${document}`);
+  getEscortDocument(document: string | number): Observable<PatientEscort | null> {
+    return this.http.get<PatientEscort>(`${this.apiUrl}/escorts/search/document/${document}`).pipe(
+      catchError((error: HttpErrorResponse) => {
+        if (error.status === 404) {
+          return of(null);
+        }
+        return of(null);
+      })
+    );
   }
 
   // ==========================================
@@ -166,15 +194,18 @@ export class PatientService {
       }
 
       return timer(400).pipe(
-        switchMap(() => this.getPatientCns(cnsClean)),
-        map((patient) => {
-          if (patient) {
-            if (onFound) onFound(patient);
-            return patient.exists_in_tfd ? { cnsExists: true } : null;
-          }
-          return null;
-        }),
-        catchError(() => of(null))
+        switchMap(() =>
+          this.getPatientCns(cnsClean).pipe(
+            map((patient) => {
+              if (patient) {
+                if (onFound) onFound(patient);
+                return patient.exists_in_tfd ? { cnsExists: true } : null;
+              }
+              return null;
+            }),
+            catchError(() => of(null))
+          )
+        )
       );
     };
   }
@@ -196,15 +227,18 @@ export class PatientService {
       }
 
       return timer(400).pipe(
-        switchMap(() => this.getPatientDocument(docClean)),
-        map((patient) => {
-          if (patient) {
-            if (onFound) onFound(patient);
-            return patient.exists_in_tfd ? { documentExists: true } : null;
-          }
-          return null;
-        }),
-        catchError(() => of(null))
+        switchMap(() =>
+          this.getPatientDocument(docClean).pipe(
+            map((patient) => {
+              if (patient) {
+                if (onFound) onFound(patient);
+                return patient.exists_in_tfd ? { documentExists: true } : null;
+              }
+              return null;
+            }),
+            catchError(() => of(null))
+          )
+        )
       );
     };
   }
@@ -228,23 +262,26 @@ export class PatientService {
       }
 
       return timer(400).pipe(
-        switchMap(() => this.getEscortCns(cns)),
-        map((escort) => {
-          if (escort) {
-            if (onFound) onFound(escort);
+        switchMap(() =>
+          this.getEscortCns(cns).pipe(
+            map((escort) => {
+              if (escort) {
+                if (onFound) onFound(escort);
 
-            if (patientCare?.id) {
-              const existsInCurrentCare = patientCare.escorts?.some(
-                (e) => String(e.cns).replace(/\D/g, '') === cns
-              );
-              return existsInCurrentCare ? { cnsExists: true } : null;
-            }
+                if (patientCare?.id) {
+                  const existsInCurrentCare = patientCare.escorts?.some(
+                    (e) => String(e.cns).replace(/\D/g, '') === cns
+                  );
+                  return existsInCurrentCare ? { cnsExists: true } : null;
+                }
 
-            return { cnsExists: true };
-          }
-          return null;
-        }),
-        catchError(() => of(null))
+                return { cnsExists: true };
+              }
+              return null;
+            }),
+            catchError(() => of(null))
+          )
+        )
       );
     };
   }
@@ -275,23 +312,26 @@ export class PatientService {
       }
 
       return timer(400).pipe(
-        switchMap(() => this.getEscortDocument(document)),
-        map((escort) => {
-          if (escort) {
-            if (onFound) onFound(escort);
+        switchMap(() =>
+          this.getEscortDocument(document).pipe(
+            map((escort) => {
+              if (escort) {
+                if (onFound) onFound(escort);
 
-            if (patientCare?.id) {
-              const existsInCurrentCare = patientCare.escorts?.some(
-                (e) => String(e.document).replace(/\D/g, '') === document
-              );
-              return existsInCurrentCare ? { documentExists: true } : null;
-            }
+                if (patientCare?.id) {
+                  const existsInCurrentCare = patientCare.escorts?.some(
+                    (e) => String(e.document).replace(/\D/g, '') === document
+                  );
+                  return existsInCurrentCare ? { documentExists: true } : null;
+                }
 
-            return { documentExists: true };
-          }
-          return null;
-        }),
-        catchError(() => of(null))
+                return { documentExists: true };
+              }
+              return null;
+            }),
+            catchError(() => of(null))
+          )
+        )
       );
     };
   }

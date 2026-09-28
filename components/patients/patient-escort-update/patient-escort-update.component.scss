@@ -24,19 +24,35 @@ mat-dialog-content {
   align-items: start;
   min-height: $material-field-outline-height;
 
-  .file-actions-cell {
-    display: flex;
-    align-items: center;
-    column-gap: $spacing-xl;
-    height: $material-field-outline-height;
-  }
-}
-
-// --- Definições Semânticas das Colunas Utilizadas ---
-.line {
+  // Definições Semânticas das Colunas Utilizadas
   &.cols-1-col { --grid-cols: 1fr; }
   &.cols-1-1   { --grid-cols: 1fr 1fr; }
   &.cols-1-2   { --grid-cols: 1fr 2fr; }
+  &.cols-1-3   { --grid-cols: 1fr 3fr; }
+
+  .file-actions-cell,
+  .file-upload-cell {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    height: $material-field-outline-height;
+    width: 100%;
+
+    .btn-archive {
+      flex-shrink: 0;
+    }
+
+    button[mat-raised-button] {
+      &.attached {
+        background-color: var(--md-sys-color-secondary);
+        color: var(--md-sys-color-on-secondary);
+
+        mat-icon {
+          color: var(--md-sys-color-on-secondary);
+        }
+      }
+    }
+  }
 }
 
 .uf-field {

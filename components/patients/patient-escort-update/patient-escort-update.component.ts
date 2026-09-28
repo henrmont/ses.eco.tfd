@@ -1,5 +1,5 @@
 import { STEPPER_GLOBAL_OPTIONS } from '@angular/cdk/stepper';
-import { CommonModule } from '@angular/common';
+import { CommonModule, formatDate } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -10,12 +10,12 @@ import {
   inject,
   signal
 } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, debounceTime, distinctUntilChanged, filter, finalize, map, startWith } from 'rxjs';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { saveAs } from 'file-saver';
 
-// Material Modules
+// Angular Material
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DATE_LOCALE, MatNativeDateModule } from '@angular/material/core';
@@ -29,26 +29,38 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { NgxMaskDirective } from 'ngx-mask';
 
+// Bibliotecas de Terceiros
+import { NgxMaskDirective } from 'ngx-mask';
 import * as _moment from 'moment';
 const moment = (_moment as any).default || _moment;
 
+// Core, Services & Validators
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { StorageService } from '../../../../core/services/storage-service';
 import { ViacepService } from '../../../../core/services/viacep-service';
 import { CustomValidators } from '../../../../core/validators/custom.validator';
+
+// Enums & Models
 import { Gender } from '../../../enums/gender';
 import { Ufs } from '../../../enums/ufs';
+import { PatientCare } from '../../../models/patient-care.model';
+import { PatientEscort } from '../../../models/patient-escort.model';
 import { PatientService } from '../../../services/patient.service';
 
-type EscortFileType = 'cns' | 'document' | 'address';
+// Types & Interfaces
+type FileType = 'cns' | 'document' | 'address';
 
 interface AttachedFileState {
   file: File | null;
   label: ReturnType<typeof signal<string>>;
 }
+
+type PatientEscortUpdateDialogData = {
+  patient_care: PatientCare;
+  patient_escort: PatientEscort;
+};
 
 @Component({
   selector: 'app-patient-escort-update',
@@ -84,7 +96,7 @@ export class PatientEscortUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientEscortUpdateDialogData>(MAT_DIALOG_DATA);
   private readonly fb = inject(FormBuilder);
   private readonly viacepService = inject(ViacepService);
   private readonly patientService = inject(PatientService);
@@ -96,16 +108,21 @@ export class PatientEscortUpdateComponent implements OnInit {
   private readonly injector = inject(Injector);
 
   // ==========================================
-  // Opções dos Enums Centralizadas no Controle
+  // Propriedades e Estado Reativo
   // ==========================================
+  protected personalForm!: FormGroup;
+  protected addressForm!: FormGroup;
+
+  protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly isSameAddressSignal = signal<boolean>(false);
+
+  // Opções dos Enums Centralizadas no Controle
   protected readonly options = {
     genders: Object.values(Gender),
     ufs: Object.keys(Ufs)
   };
 
-  // ==========================================
-  // Mensagens de Erro por Controle
-  // ==========================================
+  // Mapeamento de Mensagens de Erro
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
     cns: [
       { type: 'required', message: 'O número do CNS é obrigatório.' },
@@ -148,39 +165,14 @@ export class PatientEscortUpdateComponent implements OnInit {
     ]
   };
 
-  // ==========================================
   // Gerenciamento de Anexos/Arquivos
-  // ==========================================
-  protected readonly files: Record<EscortFileType, AttachedFileState> = {
-    cns: {
-      file: null,
-      label: signal(this.data?.patient_escort?.file_cns_id ? 'Arquivo já cadastrado (Clique para alterar)' : 'Nenhum arquivo selecionado')
-    },
-    document: {
-      file: null,
-      label: signal(this.data?.patient_escort?.file_document_id ? 'Arquivo já cadastrado (Clique para alterar)' : 'Nenhum arquivo selecionado')
-    },
-    address: {
-      file: null,
-      label: signal(this.data?.patient_escort?.file_address_id ? 'Arquivo já cadastrado (Clique para alterar)' : 'Nenhum arquivo selecionado')
-    }
+  protected readonly files: Record<FileType, AttachedFileState> = {
+    cns: { file: null, label: signal('Nenhum arquivo selecionado') },
+    document: { file: null, label: signal('Nenhum arquivo selecionado') },
+    address: { file: null, label: signal('Nenhum arquivo selecionado') }
   };
 
-  // ==========================================
-  // Estados Reativos via Signals
-  // ==========================================
-  protected readonly isSubmitting = signal<boolean>(false);
-  protected readonly isSameAddressSignal = signal<boolean>(false);
-
-  // ==========================================
-  // FormGroups e Controles Expostos
-  // ==========================================
-  protected personalForm!: FormGroup;
-  protected addressForm!: FormGroup;
-
-  // ==========================================
-  // Autocomplete e Observables
-  // ==========================================
+  // Controles Independentes & Autocomplete
   protected filteredUfsOptions!: Observable<string[]>;
 
   // ==========================================
@@ -195,12 +187,129 @@ export class PatientEscortUpdateComponent implements OnInit {
   }
 
   // ==========================================
-  // Inicialização de Formulários
+  // Métodos Acessíveis pelo Template (Protected)
+  // ==========================================
+  protected setBirthDate(event: MatDatepickerInputEvent<any>): void {
+    if (event.value) {
+      const momentDate = moment(event.value);
+      this.personalForm.get('birth_date')?.setValue(momentDate, { emitEvent: true });
+      this.personalForm.markAsDirty();
+      this.cdr.markForCheck();
+    }
+  }
+
+  protected onlyNumbersAndSlashes(event: KeyboardEvent): boolean {
+    const charCode = event.key;
+    const allowedCharacters = /^[0-9\/]$/;
+
+    if (!allowedCharacters.test(charCode)) {
+      event.preventDefault();
+      return false;
+    }
+    return true;
+  }
+
+  protected onFileSelected(event: Event, type: FileType): void {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+
+    if (file) {
+      this.files[type].file = file;
+      this.files[type].label.set(file.name);
+
+      switch (type) {
+        case 'cns':
+        case 'document':
+          this.personalForm.markAsDirty();
+          break;
+        case 'address':
+          this.addressForm.markAsDirty();
+          break;
+      }
+
+      this.cdr.markForCheck();
+    }
+  }
+
+  protected download(archiveId: number | null | undefined, name: string): void {
+    if (!archiveId) return;
+
+    this.storageService.download('tfd', archiveId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (response) => {
+          if (response?.archive) {
+            saveAs(response.archive, name);
+          }
+        }
+      });
+  }
+
+  protected isFormsPristine(): boolean {
+    return this.personalForm.pristine && this.addressForm.pristine;
+  }
+
+  protected onSubmit(): void {
+    const patientCareId = this.data?.patient_care?.id;
+    const patientEscortId = this.data?.patient_escort?.id;
+
+    if (!patientCareId || !patientEscortId) {
+      this.messageService.showMessage('Identificadores do atendimento ou acompanhante não encontrados.');
+      return;
+    }
+
+    if (this.personalForm.invalid || (this.addressForm.invalid && !this.isSameAddressSignal())) {
+      this.personalForm.markAllAsTouched();
+      this.addressForm.markAllAsTouched();
+      return;
+    }
+
+    this.isSubmitting.set(true);
+
+    const rawPersonal = this.personalForm.getRawValue();
+    let formattedBirthDate: string | null = null;
+
+    if (rawPersonal.birth_date) {
+      if (moment.isMoment(rawPersonal.birth_date)) {
+        formattedBirthDate = rawPersonal.birth_date.format('YYYY-MM-DD');
+      } else {
+        formattedBirthDate = formatDate(rawPersonal.birth_date, 'yyyy-MM-dd', 'en');
+      }
+    }
+
+    const payload = {
+      ...rawPersonal,
+      birth_date: formattedBirthDate,
+      ...this.addressForm.getRawValue(),
+      file_cns: this.files.cns.file,
+      file_document: this.files.document.file,
+      file_address: this.files.address.file
+    };
+
+    this.patientService.updatePatientEscort(patientCareId, patientEscortId, payload)
+      .pipe(
+        finalize(() => this.isSubmitting.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (response: ApiResponse) => {
+          this.messageService.showMessage(response?.message || 'Acompanhante atualizado com sucesso!');
+          this.dialogRef.close(true);
+        },
+        error: (err) => {
+          const fallbackError = 'Erro ao atualizar acompanhante.';
+          this.messageService.showMessage(err?.error?.message || fallbackError);
+        }
+      });
+  }
+
+  // ==========================================
+  // Métodos Privados / Auxiliares
   // ==========================================
   private initForms(): void {
     const patientCare = this.data?.patient_care;
     const patientEscort = this.data?.patient_escort;
-    const handleFound = (escort: any) => this.populateFromResponse(escort);
+    const handleFound = (escort: PatientEscort) => this.populateFromResponse(escort);
 
     let initialBirthDate: any = null;
     if (patientEscort?.birth_date) {
@@ -210,33 +319,33 @@ export class PatientEscortUpdateComponent implements OnInit {
 
     this.personalForm = this.fb.group({
       cns: [
-        patientEscort?.cns,
+        patientEscort?.cns ?? null,
         [Validators.required, CustomValidators.cnsValidator()],
-        [this.patientService.cnsEscortExistsValidator(patientCare, patientEscort?.cns, handleFound)]
+        [this.patientService.cnsEscortExistsValidator(patientCare, patientEscort?.cns ?? null, handleFound)]
       ],
-      file_cns_id: [patientEscort?.file_cns_id],
+      file_cns_id: [patientEscort?.file_cns_id ?? null],
       document: [
-        patientEscort?.document,
+        patientEscort?.document ?? null,
         [Validators.required, CustomValidators.cpfValidator()],
-        [this.patientService.documentEscortExistsValidator(patientCare, patientEscort?.document, handleFound)]
+        [this.patientService.documentEscortExistsValidator(patientCare, patientEscort?.document ?? null, handleFound)]
       ],
-      file_document_id: [patientEscort?.file_document_id],
-      name: [patientEscort?.name, [Validators.required]],
-      relation: [patientEscort?.relation],
+      file_document_id: [patientEscort?.file_document_id ?? null],
+      name: [patientEscort?.name ?? null, [Validators.required]],
+      relation: [patientEscort?.relation ?? null],
       birth_date: [initialBirthDate, [Validators.required, CustomValidators.dateValidator(), CustomValidators.birthDateValidator()]],
-      gender: [patientEscort?.gender, [Validators.required]],
+      gender: [patientEscort?.gender ?? null, [Validators.required]],
       is_same_address: [patientEscort?.is_same_address ?? false, [Validators.required]]
     });
 
     this.addressForm = this.fb.group({
-      cep: [patientEscort?.cep, [Validators.required, Validators.pattern(/^\d{5}-?\d{3}$/)]],
-      address: [patientEscort?.address, [Validators.required]],
-      file_address_id: [patientEscort?.file_address_id],
-      number: [patientEscort?.number, [Validators.required]],
-      complement: [patientEscort?.complement],
-      neighborhood: [patientEscort?.neighborhood, [Validators.required]],
-      city: [patientEscort?.city],
-      state: [patientEscort?.state]
+      cep: [patientEscort?.cep ?? null, [Validators.required, Validators.pattern(/^\d{5}-?\d{3}$/)]],
+      address: [patientEscort?.address ?? null, [Validators.required]],
+      file_address_id: [patientEscort?.file_address_id ?? null],
+      number: [patientEscort?.number ?? null, [Validators.required]],
+      complement: [patientEscort?.complement ?? null],
+      neighborhood: [patientEscort?.neighborhood ?? null, [Validators.required]],
+      city: [patientEscort?.city ?? null],
+      state: [patientEscort?.state ?? null]
     });
 
     if (patientEscort?.is_same_address) {
@@ -245,9 +354,6 @@ export class PatientEscortUpdateComponent implements OnInit {
     }
   }
 
-  // ==========================================
-  // Listeners Reativos
-  // ==========================================
   private registerAddressDependency(): void {
     this.personalForm.get('is_same_address')?.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -281,7 +387,7 @@ export class PatientEscortUpdateComponent implements OnInit {
         this.viacepService.getAddress(cleanCep)
           .pipe(takeUntilDestroyed(this.destroyRef))
           .subscribe({
-            next: response => {
+            next: (response) => {
               if (response) {
                 this.addressForm.patchValue({
                   address: response.logradouro,
@@ -297,84 +403,6 @@ export class PatientEscortUpdateComponent implements OnInit {
       });
   }
 
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        const forms = [this.personalForm, this.addressForm];
-
-        forms.forEach(form => {
-          if (isSubmitting) {
-            form.disable({ emitEvent: false });
-          } else {
-            form.enable({ emitEvent: false });
-          }
-        });
-
-        if (!isSubmitting && this.isSameAddressSignal()) {
-          this.addressForm.disable({ emitEvent: false });
-        }
-
-        this.cdr.markForCheck();
-      });
-  }
-
-  // ==========================================
-  // Métodos de Interação
-  // ==========================================
-  protected setBirthDate(event: MatDatepickerInputEvent<any>): void {
-    if (event.value) {
-      const momentDate = moment(event.value);
-      this.personalForm.get('birth_date')?.setValue(momentDate, { emitEvent: true });
-      this.personalForm.markAsDirty();
-      this.cdr.markForCheck();
-    }
-  }
-
-  protected onlyNumbersAndSlashes(event: KeyboardEvent): boolean {
-    const charCode = event.key;
-    const allowedCharacters = /^[0-9\/]$/;
-
-    if (!allowedCharacters.test(charCode)) {
-      event.preventDefault();
-      return false;
-    }
-    return true;
-  }
-
-  protected onFileSelected(event: Event, type: EscortFileType): void {
-    const target = event.target as HTMLInputElement;
-    const file = target.files?.[0];
-
-    if (file) {
-      this.files[type].file = file;
-      this.files[type].label.set(file.name);
-      this.personalForm.markAsDirty();
-      this.cdr.markForCheck();
-    }
-  }
-
-  protected download(archiveId: number | null | undefined, name: string): void {
-    if (!archiveId) return;
-
-    this.storageService.download('tfd',archiveId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: response => {
-          if (response?.archive) {
-            saveAs(response.archive, name);
-          }
-        }
-      });
-  }
-
-  protected isFormsPristine(): boolean {
-    return this.personalForm.pristine && this.addressForm.pristine;
-  }
-
-  // ==========================================
-  // Autocomplete e Filtros Auxiliares
-  // ==========================================
   private setupAutocompleteFilters(): void {
     const stateCtrl = this.addressForm.get('state');
     if (stateCtrl) {
@@ -390,9 +418,6 @@ export class PatientEscortUpdateComponent implements OnInit {
     return options.filter(option => option.toLowerCase().includes(filterValue));
   }
 
-  // ==========================================
-  // Preenchimento Automático
-  // ==========================================
   private applyPatientAddress(): void {
     const patientAddress = this.data?.patient_care?.patient;
     if (!patientAddress) return;
@@ -409,7 +434,7 @@ export class PatientEscortUpdateComponent implements OnInit {
     }, { emitEvent: false });
   }
 
-  private populateFromResponse(response: any): void {
+  private populateFromResponse(response: PatientEscort): void {
     if (!response) return;
 
     const cnsCtrl = this.personalForm.get('cns');
@@ -452,16 +477,6 @@ export class PatientEscortUpdateComponent implements OnInit {
       }, { emitEvent: false });
     }
 
-    if (response.file_cns_id) {
-      this.files.cns.label.set('Arquivo já cadastrado (Clique para alterar)');
-    }
-    if (response.file_document_id) {
-      this.files.document.label.set('Arquivo já cadastrado (Clique para alterar)');
-    }
-    if (response.file_address_id) {
-      this.files.address.label.set('Arquivo já cadastrado (Clique para alterar)');
-    }
-
     const birthDateControl = this.personalForm.get('birth_date');
     if (birthDateControl && response.birth_date) {
       const cleanDateStr = String(response.birth_date).split(' ')[0].split('T')[0];
@@ -472,55 +487,29 @@ export class PatientEscortUpdateComponent implements OnInit {
     }
 
     this.personalForm.markAsDirty();
+    this.addressForm.markAsDirty();
     this.cdr.markForCheck();
   }
 
-  // ==========================================
-  // Submissão
-  // ==========================================
-  protected onSubmit(): void {
-    const patientEscortId = this.data?.patient_escort?.id;
-    if (!patientEscortId) {
-      this.messageService.showMessage('Identificador do acompanhante inválido.');
-      return;
-    }
+  private setupFormSubmittingHandler(): void {
+    toObservable(this.isSubmitting, { injector: this.injector })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(isSubmitting => {
+        const forms = [this.personalForm, this.addressForm];
 
-    if (this.personalForm.invalid || (this.addressForm.invalid && !this.isSameAddressSignal())) {
-      this.personalForm.markAllAsTouched();
-      this.addressForm.markAllAsTouched();
-      return;
-    }
+        forms.forEach(form => {
+          if (isSubmitting) {
+            form.disable({ emitEvent: false });
+          } else {
+            form.enable({ emitEvent: false });
+          }
+        });
 
-    this.isSubmitting.set(true);
-
-    const rawPersonal = this.personalForm.getRawValue();
-    const formattedBirthDate = rawPersonal.birth_date
-      ? moment(rawPersonal.birth_date).format('YYYY-MM-DD')
-      : null;
-
-    const payload = {
-      ...rawPersonal,
-      birth_date: formattedBirthDate,
-      ...this.addressForm.getRawValue(),
-      file_cns: this.files.cns.file,
-      file_document: this.files.document.file,
-      file_address: this.files.address.file
-    };
-
-    this.patientService.updatePatientEscort(patientEscortId, payload)
-      .pipe(
-        finalize(() => this.isSubmitting.set(false)),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Acompanhante atualizado com sucesso!');
-          this.dialogRef.close(true);
-        },
-        error: err => {
-          const fallbackError = err?.error?.message || 'Erro ao atualizar acompanhante.';
-          this.messageService.showMessage(fallbackError);
+        if (!isSubmitting && this.isSameAddressSignal()) {
+          this.addressForm.disable({ emitEvent: false });
         }
+
+        this.cdr.markForCheck();
       });
   }
 }

@@ -74,18 +74,18 @@ section {
     .bookmark, .warning { color: $color-warning; }
 
     // --- Larguras das Colunas: Aba 1 (Minha caixa) ---
-    th.mat-column-name        { width: 35%; }
-    th.mat-column-cns         { width: 20%; }
-    th.mat-column-document    { width: 15%; }
-    th.mat-column-status      { width: 10%; }
+    th.mat-column-name        { width: 30%; }
+    th.mat-column-cns         { width: 15%; }
+    th.mat-column-document    { width: 20%; }
+    th.mat-column-status      { width: 15%; }
     th.mat-column-actions     { width: 20%; }
 
     // --- Larguras das Colunas: Aba 2 (Outras caixas) ---
     &.others-table {
-      th.mat-column-name        { width: 35%; }
-      th.mat-column-cns         { width: 20%; }
-      th.mat-column-document    { width: 15%; }
-      th.mat-column-responsible { width: 20%; }
+      th.mat-column-name        { width: 30%; }
+      th.mat-column-cns         { width: 15%; }
+      th.mat-column-document    { width: 20%; }
+      th.mat-column-responsible { width: 25%; }
       th.mat-column-actions     { width: 10%; }
     }
 

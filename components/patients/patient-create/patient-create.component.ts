@@ -10,6 +10,7 @@ import {
   inject,
   signal
 } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import {
   FormBuilder,
   FormControl,
@@ -18,14 +19,13 @@ import {
   ReactiveFormsModule,
   Validators
 } from '@angular/forms';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged, filter, finalize, map, Observable, startWith } from 'rxjs';
+import { Observable, debounceTime, distinctUntilChanged, filter, finalize, map, startWith } from 'rxjs';
 
 // Angular Material
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerInputEvent, MatDatepickerModule } from '@angular/material/datepicker';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -58,7 +58,7 @@ import { Patient } from '../../../models/patient.model';
 import { PatientService } from '../../../services/patient.service';
 
 // Types & Interfaces
-export type FileType = 'cns' | 'document' | 'deficiency' | 'address' | 'sigadoc';
+type FileType = 'cns' | 'document' | 'deficiency' | 'address' | 'sigadoc';
 
 interface NaturalnessOption {
   nome: string;
@@ -101,6 +101,7 @@ export class PatientCreateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
+  protected readonly data = inject(MAT_DIALOG_DATA);
   private readonly fb = inject(FormBuilder);
   private readonly viacepService = inject(ViacepService);
   private readonly patientService = inject(PatientService);
@@ -111,8 +112,19 @@ export class PatientCreateComponent implements OnInit {
   private readonly injector = inject(Injector);
 
   // ==========================================
-  // Opções dos Enums Centralizadas no Controle
+  // Propriedades e Estado Reativo
   // ==========================================
+  protected identificationForm!: FormGroup;
+  protected personalForm!: FormGroup;
+  protected addressForm!: FormGroup;
+  protected infoForm!: FormGroup;
+
+  protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly isEthnicityDisabled = signal<boolean>(true);
+  protected readonly naturalnessReadOnly = signal<boolean>(true);
+  protected readonly naturalnessLoading = signal<boolean>(false);
+
+  // Opções dos Enums Centralizadas
   protected readonly options = {
     races: Object.values(Race),
     deficiencies: Object.values(Deficiency),
@@ -123,9 +135,7 @@ export class PatientCreateComponent implements OnInit {
     ufs: Object.keys(Ufs)
   };
 
-  // ==========================================
-  // Mensagens de Erro por Controle
-  // ==========================================
+  // Mapeamento de Mensagens de Erro Tipado
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
     cns: [
       { type: 'required', message: 'O número do CNS é obrigatório.' },
@@ -176,9 +186,7 @@ export class PatientCreateComponent implements OnInit {
     ]
   };
 
-  // ==========================================
   // Gerenciamento de Anexos/Arquivos
-  // ==========================================
   protected readonly files: Record<FileType, AttachedFileState> = {
     cns: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) },
     document: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) },
@@ -187,30 +195,12 @@ export class PatientCreateComponent implements OnInit {
     sigadoc: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) }
   };
 
-  // ==========================================
-  // Estados Reativos via Signals
-  // ==========================================
-  protected readonly isSubmitting = signal<boolean>(false);
-  protected readonly isEthnicityDisabled = signal<boolean>(true);
-  protected readonly naturalnessReadOnly = signal<boolean>(true);
-  protected readonly naturalnessLoading = signal<boolean>(false);
-
-  // ==========================================
-  // FormGroups e Controles Expostos
-  // ==========================================
-  protected identificationForm!: FormGroup;
-  protected personalForm!: FormGroup;
-  protected addressForm!: FormGroup;
-  protected infoForm!: FormGroup;
-
+  // Controles Independentes & Autocomplete
   protected readonly naturalnessControl = new FormControl<string>('', {
     nonNullable: true,
     validators: [Validators.required]
   });
 
-  // ==========================================
-  // Autocomplete e Observables
-  // ==========================================
   protected naturalnessOptions: string[] = [];
   protected filteredNaturalnessOptions!: Observable<string[]>;
   protected filteredProfessionsOptions!: Observable<string[]>;
@@ -229,7 +219,7 @@ export class PatientCreateComponent implements OnInit {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected setBirthDate(event: MatDatepickerInputEvent<any>): void {
     if (event.value) {
@@ -309,7 +299,7 @@ export class PatientCreateComponent implements OnInit {
   }
 
   // ==========================================
-  // Métodos Privados de Inicialização e Lógica
+  // Métodos Privados / Auxiliares
   // ==========================================
   private initForms(): void {
     const handleFound = (patient: Patient) => this.populateFromResponse(patient);

@@ -23,6 +23,7 @@ import { LoadingComponent } from '../../../core/components/loading-component/loa
 import { PatientCare } from '../../models/patient-care.model';
 import { Patient } from '../../models/patient.model';
 import { Permission } from '../../models/permission.model';
+import { Role } from '../../models/role.model';
 import { User } from '../../models/user.model';
 import { PatientService } from '../../services/patient.service';
 
@@ -37,14 +38,14 @@ import { PatientUpdateComponent } from '../../components/patients/patient-update
 import { PatientValidateComponent } from '../../components/patients/patient-validate/patient-validate.component';
 
 // Estrutura dos dados para exibição das tabelas
-export interface OwnerPatientTableRow extends PatientCare {
+interface OwnerPatientTableRow extends PatientCare {
   name: string;
   cns: string;
   document: string;
   document_type: string;
 }
 
-export interface OthersPatientTableRow extends PatientCare {
+interface OthersPatientTableRow extends PatientCare {
   name: string;
   cns: string;
   document: string;
@@ -105,7 +106,7 @@ export class PatientsPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser: User | undefined = this.route.parent?.parent?.snapshot.data['user'];
+  private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
 
   protected readonly displayedOwnerColumns: string[] = ['name', 'cns', 'document', 'status', 'actions'];
   protected readonly displayedOthersColumns: string[] = ['name', 'cns', 'document', 'responsible', 'actions'];
@@ -150,7 +151,7 @@ export class PatientsPage implements OnInit, OnDestroy {
   protected checkPermissions(permissionName: string): boolean {
     if (!this.currentUser?.roles) return true;
 
-    const hasPermission = this.currentUser.roles.some((role: any) =>
+    const hasPermission = this.currentUser.roles.some((role: Role) =>
       role.permissions?.some((perm: Permission) => perm.name === permissionName)
     );
 

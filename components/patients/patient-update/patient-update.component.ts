@@ -10,6 +10,7 @@ import {
   inject,
   signal
 } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import {
   FormBuilder,
   FormControl,
@@ -18,8 +19,7 @@ import {
   ReactiveFormsModule,
   Validators
 } from '@angular/forms';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged, filter, finalize, map, Observable, startWith } from 'rxjs';
+import { Observable, debounceTime, distinctUntilChanged, filter, finalize, map, startWith } from 'rxjs';
 import { saveAs } from 'file-saver';
 
 // Angular Material
@@ -56,11 +56,12 @@ import { MaritalStatus } from '../../../enums/marital-status';
 import { Profession } from '../../../enums/profession';
 import { Race } from '../../../enums/race';
 import { Ufs } from '../../../enums/ufs';
+import { PatientCare } from '../../../models/patient-care.model';
 import { Patient } from '../../../models/patient.model';
 import { PatientService } from '../../../services/patient.service';
 
 // Types & Interfaces
-export type FileType = 'cns' | 'document' | 'deficiency' | 'address' | 'sigadoc';
+type FileType = 'cns' | 'document' | 'deficiency' | 'address' | 'sigadoc';
 
 interface NaturalnessOption {
   nome: string;
@@ -71,6 +72,10 @@ interface AttachedFileState {
   file: File | null;
   label: ReturnType<typeof signal<string>>;
 }
+
+type PatientUpdateDialogData = {
+  patient_care: PatientCare;
+};
 
 @Component({
   selector: 'app-patient-update',
@@ -102,7 +107,7 @@ export class PatientUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientUpdateDialogData>(MAT_DIALOG_DATA);
   private readonly fb = inject(FormBuilder);
   private readonly viacepService = inject(ViacepService);
   private readonly patientService = inject(PatientService);
@@ -114,8 +119,19 @@ export class PatientUpdateComponent implements OnInit {
   private readonly injector = inject(Injector);
 
   // ==========================================
-  // Opções dos Enums Centralizadas no Controle
+  // Propriedades e Estado Reativo
   // ==========================================
+  protected identificationForm!: FormGroup;
+  protected personalForm!: FormGroup;
+  protected addressForm!: FormGroup;
+  protected infoForm!: FormGroup;
+
+  protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly isEthnicityDisabled = signal<boolean>(true);
+  protected readonly naturalnessReadOnly = signal<boolean>(true);
+  protected readonly naturalnessLoading = signal<boolean>(false);
+
+  // Opções dos Enums Centralizadas no Controle
   protected readonly options = {
     races: Object.values(Race),
     deficiencies: Object.values(Deficiency),
@@ -126,9 +142,7 @@ export class PatientUpdateComponent implements OnInit {
     ufs: Object.keys(Ufs)
   };
 
-  // ==========================================
-  // Mensagens de Erro por Controle
-  // ==========================================
+  // Mapeamento de Mensagens de Erro
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
     cns: [
       { type: 'required', message: 'O número do CNS é obrigatório.' },
@@ -179,9 +193,7 @@ export class PatientUpdateComponent implements OnInit {
     ]
   };
 
-  // ==========================================
   // Gerenciamento de Anexos/Arquivos
-  // ==========================================
   protected readonly files: Record<FileType, AttachedFileState> = {
     cns: { file: null, label: signal('Nenhum arquivo selecionado') },
     document: { file: null, label: signal('Nenhum arquivo selecionado') },
@@ -190,30 +202,12 @@ export class PatientUpdateComponent implements OnInit {
     sigadoc: { file: null, label: signal('Nenhum arquivo selecionado') }
   };
 
-  // ==========================================
-  // Estados Reativos via Signals
-  // ==========================================
-  protected readonly isSubmitting = signal<boolean>(false);
-  protected readonly isEthnicityDisabled = signal<boolean>(true);
-  protected readonly naturalnessReadOnly = signal<boolean>(true);
-  protected readonly naturalnessLoading = signal<boolean>(false);
-
-  // ==========================================
-  // FormGroups e Controles Expostos
-  // ==========================================
-  protected identificationForm!: FormGroup;
-  protected personalForm!: FormGroup;
-  protected addressForm!: FormGroup;
-  protected infoForm!: FormGroup;
-
+  // Controles Independentes & Autocomplete
   protected readonly naturalnessControl = new FormControl<string>('', {
     nonNullable: true,
     validators: [Validators.required]
   });
 
-  // ==========================================
-  // Autocomplete e Observables
-  // ==========================================
   protected naturalnessOptions: string[] = [];
   protected filteredNaturalnessOptions!: Observable<string[]>;
   protected filteredProfessionsOptions!: Observable<string[]>;
@@ -232,7 +226,7 @@ export class PatientUpdateComponent implements OnInit {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected setBirthDate(event: MatDatepickerInputEvent<any>): void {
     if (event.value) {
@@ -362,7 +356,7 @@ export class PatientUpdateComponent implements OnInit {
   }
 
   // ==========================================
-  // Métodos Privados de Inicialização e Lógica
+  // Métodos Privados / Auxiliares
   // ==========================================
   private initForms(): void {
     const patient = this.data?.patient_care?.patient;

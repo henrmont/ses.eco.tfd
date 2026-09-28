@@ -9,10 +9,6 @@ mat-dialog-content {
   padding-top: $spacing-modal-pt;
 }
 
-mat-form-field {
-  width: 100%;
-}
-
 .stepper {
   margin-top: $spacing-form-gap; 
   display: flex; 
@@ -20,7 +16,6 @@ mat-form-field {
   gap: $spacing-form-gap;
 }
 
-// Estrutura base de Linhas em Grid
 .line {
   display: grid; 
   grid-template-columns: var(--grid-cols, 1fr); 
@@ -29,25 +24,44 @@ mat-form-field {
   align-items: start;
   min-height: $material-field-outline-height;
 
-  .file-actions-cell {
+  // Definições Semânticas das Colunas Utilizadas
+  &.cols-1-col { --grid-cols: 1fr; }
+  &.cols-1-1   { --grid-cols: 1fr 1fr; }
+  &.cols-1-2   { --grid-cols: 1fr 2fr; }
+  &.cols-1-3   { --grid-cols: 1fr 3fr; }
+
+  .file-actions-cell,
+  .file-upload-cell {
     display: flex;
     align-items: center;
-    column-gap: $spacing-xl;
+    gap: $spacing-xs;
     height: $material-field-outline-height;
+    width: 100%;
+
+    .btn-archive {
+      flex-shrink: 0;
+    }
+
+    button[mat-raised-button] {
+      &.attached {
+        background-color: var(--md-sys-color-secondary) !important;
+        color: var(--md-sys-color-on-secondary) !important;
+
+        mat-icon {
+          color: var(--md-sys-color-on-secondary) !important;
+        }
+      }
+    }
   }
 }
 
-// --- Definições Semânticas das Colunas Utilizadas ---
-.line {
-  &.cols-1-col { --grid-cols: 1fr; }
-  &.cols-1-1   { --grid-cols: 1fr 1fr; }
-}
-
-// Container do Seletor de Arquivo Anexo
-.upload-container {
+.toggle {
   display: flex;
   align-items: center;
-  gap: $spacing-lg;
-  width: 100%;
-  min-height: $material-field-outline-height;
+  height: $material-field-outline-height; 
+
+  mat-slide-toggle {
+    font-size: $font-size-md;
+    color: var(--mdc-outlined-text-field-label-text-color, $color-text-label-fallback);
+  }
 }

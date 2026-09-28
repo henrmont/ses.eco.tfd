@@ -13,7 +13,7 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, finalize, map, startWith } from 'rxjs';
 
-// Material Modules
+// Angular Material
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -22,7 +22,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
-// Core, Models e Enums
+// Core, Services & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { Specialty } from '../../../enums/specialties';
@@ -72,8 +72,15 @@ export class PatientReportCreateComponent implements OnInit {
   private readonly injector = inject(Injector);
 
   // ==========================================
-  // Mensagens de Erro por Controle
+  // Propriedades e Estado Reativo
   // ==========================================
+  protected reportForm!: FormGroup;
+
+  protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly cidReadOnly = signal<boolean>(true);
+  protected readonly cidLoading = signal<boolean>(false);
+
+  // Mensagens de Erro por Controle
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
     protocol: [
       { type: 'required', message: 'O número do protocolo é obrigatório.' }
@@ -89,21 +96,7 @@ export class PatientReportCreateComponent implements OnInit {
     ]
   };
 
-  // ==========================================
-  // Estados Reativos via Signals
-  // ==========================================
-  protected readonly isSubmitting = signal<boolean>(false);
-  protected readonly cidReadOnly = signal<boolean>(true);
-  protected readonly cidLoading = signal<boolean>(false);
-
-  // ==========================================
-  // FormGroups
-  // ==========================================
-  protected reportForm!: FormGroup;
-
-  // ==========================================
   // Autocomplete e Observables
-  // ==========================================
   private cidOptions: CidOption[] = [];
   protected filteredCidOptions!: Observable<CidOption[]>;
 
@@ -122,7 +115,68 @@ export class PatientReportCreateComponent implements OnInit {
   }
 
   // ==========================================
-  // Inicialização de Formulário
+  // Métodos Acessíveis pelo Template (Protected)
+  // ==========================================
+  protected displayCid(cid: CidOption): string {
+    return cid && cid.name && cid.code ? `${cid.code} - ${cid.name}` : '';
+  }
+
+  protected displaySpecialty(specialty: SpecialtyOption): string {
+    return specialty?.label || '';
+  }
+
+  protected setCid(cid: CidOption): void {
+    this.reportForm.get('cid_id')?.setValue(cid.id);
+    this.reportForm.get('cid_id')?.markAsDirty();
+  }
+
+  protected setSpecialty(option: SpecialtyOption): void {
+    this.reportForm.get('specialty')?.setValue(option.key);
+    this.reportForm.get('specialty')?.markAsDirty();
+  }
+
+  protected onSubmit(): void {
+    const patientCareId = this.data?.patient_care?.id;
+    if (!patientCareId) {
+      this.messageService.showMessage('Identificador do atendimento do paciente inválido.');
+      return;
+    }
+
+    if (this.reportForm.invalid) {
+      this.reportForm.markAllAsTouched();
+      return;
+    }
+
+    this.isSubmitting.set(true);
+
+    const rawValue = this.reportForm.getRawValue();
+    const payload = {
+      protocol: rawValue.protocol,
+      specialty: rawValue.specialty,
+      cid_id: rawValue.cid_id,
+      lawsuit: rawValue.lawsuit,
+      diagnosis: rawValue.diagnosis
+    };
+
+    this.patientService.createPatientReport(patientCareId, payload)
+      .pipe(
+        finalize(() => this.isSubmitting.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (response: ApiResponse) => {
+          this.messageService.showMessage(response?.message || 'Laudo criado com sucesso!');
+          this.dialogRef.close(true);
+        },
+        error: (err) => {
+          const fallbackError = 'Erro ao salvar o laudo médico.';
+          this.messageService.showMessage(err?.error?.message || fallbackError);
+        }
+      });
+  }
+
+  // ==========================================
+  // Métodos Privados / Auxiliares
   // ==========================================
   private initForm(): void {
     this.reportForm = this.fb.group({
@@ -136,9 +190,6 @@ export class PatientReportCreateComponent implements OnInit {
     });
   }
 
-  // ==========================================
-  // Autocomplete e Filtros
-  // ==========================================
   private setupAutocompleteFilters(): void {
     this.specialtyOptions = Object.entries(Specialty).map(([key, value]) => ({
       key,
@@ -192,37 +243,6 @@ export class PatientReportCreateComponent implements OnInit {
       });
   }
 
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.reportForm.disable({ emitEvent: false });
-        } else {
-          this.reportForm.enable({ emitEvent: false });
-        }
-        this.cdr.markForCheck();
-      });
-  }
-
-  private _filterCid(term: string): CidOption[] {
-    const filterValue = term.toLowerCase();
-    return this.cidOptions.filter(option =>
-      option.name?.toLowerCase().includes(filterValue) ||
-      option.code?.toLowerCase().includes(filterValue)
-    ).slice(0, 10);
-  }
-
-  private _filterSpecialty(label: string): SpecialtyOption[] {
-    const filterValue = label.toLowerCase();
-    return this.specialtyOptions.filter(option =>
-      option.label.toLowerCase().includes(filterValue)
-    ).slice(0, 10);
-  }
-
-  // ==========================================
-  // Carregamento de Dados
-  // ==========================================
   private fetchCids(): void {
     const patientCareId = this.data?.patient_care?.id;
     if (!patientCareId) return;
@@ -253,67 +273,31 @@ export class PatientReportCreateComponent implements OnInit {
       });
   }
 
-  // ==========================================
-  // Helpers de Exibição e Seleção
-  // ==========================================
-  protected displayCid(cid: CidOption): string {
-    return cid && cid.name && cid.code ? `${cid.code} - ${cid.name}` : '';
-  }
-
-  protected displaySpecialty(specialty: SpecialtyOption): string {
-    return specialty?.label || '';
-  }
-
-  protected setCid(cid: CidOption): void {
-    this.reportForm.get('cid_id')?.setValue(cid.id);
-    this.reportForm.get('cid_id')?.markAsDirty();
-  }
-
-  protected setSpecialty(option: SpecialtyOption): void {
-    this.reportForm.get('specialty')?.setValue(option.key);
-    this.reportForm.get('specialty')?.markAsDirty();
-  }
-
-  // ==========================================
-  // Submissão
-  // ==========================================
-  protected onSubmit(): void {
-    const patientCareId = this.data?.patient_care?.id;
-    if (!patientCareId) {
-      this.messageService.showMessage('Identificador do atendimento do paciente inválido.');
-      return;
-    }
-
-    if (this.reportForm.invalid) {
-      this.reportForm.markAllAsTouched();
-      return;
-    }
-
-    this.isSubmitting.set(true);
-
-    const rawValue = this.reportForm.getRawValue();
-    const payload = {
-      protocol: rawValue.protocol,
-      specialty: rawValue.specialty,
-      cid_id: rawValue.cid_id,
-      lawsuit: rawValue.lawsuit,
-      diagnosis: rawValue.diagnosis
-    };
-
-    this.patientService.createPatientReport(patientCareId, payload)
-      .pipe(
-        finalize(() => this.isSubmitting.set(false)),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Laudo criado com sucesso!');
-          this.dialogRef.close(true);
-        },
-        error: err => {
-          const fallbackError = 'Erro ao salvar o laudo médico.';
-          this.messageService.showMessage(err?.error?.message || fallbackError);
+  private setupFormSubmittingHandler(): void {
+    toObservable(this.isSubmitting, { injector: this.injector })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(isSubmitting => {
+        if (isSubmitting) {
+          this.reportForm.disable({ emitEvent: false });
+        } else {
+          this.reportForm.enable({ emitEvent: false });
         }
+        this.cdr.markForCheck();
       });
+  }
+
+  private _filterCid(term: string): CidOption[] {
+    const filterValue = term.toLowerCase();
+    return this.cidOptions.filter(option =>
+      option.name?.toLowerCase().includes(filterValue) ||
+      option.code?.toLowerCase().includes(filterValue)
+    ).slice(0, 10);
+  }
+
+  private _filterSpecialty(label: string): SpecialtyOption[] {
+    const filterValue = label.toLowerCase();
+    return this.specialtyOptions.filter(option =>
+      option.label.toLowerCase().includes(filterValue)
+    ).slice(0, 10);
   }
 }

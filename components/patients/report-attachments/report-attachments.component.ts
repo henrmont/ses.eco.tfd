@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { saveAs } from 'file-saver';
@@ -13,9 +13,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core, Models e Enums
+// Core, Services & Models
 import { MessageService } from '../../../../core/services/message-service';
 import { StorageService } from '../../../../core/services/storage-service';
+import { PatientCare } from '../../../models/patient-care.model';
 import { PatientReport } from '../../../models/patient-report.model';
 import { ReportAttachment } from '../../../models/report-attachment.model';
 import { PatientService } from '../../../services/patient.service';
@@ -25,13 +26,12 @@ import { ReportAttachmentCreateComponent } from '../report-attachment-create/rep
 import { ReportAttachmentDeleteComponent } from '../report-attachment-delete/report-attachment-delete.component';
 import { ReportAttachmentUpdateComponent } from '../report-attachment-update/report-attachment-update.component';
 
-// Define o tipo aceito para as propriedades dos Modais de Anexos
-type ReportAttachmentDialogData =
-  | { report_attachment: ReportAttachment }
-  | { patient_report: PatientReport | undefined };
-
-// Constantes Locais
-const TFD_PATIENTS_CHANNEL = new BroadcastChannel('tfd-patients-channel');
+// Tipagem dos Dados do Modal
+type ReportAttachmentDialogData = {
+  patient_care?: PatientCare;
+  patient_report?: PatientReport;
+  report_attachment?: ReportAttachment;
+};
 
 @Component({
   selector: 'app-report-attachments',
@@ -51,6 +51,11 @@ const TFD_PATIENTS_CHANNEL = new BroadcastChannel('tfd-patients-channel');
 })
 export class ReportAttachmentsComponent implements OnInit, OnDestroy {
   // ==========================================
+  // Instância própria do canal
+  // ==========================================
+  private readonly patientsChannel = new BroadcastChannel('tfd-patients-channel');
+
+  // ==========================================
   // Injeção de Dependências
   // ==========================================
   protected readonly data = inject(MAT_DIALOG_DATA);
@@ -60,7 +65,6 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
   private readonly storageService = inject(StorageService);
   private readonly messageService = inject(MessageService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly cdr = inject(ChangeDetectorRef);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -74,10 +78,11 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
   // ==========================================
   ngOnInit(): void {
     this.fetchReportAttachments(true);
+    this.listenToBroadcastChannel();
   }
 
   ngOnDestroy(): void {
-    TFD_PATIENTS_CHANNEL.close();
+    this.patientsChannel.close();
   }
 
   // ==========================================
@@ -86,7 +91,7 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
   protected download(archiveId: number | null | undefined, name: string): void {
     if (!archiveId) return;
 
-    this.storageService.download('tfd',archiveId)
+    this.storageService.download('tfd', archiveId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
@@ -98,26 +103,37 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
   }
 
   protected reportAttachmentCreate(): void {
-    this.openDialog(ReportAttachmentCreateComponent, { patient_report: this.data?.patient_report });
+    this.openDialog(ReportAttachmentCreateComponent, {
+      patient_care: this.data?.patient_care,
+      patient_report: this.data?.patient_report
+    });
   }
 
   protected reportAttachmentUpdate(reportAttachment: ReportAttachment): void {
-    this.openDialog(ReportAttachmentUpdateComponent, { report_attachment: reportAttachment });
+    this.openDialog(ReportAttachmentUpdateComponent, {
+      patient_care: this.data?.patient_care,
+      patient_report: this.data?.patient_report,
+      report_attachment: reportAttachment
+    });
   }
 
   protected reportAttachmentDelete(reportAttachment: ReportAttachment): void {
-    this.openDialog(ReportAttachmentDeleteComponent, { report_attachment: reportAttachment }, '400px', 'auto', true);
+    this.openDialog(ReportAttachmentDeleteComponent, {
+      patient_care: this.data?.patient_care,
+      patient_report: this.data?.patient_report,
+      report_attachment: reportAttachment
+    }, '400px', 'auto', true);
   }
 
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
   private fetchReportAttachments(showLoading = false): void {
+    const patientCareId = this.data?.patient_care?.id || this.data?.patient_report?.patient_care_id || this.data?.patient_report?.patient_care?.id;
     const reportId = this.data?.patient_report?.id;
 
-    if (!reportId) {
+    if (!patientCareId || !reportId) {
       this.isLoading.set(false);
-      this.cdr.markForCheck();
       return;
     }
 
@@ -125,18 +141,14 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
       this.isLoading.set(true);
     }
 
-    this.patientService.getReportAttachments(reportId)
+    this.patientService.getReportAttachments(patientCareId, reportId)
       .pipe(
-        finalize(() => {
-          this.isLoading.set(false);
-          this.cdr.markForCheck();
-        }),
+        finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
-          const rawData: ReportAttachment[] = response || [];
-          this.dataSource.data = rawData;
+        next: (response: ReportAttachment[]) => {
+          this.dataSource.data = response || [];
         },
         error: (err) => {
           this.dataSource.data = [];
@@ -146,13 +158,20 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
       });
   }
 
+  private listenToBroadcastChannel(): void {
+    this.patientsChannel.onmessage = (message: MessageEvent<string>) => {
+      if (message.data === 'update') {
+        this.fetchReportAttachments(false);
+      }
+    };
+  }
+
   private openDialog<T>(
     component: new (...args: any[]) => T,
     data: ReportAttachmentDialogData,
     width = '400px',
     height = 'auto',
-    requiresRefresh = true,
-    emitGlobalBroadcast = true
+    requiresRefresh = true
   ): void {
     this.dialog.open(component, {
       width,
@@ -165,14 +184,14 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
-        if (result) {
-          this.fetchReportAttachments(requiresRefresh);
-
-          if (emitGlobalBroadcast) {
-            TFD_PATIENTS_CHANNEL.postMessage('update');
-          }
-          this.cdr.markForCheck();
+        if (result && requiresRefresh) {
+          this.handleAttachmentChange();
         }
       });
+  }
+
+  private handleAttachmentChange(): void {
+    this.fetchReportAttachments(false);
+    this.patientsChannel.postMessage('update');
   }
 }
