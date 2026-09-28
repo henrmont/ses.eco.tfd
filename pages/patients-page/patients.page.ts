@@ -36,6 +36,7 @@ import { PatientMoveFromOthersComponent } from '../../components/patients/patien
 import { PatientReportsComponent } from '../../components/patients/patient-reports/patient-reports.component';
 import { PatientUpdateComponent } from '../../components/patients/patient-update/patient-update.component';
 import { PatientValidateComponent } from '../../components/patients/patient-validate/patient-validate.component';
+import { PatientRequirementComponent } from '../../components/patients/patient-requirement/patient-requirement.component';
 
 // Estrutura dos dados para exibição das tabelas
 interface OwnerPatientTableRow extends PatientCare {
@@ -109,7 +110,7 @@ export class PatientsPage implements OnInit, OnDestroy {
   private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
 
   protected readonly displayedOwnerColumns: string[] = ['name', 'cns', 'document', 'status', 'actions'];
-  protected readonly displayedOthersColumns: string[] = ['name', 'cns', 'document', 'responsible', 'actions'];
+  protected readonly displayedOthersColumns: string[] = ['name', 'cns', 'document', 'responsible', 'status', 'actions'];
 
   protected readonly ownerDataSource = new MatTableDataSource<OwnerPatientTableRow>([]);
   protected readonly othersDataSource = new MatTableDataSource<OthersPatientTableRow>([]);
@@ -160,7 +161,7 @@ export class PatientsPage implements OnInit, OnDestroy {
 
   // Ações disparadas pelos botões da tabela
   protected patientDetail(patientCare: PatientCare): void {
-    this.openDialog(PatientDetailComponent, { patient: patientCare.patient }, '1200px', '700px', false);
+    this.openDialog(PatientDetailComponent, { patient_care: patientCare }, '1200px', '700px', false);
   }
 
   protected patientUpdate(patientCare: PatientCare): void {
@@ -189,6 +190,10 @@ export class PatientsPage implements OnInit, OnDestroy {
 
   protected patientFinishBack(patientCare: PatientCare): void {
     this.openDialog(PatientFinishBackComponent, { patient_care: patientCare }, '400px');
+  }
+
+  protected patientRequirement(patientCare: PatientCare): void {
+    this.openDialog(PatientRequirementComponent, { patient_care: patientCare }, '500px');
   }
 
   // ==========================================

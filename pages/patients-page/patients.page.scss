@@ -82,10 +82,11 @@ section {
 
     // --- Larguras das Colunas: Aba 2 (Outras caixas) ---
     &.others-table {
-      th.mat-column-name        { width: 30%; }
+      th.mat-column-name        { width: 25%; }
       th.mat-column-cns         { width: 15%; }
-      th.mat-column-document    { width: 20%; }
-      th.mat-column-responsible { width: 25%; }
+      th.mat-column-document    { width: 25%; }
+      th.mat-column-responsible { width: 20%; }
+      th.mat-column-status      { width: 5%; }
       th.mat-column-actions     { width: 10%; }
     }
 

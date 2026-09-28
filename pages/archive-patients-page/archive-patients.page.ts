@@ -1,19 +1,8 @@
-import { CommonModule } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  Injector,
-  OnDestroy,
-  OnInit,
-  effect,
-  inject,
-  viewChild
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnDestroy, OnInit, effect, inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NgxMaskPipe } from 'ngx-mask';
+import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
 import { Overlay } from '@angular/cdk/overlay';
@@ -31,18 +20,26 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 // Core & Models
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
 import { PatientCare } from '../../models/patient-care.model';
-import { Permission } from '../../models/permission.model';
-import { PatientService } from '../../services/patient.service';
 import { Patient } from '../../models/patient.model';
+import { Permission } from '../../models/permission.model';
+import { Role } from '../../models/role.model';
+import { User } from '../../models/user.model';
+import { PatientService } from '../../services/patient.service';
 
 // Dialog Components
 import { PatientDetailComponent } from '../../components/patients/patient-detail/patient-detail.component';
-import { PatientArchivedEscortsComponent } from '../../components/patients/patient-archived-escorts/patient-archived-escorts.component';
-import { PatientArchivedReportsComponent } from '../../components/patients/patient-archived-reports/patient-archived-reports.component';
 import { PatientMoveFromArchiveComponent } from '../../components/patients/patient-move-from-archive/patient-move-from-archive.component';
 
-// Define o tipo aceito para as propriedades do Modal
-type PatientDialogData =
+// Estrutura dos dados para exibição da tabela de arquivados
+interface ArchivePatientTableRow extends PatientCare {
+  name: string;
+  cns: string;
+  document: string;
+  document_type: string;
+  responsible: string;
+}
+
+type PatientDialogData = 
   | { patient: Patient | undefined }
   | { patient_care: PatientCare };
 
@@ -50,7 +47,6 @@ type PatientDialogData =
   selector: 'app-archive-patients-page',
   standalone: true,
   imports: [
-    CommonModule,
     MatBadgeModule,
     MatButtonModule,
     MatFormFieldModule,
@@ -62,6 +58,7 @@ type PatientDialogData =
     MatTooltipModule,
     NgxMaskPipe
   ],
+  providers: [provideNgxMask()],
   templateUrl: './archive-patients.page.html',
   styleUrl: './archive-patients.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -92,10 +89,10 @@ export class ArchivePatientsPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser = this.route.parent?.parent?.snapshot.data['user'];
+  private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
 
-  protected readonly displayedColumns: string[] = ['name', 'cns', 'responsible', 'status', 'actions'];
-  protected readonly archivedDataSource = new MatTableDataSource<PatientCare>([]);
+  protected readonly displayedColumns: string[] = ['name', 'cns', 'document', 'responsible', 'status', 'actions'];
+  protected readonly archivedDataSource = new MatTableDataSource<ArchivePatientTableRow>([]);
 
   // ==========================================
   // Ciclo de Vida (Hooks)
@@ -125,7 +122,7 @@ export class ArchivePatientsPage implements OnInit, OnDestroy {
   protected checkPermissions(permissionName: string): boolean {
     if (!this.currentUser?.roles) return true;
 
-    const hasPermission = this.currentUser.roles.some((role: any) =>
+    const hasPermission = this.currentUser.roles.some((role: Role) =>
       role.permissions?.some((perm: Permission) => perm.name === permissionName)
     );
 
@@ -134,15 +131,7 @@ export class ArchivePatientsPage implements OnInit, OnDestroy {
 
   // Ações disparadas pelos botões da tabela
   protected patientDetail(patientCare: PatientCare): void {
-    this.openDialog(PatientDetailComponent, { patient: patientCare.patient }, '1200px', '700px', false);
-  }
-
-  protected patientEscorts(patientCare: PatientCare): void {
-    this.openDialog(PatientArchivedEscortsComponent, { patient_care: patientCare }, '800px', 'auto', false);
-  }
-
-  protected patientReports(patientCare: PatientCare): void {
-    this.openDialog(PatientArchivedReportsComponent, { patient_care: patientCare }, '800px', 'auto', false);
+    this.openDialog(PatientDetailComponent, { patient_care: patientCare }, '1200px', '700px', false);
   }
 
   protected patientMoveFromArchive(patientCare: PatientCare): void {
@@ -175,8 +164,8 @@ export class ArchivePatientsPage implements OnInit, OnDestroy {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
-          const rawData: PatientCare[] = response || [];
+        next: (response: PatientCare[]) => {
+          const rawData = response || [];
           const archivedPatients = rawData.map((item) => this.mapArchivedPatientRow(item));
           this.archivedDataSource.data = archivedPatients;
         },
@@ -194,12 +183,14 @@ export class ArchivePatientsPage implements OnInit, OnDestroy {
     };
   }
 
-  private mapArchivedPatientRow(item: PatientCare) {
+  private mapArchivedPatientRow(item: PatientCare): ArchivePatientTableRow {
     return {
       ...item,
-      name: item.patient?.name,
-      cns: item.patient?.cns,
-      responsible: item.user?.professional?.name
+      name: item.patient?.name || '-',
+      cns: item.patient?.cns || '-',
+      document: item.patient?.document || '-',
+      document_type: item.patient?.document_type || '-',
+      responsible: item.user?.professional?.name || '-'
     };
   }
 
@@ -207,7 +198,7 @@ export class ArchivePatientsPage implements OnInit, OnDestroy {
     this.loadingDialog = this.dialog.open(LoadingComponent, {
       height: '200px',
       disableClose: true,
-      autoFocus: false
+      autoFocus: false,
     });
   }
 

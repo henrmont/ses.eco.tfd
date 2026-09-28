@@ -24,6 +24,7 @@ import { PatientEscortCreateComponent } from '../patient-escort-create/patient-e
 import { PatientEscortDeleteComponent } from '../patient-escort-delete/patient-escort-delete.component';
 import { PatientEscortDetailComponent } from '../patient-escort-detail/patient-escort-detail.component';
 import { PatientEscortUpdateComponent } from '../patient-escort-update/patient-escort-update.component';
+import { PatientEscortRequirementComponent } from '../patient-escort-requirement/patient-escort-requirement.component';
 
 // Tipagem dos Dados do Modal
 type PatientEscortDialogData = {
@@ -111,6 +112,12 @@ export class PatientEscortsComponent implements OnInit, OnDestroy {
       patient_care: this.data?.patient_care,
       patient_escort: patientEscort
     }, '400px', 'auto', true);
+  }
+
+  protected patientEscortRequirement(patientEscort: PatientEscort): void {
+    this.openDialog(PatientEscortRequirementComponent, { 
+      patient_escort: patientEscort
+    }, '500px', 'auto', true);
   }
 
   // ==========================================

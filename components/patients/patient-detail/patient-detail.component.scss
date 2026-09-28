@@ -43,6 +43,17 @@ mat-card {
   }
 }
 
+.empty-message {
+  padding: $spacing-md;
+  color: #757575;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+// Estados Semânticos
+.valid { color: $color-success; }
+.invalid { color: $color-danger; }
+
 // --- Definições Semânticas das Colunas da Grid ---
 .line {
   &.cols-1-col         { grid-template-columns: 1fr; }
@@ -53,4 +64,5 @@ mat-card {
   &.cols-2-2-1         { grid-template-columns: 2fr 2fr 1fr; }
   &.cols-2-3-2         { grid-template-columns: 2fr 3fr 2fr; }
   &.cols-15-1-1-1-1    { grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr; }
+  &.cols-escort-grid   { grid-template-columns: 4fr 2fr 2fr 0.5fr; }
 }

@@ -1,0 +1,46 @@
+@use 'variables' as *;
+
+:host {
+  @include dialog-base;
+}
+
+mat-dialog-content {
+  @include dialog-content;
+}
+
+mat-list {
+  padding-top: 0;
+}
+
+mat-list-item {
+  // Requisito Cumprido (Verde)
+  &.fulfilled {
+    mat-icon {
+      color: $color-success;
+    }
+
+    .requirement-title {
+      color: $color-success;
+    }
+  }
+
+  // Requisito Pendente (Vermelho)
+  &.unfulfilled {
+    mat-icon {
+      color: $color-danger;
+    }
+
+    .requirement-title {
+      color: $color-danger;
+    }
+  }
+}
+
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px 0;
+  color: #757575;
+  font-style: italic;
+}
