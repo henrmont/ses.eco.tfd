@@ -16,7 +16,7 @@ import { finalize } from 'rxjs';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
-import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType, Overlay } from '@angular/cdk/overlay';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -37,6 +37,7 @@ import { User } from '../../models/user.model';
 import { PatientRequestService } from '../../services/patient-request.service';
 
 // Dialog Components
+import { PatientRequestArchiveComponent } from '../../components/patient-requests/patient-request-archive/patient-request-archive.component';
 import { PatientRequestAttachmentsComponent } from '../../components/patient-requests/patient-request-attachments/patient-request-attachments.component';
 import { PatientRequestDeleteComponent } from '../../components/patient-requests/patient-request-delete/patient-request-delete.component';
 import { PatientRequestDetailComponent } from '../../components/patient-requests/patient-request-detail/patient-request-detail.component';
@@ -44,12 +45,15 @@ import { PatientRequestFinishBackComponent } from '../../components/patient-requ
 import { PatientRequestHaltedComponent } from '../../components/patient-requests/patient-request-halted/patient-request-halted.component';
 import { PatientRequestMoveFromOthersComponent } from '../../components/patient-requests/patient-request-move-from-others/patient-request-move-from-others.component';
 import { PatientRequestMoveFromProcessesComponent } from '../../components/patient-requests/patient-request-move-from-processes/patient-request-move-from-processes.component';
-import { PatientRequestUpdateComponent } from '../../components/patient-requests/patient-request-update/patient-request-update.component';
-import { PatientRequestRequirementComponent } from '../../components/patient-requests/patient-request-requirement/patient-request-requirement.component';
-import { PatientRequestArchiveComponent } from '../../components/patient-requests/patient-request-archive/patient-request-archive.component';
 import { PatientRequestProcessComponent } from '../../components/patient-requests/patient-request-process/patient-request-process.component';
+import { PatientRequestRequirementComponent } from '../../components/patient-requests/patient-request-requirement/patient-request-requirement.component';
+import { PatientRequestUpdateComponent } from '../../components/patient-requests/patient-request-update/patient-request-update.component';
 
-// Interfaces estruturadas para as linhas das tabelas
+// Interfaces/Tipos estruturados para Dialogs e Tabelas
+type PatientRequestDialogData = {
+  patient_request?: PatientRequest;
+};
+
 interface OwnerPatientRequestTableRow extends PatientRequest {
   name: string;
   cns: string;
@@ -84,7 +88,7 @@ interface OthersPatientRequestTableRow extends PatientRequest {
 })
 export class PatientRequestsPage implements OnInit, OnDestroy {
   // ==========================================
-  // Instância própria do canal
+  // Instância do Canal Broadcast
   // ==========================================
   private readonly patientRequestsChannel = new BroadcastChannel('tfd-patient-requests-channel');
 
@@ -103,12 +107,11 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
   // ==========================================
   private readonly ownerSort = viewChild<MatSort>('ownerSort');
   private readonly othersSort = viewChild<MatSort>('othersSort');
-
   private readonly ownerPaginator = viewChild<MatPaginator>('ownerPaginator');
   private readonly othersPaginator = viewChild<MatPaginator>('othersPaginator');
 
   // ==========================================
-  // Propriedades e Estado Reativo
+  // Propriedades e Estado
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
   private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
@@ -120,7 +123,7 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
   protected readonly othersDataSource = new MatTableDataSource<OthersPatientRequestTableRow>([]);
 
   // ==========================================
-  // Ciclo de Vida (Hooks)
+  // Ciclo de Vida
   // ==========================================
   ngOnInit(): void {
     this.setupTableBindings();
@@ -133,7 +136,7 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Filtros e Permissões
   // ==========================================
   protected applyOwnerFilter(event: Event): void {
     const filterValue = (event.target as HTMLInputElement).value;
@@ -163,11 +166,9 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
     return !hasPermission;
   }
 
-  protected checkStatus(patientRequest: PatientRequest): boolean {
-    return !!(patientRequest.medical_status && patientRequest.social_status);
-  }
-
-  // Ações disparadas pelos botões da tabela
+  // ==========================================
+  // Ações Disparadas pela Tabela
+  // ==========================================
   protected patientRequestHalted(patientRequest: PatientRequest): void {
     this.openDialog(PatientRequestHaltedComponent, { patient_request: patientRequest }, '400px');
   }
@@ -213,7 +214,7 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Privados / Auxiliares
+  // Métodos Privados Auxiliares
   // ==========================================
   private setupTableBindings(): void {
     effect(() => {
@@ -245,7 +246,6 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (response: PatientRequest[]) => {
-          console.log(response)
           const rawData = response || [];
 
           const owners = rawData
@@ -295,13 +295,13 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
     this.loadingDialog = this.dialog.open(LoadingComponent, {
       height: '200px',
       disableClose: true,
-      autoFocus: false,
+      autoFocus: false
     });
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
-    data: { patient_request: PatientRequest },
+    component: ComponentType<T>,
+    data: PatientRequestDialogData,
     width = '1200px',
     height = 'auto',
     requiresRefresh = true

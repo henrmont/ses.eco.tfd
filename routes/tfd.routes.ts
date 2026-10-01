@@ -26,8 +26,26 @@ export const tfdRoutes: Routes = [
     }
   },
   {
+    path: 'configuracoes',
+    loadComponent: () => import('./../pages/settings-page/settings.page').then(m => m.SettingsPage),
+    canActivate: [professionalGuard],
+    data: { 
+      permission: 'tfd/configuração listar', 
+      types: [Professionals.ADMINISTRADOR] 
+    }
+  },
+  {
     path: 'pacientes',
     loadComponent: () => import('./../pages/patients-page/patients.page').then(m => m.PatientsPage),
+    canActivate: [professionalGuard],
+    data: { 
+      permission: 'tfd/paciente listar', 
+      types: [Professionals.CADASTRO] 
+    }
+  },
+  {
+    path: 'arquivo-pacientes',
+    loadComponent: () => import('./../pages/archive-patients-page/archive-patients.page').then(m => m.ArchivePatientsPage),
     canActivate: [professionalGuard],
     data: { 
       permission: 'tfd/paciente listar', 
@@ -41,6 +59,15 @@ export const tfdRoutes: Routes = [
     data: { 
       permission: 'tfd/solicitação listar', 
       types: [Professionals.ADMINISTRATIVO, Professionals.CADASTRO] 
+    }
+  },
+  {
+    path: 'arquivo-solicitacoes',
+    loadComponent: () => import('./../pages/archive-patient-requests-page/archive-patient-requests.page').then(m => m.ArchivePatientRequestsPage),
+    canActivate: [professionalGuard],
+    data: { 
+      permission: 'tfd/solicitação listar', 
+      types: [Professionals.CADASTRO] 
     }
   },
   {

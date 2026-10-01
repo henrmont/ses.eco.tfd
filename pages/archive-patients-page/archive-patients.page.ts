@@ -4,8 +4,9 @@ import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
-// Angular Material & CDK
+// Angular CDK & Material
 import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
@@ -29,6 +30,7 @@ import { PatientService } from '../../services/patient.service';
 // Dialog Components
 import { PatientDetailComponent } from '../../components/patients/patient-detail/patient-detail.component';
 import { PatientMoveFromArchiveComponent } from '../../components/patients/patient-move-from-archive/patient-move-from-archive.component';
+import { PatientRequirementComponent } from '../../components/patients/patient-requirement/patient-requirement.component';
 
 // Estrutura dos dados para exibição da tabela de arquivados
 interface ArchivePatientTableRow extends PatientCare {
@@ -39,9 +41,10 @@ interface ArchivePatientTableRow extends PatientCare {
   responsible: string;
 }
 
-type PatientDialogData = 
-  | { patient: Patient | undefined }
-  | { patient_care: PatientCare };
+type PatientDialogData = {
+  patient?: Patient;
+  patient_care?: PatientCare;
+};
 
 @Component({
   selector: 'app-archive-patients-page',
@@ -138,6 +141,10 @@ export class ArchivePatientsPage implements OnInit, OnDestroy {
     this.openDialog(PatientMoveFromArchiveComponent, { patient_care: patientCare }, '400px');
   }
 
+  protected patientRequirement(patientCare: PatientCare): void {
+    this.openDialog(PatientRequirementComponent, { patient_care: patientCare }, '500px');
+  }
+
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
@@ -203,7 +210,7 @@ export class ArchivePatientsPage implements OnInit, OnDestroy {
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PatientDialogData,
     width = '1200px',
     height = 'auto',

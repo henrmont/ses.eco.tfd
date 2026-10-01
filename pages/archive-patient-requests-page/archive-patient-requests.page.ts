@@ -15,7 +15,7 @@ import { finalize } from 'rxjs';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
-import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType, Overlay } from '@angular/cdk/overlay';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
@@ -40,7 +40,11 @@ import { PatientRequestDetailComponent } from '../../components/patient-requests
 import { PatientRequestMoveFromArchiveComponent } from '../../components/patient-requests/patient-request-move-from-archive/patient-request-move-from-archive.component';
 import { PatientRequestRequirementComponent } from '../../components/patient-requests/patient-request-requirement/patient-request-requirement.component';
 
-// Estrutura dos dados para exibição da tabela de solicitações arquivadas
+// Interfaces/Tipos estruturados para Dialogs e Tabelas
+type PatientRequestDialogData = {
+  patient_request?: PatientRequest;
+};
+
 interface ArchivePatientRequestTableRow extends PatientRequest {
   name: string;
   cns: string;
@@ -48,8 +52,6 @@ interface ArchivePatientRequestTableRow extends PatientRequest {
   document_type: string;
   responsible: string;
 }
-
-type PatientRequestDialogData = { patient_request: PatientRequest };
 
 @Component({
   selector: 'app-archive-patient-requests-page',
@@ -215,7 +217,7 @@ export class ArchivePatientRequestsPage implements OnInit, OnDestroy {
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PatientRequestDialogData,
     width = '1200px',
     height = 'auto',

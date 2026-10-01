@@ -16,7 +16,7 @@ import { finalize } from 'rxjs';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
-import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType, Overlay } from '@angular/cdk/overlay';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
@@ -39,21 +39,21 @@ import { PatientRequestOpinionService } from '../../services/patient-request-opi
 // Dialog Components
 import { PatientRequestDetailComponent } from '../../components/patient-requests/patient-request-detail/patient-request-detail.component';
 import { PatientRequestMoveFromArchiveComponent } from '../../components/patient-request-opinions/patient-request-move-from-archive/patient-request-move-from-archive.component';
-import { PatientRequestOpinionsComponent } from '../../components/patient-request-opinions/patient-request-opinions/patient-request-opinions.component';
+import { PatientRequestRequirementComponent } from '../../components/patient-request-opinions/patient-request-requirement/patient-request-requirement.component';
 
-// Interface das colunas da tabela de pareceres arquivados
+// Tipos estruturados para Dialogs e Tabelas
+type PatientRequestDialogData = {
+  patient_request?: PatientRequest;
+  type?: string;
+  permissions?: Role[];
+};
+
 interface ArchivePatientRequestSocialOpinionsTableRow extends PatientRequest {
   name: string;
   cns: string;
   document: string;
   responsible: string;
 }
-
-type PatientRequestDialogData = {
-  patient_request?: PatientRequest;
-  type?: string;
-  permissions?: any;
-};
 
 @Component({
   selector: 'app-archive-patient-request-social-opinions-page',
@@ -155,22 +155,12 @@ export class ArchivePatientRequestSocialOpinionsPage implements OnInit, OnDestro
     this.openDialog(PatientRequestDetailComponent, { patient_request: patientRequest }, '1000px', 'auto', false);
   }
 
-  protected patientRequestOpinions(patientRequest: PatientRequest): void {
-    this.openDialog(
-      PatientRequestOpinionsComponent,
-      { patient_request: patientRequest, permissions: this.currentUser?.roles },
-      '800px',
-      'auto',
-      false
-    );
+  protected patientRequestMoveFromArchive(patientRequest: PatientRequest): void {
+    this.openDialog(PatientRequestMoveFromArchiveComponent, { patient_request: patientRequest }, '400px');
   }
 
-  protected patientRequestMoveFromArchive(patientRequest: PatientRequest): void {
-    this.openDialog(
-      PatientRequestMoveFromArchiveComponent,
-      { patient_request: patientRequest, type: 'social' },
-      '400px'
-    );
+  protected patientRequestRequirement(patientRequest: PatientRequest): void {
+    this.openDialog(PatientRequestRequirementComponent, { patient_request: patientRequest }, '500px');
   }
 
   // ==========================================
@@ -203,8 +193,8 @@ export class ArchivePatientRequestSocialOpinionsPage implements OnInit, OnDestro
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
-          const rawData: any[] = response || [];
+        next: (response: PatientRequest[]) => {
+          const rawData = response || [];
           const archivedRequests = rawData.map((item) => this.mapArchivedRequestRow(item));
           this.archivedDataSource.data = archivedRequests;
         },
@@ -222,7 +212,7 @@ export class ArchivePatientRequestSocialOpinionsPage implements OnInit, OnDestro
     };
   }
 
-  private mapArchivedRequestRow(item: any): ArchivePatientRequestSocialOpinionsTableRow {
+  private mapArchivedRequestRow(item: PatientRequest): ArchivePatientRequestSocialOpinionsTableRow {
     return {
       ...item,
       name: item.report?.patient_care?.patient?.name || '-',
@@ -241,7 +231,7 @@ export class ArchivePatientRequestSocialOpinionsPage implements OnInit, OnDestro
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PatientRequestDialogData,
     width = '400px',
     height = 'auto',
@@ -254,7 +244,10 @@ export class ArchivePatientRequestSocialOpinionsPage implements OnInit, OnDestro
         disableClose: true,
         autoFocus: false,
         scrollStrategy: this.overlay.scrollStrategies.noop(),
-        data,
+        data: {
+          type: 'social',
+          ...data,
+        },
       })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))

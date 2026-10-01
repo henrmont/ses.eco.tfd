@@ -7,7 +7,7 @@
   min-height: calc(100vh - $layout-header-height);
 }
 
-section {
+.opinions-container {
   margin-top: $spacing-xxl; 
   width: $page-content-width;
   display: flex;
@@ -19,7 +19,7 @@ section {
   }
 
   // Container interno da tabela
-  div.table {
+  .table-card {
     display: flex;
     flex-direction: column;
     align-self: center;
@@ -30,7 +30,7 @@ section {
   }
 
   // Container de busca
-  div.search {
+  .search-bar {
     display: flex; 
     justify-content: center; 
     width: 100%;
@@ -61,7 +61,7 @@ section {
       color: var(--md-sys-color-inverse-surface);
     }
 
-    .center {
+    .col-center {
       text-align: center;
       div {
         @include flex-center($spacing-xs);
@@ -79,8 +79,8 @@ section {
     th.mat-column-cns               { width: 16%; }
     th.mat-column-type              { width: 14%; }
     th.mat-column-consultation_date { width: 16%; }
-    th.mat-column-status            { width: 8%; }
-    th.mat-column-actions           { width: 18%; }
+    th.mat-column-status            { width: 6%; }
+    th.mat-column-actions           { width: 20%; }
 
     // --- Larguras das Colunas: Aba 2 (Outras caixas - Others) ---
     &.others-table {

@@ -4,8 +4,9 @@ import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
-// Angular Material & CDK
+// Angular CDK & Material
 import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
@@ -54,9 +55,10 @@ interface OthersPatientTableRow extends PatientCare {
   professional: string;
 }
 
-type PatientDialogData = 
-  | { patient: Patient | undefined }
-  | { patient_care: PatientCare };
+type PatientDialogData = {
+  patient?: Patient;
+  patient_care?: PatientCare;
+};
 
 @Component({
   selector: 'app-patients-page',
@@ -287,7 +289,7 @@ export class PatientsPage implements OnInit, OnDestroy {
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PatientDialogData,
     width = '1200px',
     height = 'auto',

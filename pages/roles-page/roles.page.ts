@@ -3,8 +3,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
 
-// Angular Material & CDK
+// Angular CDK & Material
 import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -27,13 +28,22 @@ import { RoleDeleteComponent } from '../../components/roles/role-delete/role-del
 import { RoleUpdateComponent } from '../../components/roles/role-update/role-update.component';
 
 type RolesDialogData = {
-  role: Role
-}
+  role: Role;
+};
 
 @Component({
   selector: 'app-roles-page',
   standalone: true,
-  imports: [MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatPaginatorModule, MatSortModule, MatTableModule, MatTooltipModule],
+  imports: [
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatPaginatorModule,
+    MatSortModule,
+    MatTableModule,
+    MatTooltipModule
+  ],
   templateUrl: './roles.page.html',
   styleUrl: './roles.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -65,7 +75,6 @@ export class RolesPage implements OnInit, OnDestroy {
   private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
 
   protected readonly displayedColumns: string[] = ['name', 'actions'];
-
   protected readonly dataSource = new MatTableDataSource<Role>([]);
 
   // ==========================================
@@ -109,7 +118,6 @@ export class RolesPage implements OnInit, OnDestroy {
     return ownerRoleNames.includes(role.name);
   }
 
-  // Ações disparadas pelos botões da tabela
   protected roleUpdate(role: Role): void { 
     this.openDialog(RoleUpdateComponent, { role }, '900px'); 
   }
@@ -170,7 +178,7 @@ export class RolesPage implements OnInit, OnDestroy {
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T, 
+    component: ComponentType<T>, 
     data: RolesDialogData, 
     width = '400px', 
     height = 'auto', 

@@ -1,11 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, inject, OnDestroy, OnInit, viewChild, effect } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnDestroy, OnInit, effect, inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
+import { ComponentType } from '@angular/cdk/portal';
+import { Overlay } from '@angular/cdk/overlay';
 import { finalize } from 'rxjs';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
-// Angular Material & CDK
-import { Overlay } from '@angular/cdk/overlay';
+// Angular Material Modules
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -19,6 +20,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 // Core & Models
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
 import { Permission } from '../../models/permission.model';
+import { Role } from '../../models/role.model';
 import { User } from '../../models/user.model';
 import { UserService } from '../../services/user.service';
 
@@ -29,28 +31,27 @@ import { UserLockComponent } from '../../components/users/user-lock/user-lock.co
 import { UserRolesComponent } from '../../components/users/user-roles/user-roles.component';
 import { UserUpdateComponent } from '../../components/users/user-update/user-update.component';
 import { UserValidateComponent } from '../../components/users/user-validate/user-validate.component';
-import { Role } from '../../models/role.model';
 
 interface UserTableRow extends User {
   is_editable: boolean;
   cns: string;
 }
 
-type UsersDialogData = {
-  user: User
+interface UsersDialogData {
+  user: User;
 }
 
 @Component({
   selector: 'app-users-page',
   standalone: true,
   imports: [
-    MatButtonModule, 
-    MatFormFieldModule, 
-    MatIconModule, 
-    MatInputModule, 
-    MatPaginatorModule, 
-    MatSortModule, 
-    MatTableModule, 
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatPaginatorModule,
+    MatSortModule,
+    MatTableModule,
     MatTooltipModule,
     NgxMaskPipe
   ],
@@ -60,14 +61,10 @@ type UsersDialogData = {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class UsersPage implements OnInit, OnDestroy {
-  // ==========================================
-  // Instância própria do canal
-  // ==========================================
+  // Canais de Comunicação Externa
   private readonly usersChannel = new BroadcastChannel('tfd-users-channel');
 
-  // ==========================================
   // Injeção de Dependências
-  // ==========================================
   private readonly userService = inject(UserService);
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
@@ -75,32 +72,25 @@ export class UsersPage implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
 
-  // ==========================================
-  // ViewChildren / Elementos da View
-  // ==========================================
+  // Queries Reativas da View
   private readonly userSort = viewChild<MatSort>('userSort');
   private readonly userPaginator = viewChild<MatPaginator>('userPaginator');
 
-  // ==========================================
-  // Propriedades e Estado Reativo
-  // ==========================================
-  private loadingDialog!: MatDialogRef<LoadingComponent>;
+  // Estado e Controle
+  private loadingDialog?: MatDialogRef<LoadingComponent>;
   private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
 
   protected readonly displayedColumns: string[] = [
-    'is_editable', 
-    'email', 
-    'name', 
-    'cns', 
-    'is_valid', 
+    'is_editable',
+    'email',
+    'name',
+    'cns',
+    'is_valid',
     'actions'
   ];
 
   protected readonly dataSource = new MatTableDataSource<UserTableRow>([]);
 
-  // ==========================================
-  // Ciclo de Vida (Hooks)
-  // ==========================================
   ngOnInit(): void {
     this.setupTableBindings();
     this.fetchUsers(true);
@@ -112,12 +102,12 @@ export class UsersPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Métodos Acessíveis no Template
   // ==========================================
   protected applyFilter(event: Event): void {
     const filterValue = (event.target as HTMLInputElement).value;
     this.dataSource.filter = filterValue.trim().toLowerCase();
-    
+
     if (this.dataSource.paginator) {
       this.dataSource.paginator.firstPage();
     }
@@ -133,35 +123,36 @@ export class UsersPage implements OnInit, OnDestroy {
     return !hasPermission;
   }
 
-  // Ações disparadas pelos botões da tabela
-  protected userLock(user: User): void { 
-    this.openDialog(UserLockComponent, { user }); 
+  // Ações da Tabela
+  protected userLock(user: User): void {
+    this.openDialog(UserLockComponent, { user });
   }
 
-  protected userValidate(user: User): void { 
-    this.openDialog(UserValidateComponent, { user }); 
+  protected userValidate(user: User): void {
+    this.openDialog(UserValidateComponent, { user });
   }
 
-  protected userRoles(user: User): void { 
-    this.openDialog(UserRolesComponent, { user }, '700px'); 
+  protected userRoles(user: User): void {
+    this.openDialog(UserRolesComponent, { user }, '700px');
   }
 
-  protected userDelete(user: User): void { 
-    this.openDialog(UserDeleteComponent, { user }); 
+  protected userDelete(user: User): void {
+    this.openDialog(UserDeleteComponent, { user });
   }
 
-  protected userUpdate(user: User): void { 
-    this.openDialog(UserUpdateComponent, { user }, '700px'); 
+  protected userUpdate(user: User): void {
+    this.openDialog(UserUpdateComponent, { user }, '700px');
   }
 
-  protected userDetail(user: User): void { 
-    this.openDialog(UserDetailComponent, { user }, '700px'); 
+  protected userDetail(user: User): void {
+    this.openDialog(UserDetailComponent, { user }, '700px');
   }
 
   // ==========================================
-  // Métodos Privados / Auxiliares
+  // Métodos Privados
   // ==========================================
   private setupTableBindings(): void {
+    // Registra o efeito no ciclo de inicialização (ngOnInit) usando o DestroyRef da classe
     effect(() => {
       const sort = this.userSort();
       const paginator = this.userPaginator();
@@ -186,7 +177,7 @@ export class UsersPage implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           const rawData = response || [];
-          this.dataSource.data = rawData.map(item => this.mapUserToRow(item));
+          this.dataSource.data = rawData.map((item) => this.mapUserToRow(item));
         },
         error: () => {
           this.dataSource.data = [];
@@ -202,16 +193,16 @@ export class UsersPage implements OnInit, OnDestroy {
     };
   }
 
-  private mapUserToRow(item: any): UserTableRow {
+  private mapUserToRow(item: Partial<User> & { professional?: { name?: string; cns?: string } }): UserTableRow {
     const userObj: User = {
-      id: item.id,
-      email: item.email,
-      name: item.professional?.name || item.name,
+      id: item.id!,
+      email: item.email || '',
+      name: item.professional?.name || item.name || '',
       module: item.module,
       professional: item.professional,
       roles: item.roles
     };
-    
+
     return {
       ...userObj,
       cns: item.professional?.cns || '-',
@@ -228,15 +219,15 @@ export class UsersPage implements OnInit, OnDestroy {
     this.loadingDialog = this.dialog.open(LoadingComponent, {
       height: '200px',
       disableClose: true,
-      autoFocus: false,
+      autoFocus: false
     });
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T, 
-    data: UsersDialogData, 
-    width = '400px', 
-    height = 'auto', 
+    component: ComponentType<T>,
+    data: UsersDialogData,
+    width = '400px',
+    height = 'auto',
     requiresRefresh = true
   ): void {
     this.dialog.open(component, {
@@ -249,7 +240,7 @@ export class UsersPage implements OnInit, OnDestroy {
     })
     .afterClosed()
     .pipe(takeUntilDestroyed(this.destroyRef))
-    .subscribe(result => {
+    .subscribe((result) => {
       if (result && requiresRefresh) {
         this.handleUserChange();
       }

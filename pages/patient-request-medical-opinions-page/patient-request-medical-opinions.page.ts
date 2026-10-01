@@ -16,7 +16,7 @@ import { finalize } from 'rxjs';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
-import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType, Overlay } from '@angular/cdk/overlay';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -43,12 +43,18 @@ import { PatientRequestHaltedComponent } from '../../components/patient-request-
 import { PatientRequestHistoryComponent } from '../../components/patient-request-opinions/patient-request-history/patient-request-history.component';
 import { PatientRequestMoveFromOthersComponent } from '../../components/patient-request-opinions/patient-request-move-from-others/patient-request-move-from-others.component';
 import { PatientRequestOpinionsComponent } from '../../components/patient-request-opinions/patient-request-opinions/patient-request-opinions.component';
+import { PatientRequestRequirementComponent } from '../../components/patient-request-opinions/patient-request-requirement/patient-request-requirement.component';
 import { PatientRequestUndoComponent } from '../../components/patient-request-opinions/patient-request-undo/patient-request-undo.component';
 import { PatientRequestAttachmentsComponent } from '../../components/patient-requests/patient-request-attachments/patient-request-attachments.component';
 import { PatientRequestDetailComponent } from '../../components/patient-requests/patient-request-detail/patient-request-detail.component';
-import { PatientRequestRequirementComponent } from '../../components/patient-request-opinions/patient-request-requirement/patient-request-requirement.component';
 
-// Interfaces estruturadas para as linhas das tabelas
+// Interfaces/Tipos estruturados para Dialogs e Tabelas
+type PatientRequestDialogData = {
+  patient_request?: PatientRequest;
+  type?: string;
+  permissions?: Role[];
+};
+
 interface OwnerPatientRequestTableRow extends PatientRequest {
   name: string;
   cns: string;
@@ -58,13 +64,6 @@ interface OthersPatientRequestTableRow extends PatientRequest {
   name: string;
   cns: string;
   responsible: string;
-}
-
-// Tipo simplificado sem a propriedade 'type'
-type PatientRequestDialogData = {
-  patient_request?: PatientRequest,
-  type?: string,
-  permissions?: any,
 }
 
 @Component({
@@ -175,7 +174,7 @@ export class PatientRequestMedicalOpinionsPage implements OnInit, OnDestroy {
   }
 
   protected patientRequestMoveFromOthers(patientRequest: PatientRequest): void {
-    this.openDialog(PatientRequestMoveFromOthersComponent, { patient_request: patientRequest, type: 'medical' }, '400px');
+    this.openDialog(PatientRequestMoveFromOthersComponent, { patient_request: patientRequest }, '400px');
   }
 
   protected patientRequestOpinions(patientRequest: PatientRequest): void {
@@ -187,19 +186,19 @@ export class PatientRequestMedicalOpinionsPage implements OnInit, OnDestroy {
   }
 
   protected patientRequestUndo(patientRequest: PatientRequest): void {
-    this.openDialog(PatientRequestUndoComponent, { patient_request: patientRequest, type: 'medical' }, '500px');
+    this.openDialog(PatientRequestUndoComponent, { patient_request: patientRequest }, '500px');
   }
 
   protected patientRequestHalted(patientRequest: PatientRequest): void {
-    this.openDialog(PatientRequestHaltedComponent, { patient_request: patientRequest, type: 'medical' }, '400px');
+    this.openDialog(PatientRequestHaltedComponent, { patient_request: patientRequest }, '400px');
   }
 
   protected patientRequestArchive(patientRequest: PatientRequest): void {
-    this.openDialog(PatientRequestArchiveComponent, { patient_request: patientRequest, type: 'medical' }, '400px');
+    this.openDialog(PatientRequestArchiveComponent, { patient_request: patientRequest }, '400px');
   }
 
   protected patientRequestFinishBack(patientRequest: PatientRequest): void {
-    this.openDialog(PatientRequestFinishBackComponent, { patient_request: patientRequest, type: 'medical' }, '400px');
+    this.openDialog(PatientRequestFinishBackComponent, { patient_request: patientRequest }, '400px');
   }
 
   protected patientRequestAttachments(patientRequest: PatientRequest): void {
@@ -207,7 +206,7 @@ export class PatientRequestMedicalOpinionsPage implements OnInit, OnDestroy {
   }
 
   protected patientRequestRequirement(patientRequest: PatientRequest): void {
-    this.openDialog(PatientRequestRequirementComponent, { patient_request: patientRequest, type: 'medical' }, '500px');
+    this.openDialog(PatientRequestRequirementComponent, { patient_request: patientRequest }, '500px');
   }
 
   // ==========================================
@@ -297,7 +296,7 @@ export class PatientRequestMedicalOpinionsPage implements OnInit, OnDestroy {
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PatientRequestDialogData,
     width = '400px',
     height = 'auto',
@@ -309,7 +308,10 @@ export class PatientRequestMedicalOpinionsPage implements OnInit, OnDestroy {
       disableClose: true,
       autoFocus: false,
       scrollStrategy: this.overlay.scrollStrategies.noop(),
-      data
+      data: {
+        type: 'medical',
+        ...data
+      }
     })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))

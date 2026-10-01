@@ -7,7 +7,7 @@
   min-height: calc(100vh - $layout-header-height);
 }
 
-section {
+.opinions-container {
   margin-top: $spacing-xxl; 
   width: $page-content-width;
   display: flex;
@@ -19,7 +19,7 @@ section {
   }
 
   // Container interno da tabela
-  div.table {
+  .table-card {
     display: flex;
     flex-direction: column;
     align-self: center;
@@ -30,7 +30,7 @@ section {
   }
 
   // Container de busca
-  div.search {
+  .search-bar {
     display: flex; 
     justify-content: center; 
     width: 100%;
@@ -61,7 +61,7 @@ section {
       color: var(--md-sys-color-inverse-surface);
     }
 
-    .center {
+    .col-center {
       text-align: center;
       div {
         @include flex-center($spacing-xs);

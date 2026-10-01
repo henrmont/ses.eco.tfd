@@ -7,15 +7,14 @@
   min-height: calc(100vh - $layout-header-height);
 }
 
-section {
+.users-container {
   margin-top: $spacing-xxl; 
   width: $page-content-width;
   display: flex;
   flex-direction: column;
   gap: $spacing-xl; 
 
-  // Container interno da tabela
-  div.table {
+  .table-card {
     display: flex;
     flex-direction: column;
     align-self: center;
@@ -25,8 +24,7 @@ section {
     box-sizing: border-box;
   }
 
-  // Container de busca
-  div.search {
+  .search-bar {
     display: flex; 
     justify-content: center; 
     width: 100%;
@@ -37,7 +35,6 @@ section {
     }
   }
 
-  // Estilização da Tabela Angular Material
   table.mat-mdc-table {
     margin: 0 auto $spacing-sm auto;
     background: white;
@@ -57,8 +54,9 @@ section {
       color: var(--md-sys-color-inverse-surface);
     }
 
-    .center {
+    .col-center {
       text-align: center;
+      
       div {
         @include flex-center($spacing-xs);
       }
@@ -67,7 +65,6 @@ section {
     // Estados Semânticos
     .valid { color: $color-success; }
     .invalid { color: $color-danger; }
-    .bookmark, .warning { color: $color-warning; }
 
     // Colunas de Largura Fixa
     th.mat-column-is_editable { width: 5%; }

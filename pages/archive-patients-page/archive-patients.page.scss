@@ -7,19 +7,14 @@
   min-height: calc(100vh - $layout-header-height);
 }
 
-section {
+.archive-patients-container {
   margin-top: $spacing-xxl; 
   width: $page-content-width;
   display: flex;
   flex-direction: column;
   gap: $spacing-xl; 
 
-  .tab-icon {
-    margin-right: $spacing-sm;
-  }
-
-  // Container interno da tabela
-  div.table {
+  .table-card {
     display: flex;
     flex-direction: column;
     align-self: center;
@@ -29,8 +24,7 @@ section {
     box-sizing: border-box;
   }
 
-  // Container de busca
-  div.search {
+  .search-bar {
     display: flex; 
     justify-content: center; 
     width: 100%;
@@ -41,7 +35,6 @@ section {
     }
   }
 
-  // Estilização da Tabela Angular Material
   table.mat-mdc-table {
     margin: 0 auto $spacing-sm auto;
     background: white;
@@ -61,8 +54,9 @@ section {
       color: var(--md-sys-color-inverse-surface);
     }
 
-    .center {
+    .col-center {
       text-align: center;
+      
       div {
         @include flex-center($spacing-xs);
       }
@@ -71,9 +65,8 @@ section {
     // Estados Semânticos
     .valid { color: $color-success; }
     .invalid { color: $color-danger; }
-    .bookmark, .warning { color: $color-warning; }
 
-    // --- Larguras das Colunas: Pacientes Arquivados ---
+    // Colunas de Largura Fixa
     th.mat-column-name        { width: 25%; }
     th.mat-column-cns         { width: 15%; }
     th.mat-column-document    { width: 25%; }
