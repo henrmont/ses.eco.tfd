@@ -48,14 +48,3 @@ mat-dialog-content {
     }
   }
 }
-
-.toggle {
-  display: flex;
-  align-items: center;
-  height: $material-field-outline-height; 
-
-  mat-slide-toggle {
-    font-size: $font-size-md;
-    color: var(--mdc-outlined-text-field-label-text-color, $color-text-label-fallback);
-  }
-}

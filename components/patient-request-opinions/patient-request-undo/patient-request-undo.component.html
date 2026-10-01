@@ -9,10 +9,16 @@
         <mat-form-field appearance="outline">
           <mat-label>Para</mat-label>
           <mat-select formControlName="to">
-            <mat-option value="user">{{ data?.patient_request?.report?.patient_care?.user?.professional?.name ?? 'Não informado' }} - PACIENTE</mat-option>
-            <mat-option value="owner">{{ data?.patient_request?.owner_professional?.name ?? 'Não informado' }} - SOLICITAÇÃO</mat-option>
-            @if (data?.type === 'social') {
-              <mat-option value="medical">{{ data?.patient_request?.medical_professional?.name ?? 'Não informado' }}</mat-option>
+            <mat-option value="user">{{ Professionals.CADASTRO }} ({{ data?.patient_request?.report?.patient_care?.user?.professional?.name ?? 'Não informado' }})</mat-option>
+            <mat-option value="owner">{{ Professionals.ADMINISTRATIVO }} ({{ data?.patient_request?.owner_professional?.name ?? 'Não informado' }})</mat-option>
+            @if (data?.type === 'medical') {
+              <mat-option value="medical">{{ Professionals.MEDICO }} ({{ data?.patient_request?.medical_professional?.name ?? 'Não informado' }})</mat-option>
+            } @else {
+              <mat-option value="social">{{ Professionals.ASSISTENTE_SOCIAL }} ({{ data?.patient_request?.social_professional?.name ?? 'Não informado' }})</mat-option>
+            }
+            @if (data?.patient_request?.type !== 'Entrada') {
+              <mat-option value="travel">{{ Professionals.PASSAGEM }} ({{ data?.patient_request?.travel_professional?.name ?? 'Não informado' }})</mat-option>
+              <mat-option value="cost_assistance">{{ Professionals.AJUDA_DE_CUSTO }} ({{ data?.patient_request?.cost_assistance_professional?.name ?? 'Não informado' }})</mat-option>
             }
           </mat-select>
           

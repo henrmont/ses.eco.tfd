@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { saveAs } from 'file-saver';
@@ -13,7 +13,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core, Models e Enums
+// Core, Services & Models
 import { MessageService } from '../../../../core/services/message-service';
 import { StorageService } from '../../../../core/services/storage-service';
 import { PatientRequest } from '../../../models/patient-request.model';
@@ -25,21 +25,11 @@ import { PatientRequestAttachmentCreateComponent } from '../patient-request-atta
 import { PatientRequestAttachmentDeleteComponent } from '../patient-request-attachment-delete/patient-request-attachment-delete.component';
 import { PatientRequestAttachmentUpdateComponent } from '../patient-request-attachment-update/patient-request-attachment-update.component';
 
-// Define o tipo aceito para as propriedades dos Modais de Anexos
-type PatientRequestAttachmentDialogData =
-  | { patient_request_attachment: PatientRequestAttachment }
-  | { patient_request: PatientRequest | undefined };
-
-  // Nomes dos canais do módulo TFD
-type TfdChannelKey = 'REQUESTS' | 'TRAVELS' | 'OPINIONS' | 'COST_ASSISTANCES';
-
-const TFD_CHANNEL_NAMES: Record<TfdChannelKey, string> = {
-  REQUESTS: 'tfd-patient-requests-channel',
-  TRAVELS: 'tfd-travels-channel',
-  OPINIONS: 'tfd-opinions-channel',
-  COST_ASSISTANCES: 'tfd-cost-assistances-channel'
+// Tipagem dos Dados do Modal
+type PatientRequestAttachmentDialogData = {
+  patient_request?: PatientRequest;
+  patient_request_attachment?: PatientRequestAttachment;
 };
-
 
 @Component({
   selector: 'app-patient-request-attachments',
@@ -57,7 +47,12 @@ const TFD_CHANNEL_NAMES: Record<TfdChannelKey, string> = {
   styleUrl: './patient-request-attachments.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PatientRequestAttachmentsComponent implements OnInit{
+export class PatientRequestAttachmentsComponent implements OnInit, OnDestroy {
+  // ==========================================
+  // Instância própria do canal
+  // ==========================================
+  private readonly patientRequestsChannel = new BroadcastChannel('tfd-patient-requests-channel');
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
@@ -68,7 +63,6 @@ export class PatientRequestAttachmentsComponent implements OnInit{
   private readonly storageService = inject(StorageService);
   private readonly messageService = inject(MessageService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly cdr = inject(ChangeDetectorRef);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -78,20 +72,15 @@ export class PatientRequestAttachmentsComponent implements OnInit{
   protected readonly isLoading = signal<boolean>(true);
 
   // ==========================================
-  // Mapa de instâncias dos BroadcastChannels do TFD
-  // ==========================================
-  private readonly channels = new Map<TfdChannelKey, BroadcastChannel>();
-
-  // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
     this.fetchPatientRequestAttachments(true);
+    this.listenToBroadcastChannel();
+  }
 
-    // Instancia todos os canais quando o layout é carregado
-    (Object.keys(TFD_CHANNEL_NAMES) as TfdChannelKey[]).forEach(key => {
-      this.channels.set(key, new BroadcastChannel(TFD_CHANNEL_NAMES[key]));
-    });
+  ngOnDestroy(): void {
+    this.patientRequestsChannel.close();
   }
 
   // ==========================================
@@ -100,7 +89,7 @@ export class PatientRequestAttachmentsComponent implements OnInit{
   protected download(archiveId: number | null | undefined, name: string): void {
     if (!archiveId) return;
 
-    this.storageService.download('tfd',archiveId)
+    this.storageService.download('tfd', archiveId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
@@ -112,15 +101,23 @@ export class PatientRequestAttachmentsComponent implements OnInit{
   }
 
   protected patientRequestAttachmentCreate(): void {
-    this.openDialog(PatientRequestAttachmentCreateComponent, { patient_request: this.data?.patient_request });
+    this.openDialog(PatientRequestAttachmentCreateComponent, {
+      patient_request: this.data?.patient_request
+    });
   }
 
   protected patientRequestAttachmentUpdate(patientRequestAttachment: PatientRequestAttachment): void {
-    this.openDialog(PatientRequestAttachmentUpdateComponent, { patient_request_attachment: patientRequestAttachment });
+    this.openDialog(PatientRequestAttachmentUpdateComponent, {
+      patient_request: this.data?.patient_request,
+      patient_request_attachment: patientRequestAttachment
+    });
   }
 
   protected patientRequestAttachmentDelete(patientRequestAttachment: PatientRequestAttachment): void {
-    this.openDialog(PatientRequestAttachmentDeleteComponent, { patient_request_attachment: patientRequestAttachment }, '400px', 'auto', true);
+    this.openDialog(PatientRequestAttachmentDeleteComponent, {
+      patient_request: this.data?.patient_request,
+      patient_request_attachment: patientRequestAttachment
+    }, '400px', 'auto', true);
   }
 
   // ==========================================
@@ -131,7 +128,6 @@ export class PatientRequestAttachmentsComponent implements OnInit{
 
     if (!requestId) {
       this.isLoading.set(false);
-      this.cdr.markForCheck();
       return;
     }
 
@@ -141,16 +137,12 @@ export class PatientRequestAttachmentsComponent implements OnInit{
 
     this.patientRequestService.getPatientRequestAttachments(requestId)
       .pipe(
-        finalize(() => {
-          this.isLoading.set(false);
-          this.cdr.markForCheck();
-        }),
+        finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
-          const rawData: PatientRequestAttachment[] = response || [];
-          this.dataSource.data = rawData;
+        next: (response: PatientRequestAttachment[]) => {
+          this.dataSource.data = response || [];
         },
         error: (err) => {
           this.dataSource.data = [];
@@ -160,14 +152,12 @@ export class PatientRequestAttachmentsComponent implements OnInit{
       });
   }
 
-  /**
-   * Método auxiliar para emitir mensagens com segurança no canal especificado
-   */
-  public postMessage(channelKey: TfdChannelKey, message: any = 'update'): void {
-    const channel = this.channels.get(channelKey);
-    if (channel) {
-      channel.postMessage(message);
-    }
+  private listenToBroadcastChannel(): void {
+    this.patientRequestsChannel.onmessage = (message: MessageEvent<string>) => {
+      if (message.data === 'update') {
+        this.fetchPatientRequestAttachments(false);
+      }
+    };
   }
 
   private openDialog<T>(
@@ -175,8 +165,7 @@ export class PatientRequestAttachmentsComponent implements OnInit{
     data: PatientRequestAttachmentDialogData,
     width = '400px',
     height = 'auto',
-    requiresRefresh = true,
-    emitGlobalBroadcast = true,
+    requiresRefresh = true
   ): void {
     this.dialog.open(component, {
       width,
@@ -189,18 +178,14 @@ export class PatientRequestAttachmentsComponent implements OnInit{
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
-        if (result) {
-          this.fetchPatientRequestAttachments(requiresRefresh);
-          
-          if (emitGlobalBroadcast) {
-            for (const channelKey of Object.keys(TFD_CHANNEL_NAMES) as TfdChannelKey[]) {
-              this.postMessage(channelKey, 'update');
-            }
-          }
-          this.cdr.markForCheck();
-        }
-        if (result) {
+        if (result && requiresRefresh) {
+          this.handleAttachmentChange();
         }
       });
+  }
+
+  private handleAttachmentChange(): void {
+    this.fetchPatientRequestAttachments(false);
+    this.patientRequestsChannel.postMessage('update');
   }
 }

@@ -22,23 +22,30 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core & Services
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequestService } from '../../../services/patient-request.service';
+
+interface AttachedFileState {
+  file: File | null;
+  label: ReturnType<typeof signal<string>>;
+  hasFile: ReturnType<typeof signal<boolean>>;
+}
 
 @Component({
   selector: 'app-patient-request-attachment-create',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    ReactiveFormsModule, 
-    MatDialogModule, 
-    MatButtonModule, 
-    MatFormFieldModule, 
-    MatInputModule, 
-    MatIconModule, 
-    MatTooltipModule, 
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatIconModule,
+    MatTooltipModule,
     MatProgressSpinnerModule
   ],
   templateUrl: './patient-request-attachment-create.component.html',
@@ -59,19 +66,20 @@ export class PatientRequestAttachmentCreateComponent implements OnInit {
   private readonly injector = inject(Injector);
 
   // ==========================================
-  // Formulários e Estados Reativos
+  // Propriedades e Estado Reativo
   // ==========================================
   protected attachmentForm!: FormGroup;
 
   protected readonly isSubmitting = signal<boolean>(false);
-  protected readonly hasFile = signal<boolean>(false);
-  protected readonly fileLabel = signal<string>('Nenhum arquivo selecionado');
 
-  private selectedFile: File | null = null;
+  // Gerenciamento de Anexos/Arquivos
+  protected readonly attachmentFile: AttachedFileState = {
+    file: null,
+    label: signal('Nenhum arquivo selecionado'),
+    hasFile: signal(false)
+  };
 
-  // ==========================================
-  // Dicionários e Mensagens de Erro
-  // ==========================================
+  // Mapeamento de Mensagens de Erro Tipado
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
     name: [
       { type: 'required', message: 'O nome do anexo é obrigatório.' }
@@ -97,9 +105,9 @@ export class PatientRequestAttachmentCreateComponent implements OnInit {
 
     if (input.files && input.files.length > 0) {
       const file = input.files[0];
-      this.selectedFile = file;
-      this.fileLabel.set(file.name);
-      this.hasFile.set(true);
+      this.attachmentFile.file = file;
+      this.attachmentFile.label.set(file.name);
+      this.attachmentFile.hasFile.set(true);
 
       const currentName = this.attachmentForm.get('name')?.value;
       if (!currentName) {
@@ -123,10 +131,10 @@ export class PatientRequestAttachmentCreateComponent implements OnInit {
       return;
     }
 
-    if (this.attachmentForm.invalid || !this.selectedFile) {
+    if (this.attachmentForm.invalid || !this.attachmentFile.file) {
       this.attachmentForm.markAllAsTouched();
 
-      if (!this.selectedFile) {
+      if (!this.attachmentFile.file) {
         this.messageService.showMessage('A seleção de um arquivo anexo é obrigatória.');
       }
       return;
@@ -136,7 +144,7 @@ export class PatientRequestAttachmentCreateComponent implements OnInit {
 
     const attachmentPayload = {
       ...this.attachmentForm.getRawValue(),
-      file: this.selectedFile
+      file: this.attachmentFile.file
     };
 
     this.patientRequestService.createPatientRequestAttachment(patientRequestId, attachmentPayload)
@@ -145,7 +153,7 @@ export class PatientRequestAttachmentCreateComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Arquivo anexado com sucesso!');
           this.dialogRef.close(true);
         },

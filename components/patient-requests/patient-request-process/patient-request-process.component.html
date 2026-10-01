@@ -1,0 +1,175 @@
+<h2 mat-dialog-title>Tramitar solicitação</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="processForm">
+    <div class="stepper">
+
+      <!-- Linha 1: Profissional Médico e Assistente Social (Sempre Visíveis) -->
+      <div class="line cols-1-col">
+        
+        <!-- Profissional Médico -->
+        <mat-form-field appearance="outline">
+          <mat-label>Profissional Médico</mat-label>
+          <input
+            type="text"
+            matInput
+            [formControl]="medicalProfessionalControl"
+            [matAutocomplete]="autoMedical"
+            [readonly]="isReadOnly()"
+            placeholder="Selecione o médico"
+          />
+          @if (isLoadingProfessionals()) {
+            <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
+          }
+          <mat-autocomplete #autoMedical="matAutocomplete" [displayWith]="displayProfessionalFn">
+            @for (option of filteredMedicalOptions | async; track option.id) {
+              <mat-option [value]="option">
+                <span class="margin-right-20">{{ option.name }}</span>
+                @if (option.requests_count !== undefined) {
+                  <mat-chip>
+                    {{ option.requests_count }}
+                  </mat-chip>
+                }
+              </mat-option>
+            }
+          </mat-autocomplete>
+
+          @for (item of errorMessages['medical_professional_id']; track $index) {
+            <mat-error [hidden]="!processForm.get('medical_professional_id')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+
+        <!-- Assistente Social -->
+        <mat-form-field appearance="outline">
+          <mat-label>Assistente Social</mat-label>
+          <input
+            type="text"
+            matInput
+            [formControl]="socialProfessionalControl"
+            [matAutocomplete]="autoSocial"
+            [readonly]="isReadOnly()"
+            placeholder="Selecione o assistente social"
+          />
+          @if (isLoadingProfessionals()) {
+            <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
+          }
+          <mat-autocomplete #autoSocial="matAutocomplete" [displayWith]="displayProfessionalFn">
+            @for (option of filteredSocialOptions | async; track option.id) {
+              <mat-option [value]="option">
+                <span class="margin-right-20">{{ option.name }}</span>
+                @if (option.requests_count !== undefined) {
+                  <mat-chip>
+                    {{ option.requests_count }}
+                  </mat-chip>
+                }
+              </mat-option>
+            }
+          </mat-autocomplete>
+
+          @for (item of errorMessages['social_professional_id']; track $index) {
+            <mat-error [hidden]="!processForm.get('social_professional_id')?.hasError(item.type)">
+              {{ item.message }}
+            </mat-error>
+          }
+        </mat-form-field>
+
+      </div>
+
+      <!-- Linha 2: Responsável por Passagem e Ajuda de Custo (Ocultos se type === 'Entrada') -->
+      @if (!isEntranceType()) {
+        <div class="line cols-1-col">
+          
+          <!-- Profissional de Passagens -->
+          <mat-form-field appearance="outline">
+            <mat-label>Profissional de Passagens</mat-label>
+            <input
+              type="text"
+              matInput
+              [formControl]="travelProfessionalControl"
+              [matAutocomplete]="autoTravel"
+              [readonly]="isReadOnly()"
+              placeholder="Selecione o responsável por passagens"
+            />
+            @if (isLoadingProfessionals()) {
+              <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
+            }
+            <mat-autocomplete #autoTravel="matAutocomplete" [displayWith]="displayProfessionalFn">
+              @for (option of filteredTravelOptions | async; track option.id) {
+                <mat-option [value]="option">
+                  <span class="margin-right-20">{{ option.name }}</span>
+                  @if (option.requests_count !== undefined) {
+                    <mat-chip>
+                        {{ option.requests_count }}
+                    </mat-chip>
+                  }
+                </mat-option>
+              }
+            </mat-autocomplete>
+
+            @for (item of errorMessages['travel_professional_id']; track $index) {
+              <mat-error [hidden]="!processForm.get('travel_professional_id')?.hasError(item.type)">
+                {{ item.message }}
+              </mat-error>
+            }
+          </mat-form-field>
+
+          <!-- Profissional de Ajuda de Custo -->
+          <mat-form-field appearance="outline">
+            <mat-label>Profissional de Ajuda de Custo</mat-label>
+            <input
+              type="text"
+              matInput
+              [formControl]="costAssistanceProfessionalControl"
+              [matAutocomplete]="autoCost"
+              [readonly]="isReadOnly()"
+              placeholder="Selecione o responsável por ajuda de custo"
+            />
+            @if (isLoadingProfessionals()) {
+              <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
+            }
+            <mat-autocomplete #autoCost="matAutocomplete" [displayWith]="displayProfessionalFn">
+              @for (option of filteredCostAssistanceOptions | async; track option.id) {
+                <mat-option [value]="option">
+                    <span class="margin-right-20">{{ option.name }}</span>
+                    @if (option.requests_count !== undefined) {
+                      <mat-chip>
+                        {{ option.requests_count }}
+                      </mat-chip>
+                    }
+                </mat-option>
+              }
+            </mat-autocomplete>
+
+            @for (item of errorMessages['cost_assistance_professional_id']; track $index) {
+              <mat-error [hidden]="!processForm.get('cost_assistance_professional_id')?.hasError(item.type)">
+                {{ item.message }}
+              </mat-error>
+            }
+          </mat-form-field>
+
+        </div>
+      }
+
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
+  <button 
+    mat-flat-button 
+    color="primary" 
+    type="button" 
+    [disabled]="isFormInvalid()"
+    (click)="onSubmit()"
+  >
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      Tramitar
+    </div>
+  </button>
+</mat-dialog-actions>

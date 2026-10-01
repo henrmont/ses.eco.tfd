@@ -298,26 +298,54 @@ export class TfdLayout implements OnInit, OnDestroy {
           permissions: ['solicitação criar'], 
           action: () => this.patientRequestCreate() 
         },
+        { 
+          label: 'Arquivo', 
+          icon: 'inventory_2', 
+          types: [Professionals.ADMINISTRATIVO, Professionals.CADASTRO], 
+          permissions: ['solicitação listar'], 
+          routerLink: ['arquivo-solicitacoes'] 
+        },
       ]
     },
     {
-      subHeader: 'Pareceres',
-      requiredTypes: [Professionals.ASSISTENTE_SOCIAL, Professionals.MEDICO],
+      subHeader: 'Pareceres Médicos',
+      requiredTypes: [Professionals.MEDICO],
       requiredPermissions: ['parecer listar'],
       items: [
         { 
-          label: 'Pareceres técnicos', 
+          label: 'Pareceres médicos', 
           icon: 'description', 
-          types: [Professionals.ASSISTENTE_SOCIAL, Professionals.MEDICO], 
+          types: [Professionals.MEDICO], 
           permissions: ['parecer listar'], 
-          routerLink: ['pareceres'] 
+          routerLink: ['pareceres-medicos'] 
         },
         { 
           label: 'Arquivo', 
           icon: 'inventory_2', 
-          types: [Professionals.ASSISTENTE_SOCIAL, Professionals.MEDICO], 
+          types: [Professionals.MEDICO], 
           permissions: ['parecer listar'], 
-          routerLink: ['arquivo-pareceres'] 
+          routerLink: ['arquivo-pareceres-medico'] 
+        },
+      ]
+    },
+    {
+      subHeader: 'Pareceres Sociais',
+      requiredTypes: [Professionals.ASSISTENTE_SOCIAL],
+      requiredPermissions: ['parecer listar'],
+      items: [
+        { 
+          label: 'Pareceres sociais', 
+          icon: 'description', 
+          types: [Professionals.ASSISTENTE_SOCIAL], 
+          permissions: ['parecer listar'], 
+          routerLink: ['pareceres-sociais'] 
+        },
+        { 
+          label: 'Arquivo', 
+          icon: 'inventory_2', 
+          types: [Professionals.ASSISTENTE_SOCIAL], 
+          permissions: ['parecer listar'], 
+          routerLink: ['arquivo-pareceres-social'] 
         },
       ]
     },

@@ -1,13 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { 
-  ChangeDetectionStrategy, 
-  ChangeDetectorRef, 
-  Component, 
-  DestroyRef, 
-  Injector, 
-  OnInit, 
-  inject, 
-  signal 
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  Injector,
+  OnInit,
+  inject,
+  signal
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -22,7 +22,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
-// Services e Models
+// Core, Services & Models
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequestOpinionService } from '../../../services/patient-request-opinion.service';
 
@@ -59,8 +59,14 @@ export class PatientRequestOpinionCreateComponent implements OnInit {
   private readonly injector = inject(Injector);
 
   // ==========================================
-  // Mensagens de Erro por Controle
+  // Propriedades e Estado Reativo
   // ==========================================
+  protected opinionForm!: FormGroup;
+  protected editor!: Editor;
+
+  protected readonly isSubmitting = signal<boolean>(false);
+
+  // Mensagens de Erro por Controle
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
     name: [
       { type: 'required', message: 'O título ou nome do parecer é obrigatório.' }
@@ -73,10 +79,7 @@ export class PatientRequestOpinionCreateComponent implements OnInit {
     ]
   };
 
-  // ==========================================
-  // Configuração do Editor de Texto Rich Text
-  // ==========================================
-  protected editor!: Editor;
+  // Configuração do Editor Rich Text
   protected readonly toolbar: Toolbar = [
     ['bold', 'italic'],
     ['underline', 'strike'],
@@ -92,62 +95,16 @@ export class PatientRequestOpinionCreateComponent implements OnInit {
   ];
 
   // ==========================================
-  // Estados Reativos via Signals
-  // ==========================================
-  protected readonly isSubmitting = signal<boolean>(false);
-
-  // ==========================================
-  // FormGroups
-  // ==========================================
-  protected opinionForm!: FormGroup;
-
-  // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
     this.initForm();
-    this.setupFormSubmittingHandler();
     this.initEditor();
+    this.setupFormSubmittingHandler();
   }
 
   // ==========================================
-  // Inicialização de Form e Editor
-  // ==========================================
-  private initForm(): void {
-    this.opinionForm = this.fb.group({
-      name: [null, [Validators.required]],
-      content: [null, [Validators.required]],
-      is_approved: [false, [Validators.required]]
-    });
-  }
-
-  private initEditor(): void {
-    this.editor = new Editor();
-
-    // Liberação segura de memória para evitar vazamento com o ciclo do editor Rich Text
-    this.destroyRef.onDestroy(() => {
-      this.editor.destroy();
-    });
-  }
-
-  // ==========================================
-  // Handlers Reativos
-  // ==========================================
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.opinionForm.disable({ emitEvent: false });
-        } else {
-          this.opinionForm.enable({ emitEvent: false });
-        }
-        this.cdr.markForCheck();
-      });
-  }
-
-  // ==========================================
-  // Submissão
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected onSubmit(): void {
     const requestId = this.data?.patient_request?.id;
@@ -178,6 +135,38 @@ export class PatientRequestOpinionCreateComponent implements OnInit {
           const fallbackError = 'Ocorreu um erro ao processar a criação do parecer.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
+      });
+  }
+
+  // ==========================================
+  // Métodos Privados / Auxiliares
+  // ==========================================
+  private initForm(): void {
+    this.opinionForm = this.fb.group({
+      name: [null, [Validators.required]],
+      content: [null, [Validators.required]],
+      is_approved: [false, [Validators.required]]
+    });
+  }
+
+  private initEditor(): void {
+    this.editor = new Editor();
+
+    this.destroyRef.onDestroy(() => {
+      this.editor.destroy();
+    });
+  }
+
+  private setupFormSubmittingHandler(): void {
+    toObservable(this.isSubmitting, { injector: this.injector })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(isSubmitting => {
+        if (isSubmitting) {
+          this.opinionForm.disable({ emitEvent: false });
+        } else {
+          this.opinionForm.enable({ emitEvent: false });
+        }
+        this.cdr.markForCheck();
       });
   }
 }

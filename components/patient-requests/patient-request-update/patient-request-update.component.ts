@@ -38,7 +38,7 @@ import { PatientRequestService } from '../../../services/patient-request.service
 import { MessageService } from '../../../../core/services/message-service';
 import { CustomValidators } from '../../../../core/validators/custom.validator';
 
-export interface OptionItem {
+interface OptionItem {
   id?: number;
   name?: string;
   code?: string;
@@ -94,7 +94,7 @@ export class PatientRequestUpdateComponent implements OnInit {
     patient_search: [{ type: 'required', message: 'A seleção do paciente é obrigatória.' }],
     cid_search: [{ type: 'required', message: 'A seleção de um CID/Laudo é obrigatória.' }],
     hospital_search: [{ type: 'required', message: 'A unidade hospitalar é obrigatória.' }],
-    type: [{ type: 'required', message: 'Selecione o tipo de solicitação.' }],
+    type: [{ type: 'required', message: 'Sem solicitação de entrada aprovada.' }],
     consultation_date: [
       { type: 'required', message: 'A data do agendamento é obrigatória.' },
       { type: 'invalidDate', message: 'Digite uma data válida.' }
@@ -404,6 +404,8 @@ export class PatientRequestUpdateComponent implements OnInit {
 
       const lawsuit = !!report.lawsuit;
       const hasEntranceOrLawsuit = !!report.has_entrance_or_lawsuit;
+      const hasEntranceOrLawsuitFinished = !!report.has_entrance_or_lawsuit_finished;
+
       this.currentReportFlags.set({ lawsuit, hasEntranceOrLawsuit });
 
       const typeCtrl = this.patientRequestForm.get('type');
@@ -411,21 +413,21 @@ export class PatientRequestUpdateComponent implements OnInit {
       if (report.id !== originalRequest.report_id) {
         let autoValue: string | null = null;
 
-        if (hasEntranceOrLawsuit) {
+        if (hasEntranceOrLawsuitFinished) {
           autoValue = 'Agendamento';
-        } else {
+        } else if (!hasEntranceOrLawsuit) {
           autoValue = lawsuit ? 'Ação Judicial' : 'Entrada';
         }
 
         if (autoValue) {
           typeCtrl?.setValue(autoValue);
           typeCtrl?.markAsDirty();
-          typeCtrl?.disable();
           this.setType(autoValue);
+        } else {
+          this.resetTypeSelection();
         }
       } else {
         typeCtrl?.setValue(originalRequest.type);
-        typeCtrl?.disable();
         this.setType(originalRequest.type);
       }
 
@@ -479,18 +481,25 @@ export class PatientRequestUpdateComponent implements OnInit {
     return true;
   }
 
+  protected isFormInvalid(): boolean {
+    const rawValue = this.patientRequestForm.getRawValue();
+    const isTypeMissing = !rawValue.type;
+    return this.patientRequestForm.invalid || isTypeMissing || this.patientRequestForm.pending || this.patientRequestForm.pristine || this.isSubmitting();
+  }
+
   private resetTypeSelection(): void {
     const typeControl = this.patientRequestForm.get('type');
     const dateControl = this.patientRequestForm.get('consultation_date');
 
     if (typeControl) {
       typeControl.setValue(null);
+      typeControl.disable({ emitEvent: false });
       typeControl.markAsUntouched();
     }
 
     if (dateControl) {
       dateControl.setValue(null);
-      dateControl.disable();
+      dateControl.disable({ emitEvent: false });
       dateControl.clearValidators();
       dateControl.updateValueAndValidity();
     }
@@ -508,17 +517,18 @@ export class PatientRequestUpdateComponent implements OnInit {
       return;
     }
 
-    if (this.patientRequestForm.invalid) {
+    const rawValue = this.patientRequestForm.getRawValue();
+
+    if (this.patientRequestForm.invalid || !rawValue.type) {
       this.patientRequestForm.markAllAsTouched();
+      this.patientRequestForm.get('type')?.markAsTouched();
       return;
     }
 
     this.isSubmitting.set(true);
     this.cdr.markForCheck();
 
-    const payload = this.patientRequestForm.getRawValue();
-
-    this.patientRequestService.updatePatientRequest(patientRequestId, payload)
+    this.patientRequestService.updatePatientRequest(patientRequestId, rawValue)
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);

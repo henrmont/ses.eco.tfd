@@ -26,7 +26,7 @@
               <button mat-icon-button 
                       type="button"
                       [matTooltip]="element.is_owner_bookmark ? 'Desmarcar sobrestado' : 'Marcar sobrestado'" 
-                      [disabled]="element.back_to_owner"
+                      [disabled]="element.processed || element.back_to_owner"
                       (click)="patientRequestHalted(element)">
                 <mat-icon [className]="element.is_owner_bookmark ? 'bookmark' : null">
                   {{ element.is_owner_bookmark ? 'bookmark' : 'bookmark_border' }}
@@ -44,20 +44,22 @@
           <!-- CNS -->
           <ng-container matColumnDef="cns">
             <th mat-header-cell *matHeaderCellDef mat-sort-header> CNS </th>
-            <td mat-cell *matCellDef="let element"> {{ element.cns | mask:'000 0000 0000 0000' }} </td>
+            <td mat-cell *matCellDef="let element"> 
+              {{ element.cns !== '-' ? (element.cns | mask: '000 0000 0000 0000') : '-' }} 
+            </td>
           </ng-container>
 
           <!-- Tipo -->
           <ng-container matColumnDef="type">
             <th mat-header-cell *matHeaderCellDef mat-sort-header> Tipo </th>
-            <td mat-cell *matCellDef="let element"> {{ element.type }} </td>
+            <td mat-cell *matCellDef="let element"> {{ element.type ?? '-' }} </td>
           </ng-container>
 
           <!-- Data da consulta -->
           <ng-container matColumnDef="consultation_date">
             <th mat-header-cell *matHeaderCellDef mat-sort-header> Data da consulta </th>
             <td mat-cell *matCellDef="let element"> 
-              {{ element.consultation_date ? (element.consultation_date | date: 'dd/MM/y') : 'Não aplicável' }} 
+              {{ element.consultation_date ? (element.consultation_date | date: 'dd/MM/yyyy') : 'Não aplicável' }} 
             </td>
           </ng-container>
 
@@ -66,15 +68,23 @@
             <th mat-header-cell *matHeaderCellDef class="center"> Status </th>
             <td mat-cell *matCellDef="let element" class="center">
               @if (element.back_to_owner) {
-                <button mat-icon-button type="button" (click)="patientRequestFinishBack(element)">
+                <button mat-icon-button 
+                        type="button" 
+                        (click)="patientRequestFinishBack(element)">
                   <mat-icon class="warning">warning_amber</mat-icon>
                 </button>
               } @else {
-                <button mat-icon-button type="button" disabled>
-                  <mat-icon [className]="element.owner_status ? 'valid' : 'invalid'">
-                    {{ element.owner_status ? 'check' : 'priority_high' }}
-                  </mat-icon>
-                </button>
+                @if (element.owner_status) {
+                  <button mat-icon-button type="button" disabled>
+                    <mat-icon class="valid">check</mat-icon>
+                  </button>
+                } @else {
+                  <button mat-icon-button 
+                          type="button"
+                          (click)="patientRequestRequirement(element)">
+                    <mat-icon class="invalid">priority_high</mat-icon>
+                  </button>
+                }
               }
             </td>
           </ng-container>
@@ -82,7 +92,7 @@
           <!-- Ações -->
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef class="center"> Ações </th>
-            <td mat-cell *matCellDef="let element" class="actions-cell">
+            <td mat-cell *matCellDef="let element" class="center actions-cell">
               <button mat-icon-button type="button" matTooltip="Detalhes da solicitação" (click)="patientRequestDetail(element)">
                 <mat-icon>visibility</mat-icon>
               </button>
@@ -91,7 +101,7 @@
                       type="button"
                       matTooltip="Atualizar solicitação" 
                       (click)="patientRequestUpdate(element)" 
-                      [disabled]="checkPermissions('tfd/solicitação atualizar')">
+                      [disabled]="(element.processed && !element.back_to_owner) || checkPermissions('tfd/solicitação atualizar')">
                 <mat-icon>drive_file_rename_outline</mat-icon>
               </button>
               
@@ -99,7 +109,7 @@
                       type="button"
                       matTooltip="Anexos da solicitação" 
                       (click)="patientRequestAttachments(element)" 
-                      [disabled]="checkPermissions('tfd/solicitação anexos')">
+                      [disabled]="(element.processed && !element.back_to_owner) || checkPermissions('tfd/solicitação anexos')">
                 <mat-icon>attach_file</mat-icon>
               </button>
               
@@ -107,16 +117,35 @@
                       type="button"
                       matTooltip="Deletar solicitação" 
                       (click)="patientRequestDelete(element)" 
-                      [disabled]="checkPermissions('tfd/solicitação deletar') || element.medical_professional || element.is_owner_bookmark || element.back_to_owner">
+                      [disabled]="element.processed || checkPermissions('tfd/solicitação deletar') || element.medical_professional || element.is_owner_bookmark || element.back_to_owner">
                 <mat-icon>delete</mat-icon>
               </button>
-              
+
+              @if (element.processed)
+              {
+                <button mat-icon-button 
+                        type="button"
+                        matTooltip="Resgatar para minha caixa" 
+                        (click)="patientRequestMoveFromProcesses(element)" 
+                        [disabled]="element.working || element.any_bookmarking || checkPermissions('tfd/solicitação atualizar')">
+                  <mat-icon>move_to_inbox</mat-icon>
+                </button>
+              } @else {
+                <button mat-icon-button 
+                        type="button"
+                        matTooltip="Tramitar solicitação" 
+                        (click)="patientRequestProcess(element)" 
+                        [disabled]="element.is_owner_bookmark || checkPermissions('tfd/solicitação atualizar')">
+                  <mat-icon>redo</mat-icon>
+                </button>
+              }
+
               <button mat-icon-button 
                       type="button"
-                      matTooltip="Tramitar solicitação" 
-                      (click)="patientRequestProcessToMedical(element)" 
-                      [disabled]="element.is_owner_bookmark || element.medical_professional || element.back_to_owner || checkPermissions('tfd/solicitação atualizar')">
-                <mat-icon>redo</mat-icon>
+                      matTooltip="Arquivar solicitação" 
+                      (click)="patientRequestArchive(element)" 
+                      [disabled]="!element.owner_status || element.is_owner_bookmark || element.back_to_owner || checkPermissions('tfd/solicitação atualizar')">
+                <mat-icon>inventory_2</mat-icon>
               </button>
             </td>
           </ng-container>
@@ -139,93 +168,7 @@
       </div>
     </mat-tab>
 
-    <!-- ABA 2: TRAMITADAS (PROCESS) -->
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <mat-icon class="tab-icon">outbox</mat-icon>
-        Tramitadas
-      </ng-template>
-      
-      <div class="table">
-        <div class="search">
-          <mat-form-field appearance="outline">
-            <mat-label>Buscar</mat-label>
-            <input matInput (keyup)="applyProcessFilter($event)" placeholder="Buscar solicitação" #tramitInput>
-            <mat-icon matSuffix>search</mat-icon>
-          </mat-form-field>
-        </div>
-        
-        <table mat-table [dataSource]="processDataSource" matSort #processSort="matSort" class="process-table">
-
-          <!-- Nome / Paciente -->
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Paciente </th>
-            <td mat-cell *matCellDef="let element"> {{ element.name }} </td>
-          </ng-container>
-          
-          <!-- CNS -->
-          <ng-container matColumnDef="cns">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> CNS </th>
-            <td mat-cell *matCellDef="let element"> {{ element.cns | mask:'000 0000 0000 0000' }} </td>
-          </ng-container>
-
-          <!-- Tipo -->
-          <ng-container matColumnDef="type">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Tipo </th>
-            <td mat-cell *matCellDef="let element"> {{ element.type }} </td>
-          </ng-container>
-
-          <!-- Data da consulta -->
-          <ng-container matColumnDef="consultation_date">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Data da consulta </th>
-            <td mat-cell *matCellDef="let element"> 
-              {{ element.consultation_date ? (element.consultation_date | date: 'dd/MM/y') : 'Não aplicável' }} 
-            </td>
-          </ng-container>
-
-          <!-- Responsável -->
-          <ng-container matColumnDef="responsible">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Responsável </th>
-            <td mat-cell *matCellDef="let element"> {{ element.medical_professional?.name }} </td>
-          </ng-container>
-
-          <!-- Ações -->
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef class="center"> Ações </th>
-            <td mat-cell *matCellDef="let element" class="actions-cell">
-              <button mat-icon-button type="button" matTooltip="Detalhes da solicitação" (click)="patientRequestDetail(element)">
-                <mat-icon>visibility</mat-icon>
-              </button>
-              
-              <button mat-icon-button 
-                      type="button"
-                      matTooltip="Mover para minha caixa" 
-                      (click)="patientRequestMoveFromProcesses(element)" 
-                      [disabled]="element.has_medical_opinion || element.has_social_opinion || element.is_medical_bookmark || element.is_social_bookmark || checkPermissions('tfd/solicitação atualizar')">
-                <mat-icon>move_to_inbox</mat-icon>
-              </button>
-            </td>
-          </ng-container>
-          
-          <tr mat-header-row *matHeaderRowDef="displayedProcessColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedProcessColumns;"></tr>
-          
-          <tr class="mat-row" *matNoDataRow>
-            <td class="mat-cell center" [attr.colspan]="displayedProcessColumns.length">
-              <p>Nenhum resultado encontrado.</p>
-            </td>
-          </tr>
-        </table>
-
-        <mat-paginator 
-          #processPaginator 
-          [pageSize]="8"
-          hidePageSize="true">
-        </mat-paginator>
-      </div>
-    </mat-tab>
-
-    <!-- ABA 3: OUTRAS CAIXAS (OTHERS) -->
+    <!-- ABA 2: OUTRAS CAIXAS (OTHERS) -->
     <mat-tab>
       <ng-template mat-tab-label>
         <mat-icon class="tab-icon">all_inbox</mat-icon>
@@ -252,33 +195,53 @@
           <!-- CNS -->
           <ng-container matColumnDef="cns">
             <th mat-header-cell *matHeaderCellDef mat-sort-header> CNS </th>
-            <td mat-cell *matCellDef="let element"> {{ element.cns | mask:'000 0000 0000 0000' }} </td>
+            <td mat-cell *matCellDef="let element"> 
+              {{ element.cns !== '-' ? (element.cns | mask: '000 0000 0000 0000') : '-' }} 
+            </td>
           </ng-container>
 
           <!-- Tipo -->
           <ng-container matColumnDef="type">
             <th mat-header-cell *matHeaderCellDef mat-sort-header> Tipo </th>
-            <td mat-cell *matCellDef="let element"> {{ element.type }} </td>
+            <td mat-cell *matCellDef="let element"> {{ element.type ?? '-' }} </td>
           </ng-container>
 
           <!-- Data da consulta -->
           <ng-container matColumnDef="consultation_date">
             <th mat-header-cell *matHeaderCellDef mat-sort-header> Data da consulta </th>
             <td mat-cell *matCellDef="let element"> 
-              {{ element.consultation_date ? (element.consultation_date | date: 'dd/MM/y') : 'Não aplicável' }} 
+              {{ element.consultation_date ? (element.consultation_date | date: 'dd/MM/yyyy') : 'Não aplicável' }} 
             </td>
           </ng-container>
 
           <!-- Responsável -->
           <ng-container matColumnDef="responsible">
             <th mat-header-cell *matHeaderCellDef mat-sort-header> Responsável </th>
-            <td mat-cell *matCellDef="let element"> {{ element.owner_professional?.name }} </td>
+            <td mat-cell *matCellDef="let element"> {{ element.responsible }} </td>
+          </ng-container>
+
+          <!-- Status -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef class="center"> Status </th>
+            <td mat-cell *matCellDef="let element" class="center">
+              @if (element.owner_status) {
+                <button mat-icon-button type="button" disabled>
+                  <mat-icon class="valid">check</mat-icon>
+                </button>
+              } @else {
+                <button mat-icon-button 
+                        type="button"
+                        (click)="patientRequestRequirement(element)">
+                  <mat-icon class="invalid">priority_high</mat-icon>
+                </button>
+              }
+            </td>
           </ng-container>
 
           <!-- Ações -->
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef class="center"> Ações </th>
-            <td mat-cell *matCellDef="let element" class="actions-cell">
+            <td mat-cell *matCellDef="let element" class="center actions-cell">
               <button mat-icon-button 
                       type="button"
                       matTooltip="Detalhes da solicitação" 
@@ -291,7 +254,7 @@
                       type="button"
                       matTooltip="Mover para minha caixa" 
                       (click)="patientRequestMoveFromOthers(element)" 
-                      [disabled]="element.has_medical_opinion || element.has_social_opinion || element.is_medical_bookmark || element.is_social_bookmark || element.is_owner_bookmark || checkPermissions('tfd/solicitação atualizar')">
+                      [disabled]="element.processed || element.is_owner_bookmark || checkPermissions('tfd/solicitação atualizar')">
                 <mat-icon>move_to_inbox</mat-icon>
               </button>
             </td>

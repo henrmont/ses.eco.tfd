@@ -9,7 +9,6 @@ mat-dialog-content {
   padding-top: $spacing-modal-pt;
 }
 
-// Container do formulário em formato stepper/flow
 .stepper {
   margin-top: $spacing-form-gap; 
   display: flex; 
@@ -17,7 +16,6 @@ mat-dialog-content {
   gap: $spacing-form-gap;
 }
 
-// Estrutura de Linhas com Grid
 .line {
   display: grid; 
   grid-template-columns: var(--grid-cols, 1fr); 
@@ -26,27 +24,21 @@ mat-dialog-content {
   align-items: start;
   min-height: $material-field-outline-height;
 
-  // Alinhamento vertical do slide toggle
-  .toggle-cell {
-    display: flex;
-    align-items: center;
-    height: $material-field-outline-height;
+  // Definições Semânticas das Colunas Utilizadas
+  &.cols-1-col { --grid-cols: 1fr; }
+  &.cols-1-1   { --grid-cols: 1fr 1fr; }
+  &.cols-1-2   { --grid-cols: 1fr 2fr; }
+  &.cols-1-3   { --grid-cols: 1fr 3fr; }
+}
 
-    mat-slide-toggle {
-      span {
-        font-size: $font-size-md;
-        color: $color-text-variant;
-      }
-    }
-  }
+.toggle {
+  display: flex;
+  align-items: center;
+  height: $material-field-outline-height; 
 
-  // Mapeamento dinâmico de colunas sem inline styling
-  &.cols-1-1 { 
-    --grid-cols: 1fr 1fr; 
-  }
-  
-  &.cols-1-col { 
-    --grid-cols: 1fr; 
+  mat-slide-toggle {
+    font-size: $font-size-md;
+    color: var(--mdc-outlined-text-field-label-text-color, $color-text-label-fallback);
   }
 }
 
@@ -68,7 +60,7 @@ mat-dialog-content {
     }
     
     .NgxEditor__MenuBar {
-      background-color: $color-table-header-bg;
+      background-color: var(--md-sys-color-background, $color-surface);
       border-bottom: 1px solid $color-border-subtle;
     }
     
@@ -78,7 +70,7 @@ mat-dialog-content {
     }
   }
 
-  // Posicionamento do erro do editor sem impactar o fluxo do DOM
+  // Posicionamento da mensagem de erro sem deslocar o layout
   .mat-mdc-form-field-error {
     position: absolute;
     bottom: 0;
@@ -86,11 +78,10 @@ mat-dialog-content {
     margin: 0;
     font-size: 12px;
     color: $color-danger; 
-    padding: 0 16px;
+    padding: 0 $spacing-md;
   }
 }
 
-// Alinhamento do spinner no campo de input
 .field-spinner {
   margin-right: $spacing-sm;
 }

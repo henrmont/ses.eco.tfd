@@ -26,7 +26,25 @@ mat-dialog-content {
   align-items: start;
   min-height: $material-field-outline-height;
 
-  &.cols-1-col { 
-    --grid-cols: 1fr; 
+  // Definições Semânticas das Colunas
+  &.cols-1-col { --grid-cols: 1fr; }
+  &.cols-1-1   { --grid-cols: 1fr 1fr; }
+  &.cols-1-2   { --grid-cols: 1fr 2fr; }
+  &.cols-1-3   { --grid-cols: 1fr 3fr; }
+  &.cols-2-1   { --grid-cols: 2fr 1fr; }
+
+  // Ajustes de campo do formulário
+  mat-form-field {
+    width: 100%;
+
+    // Spinner sutil dentro do mat-suffix para carregamento dos profissionais
+    .field-spinner {
+      margin-right: $spacing-sm;
+    }
   }
+}
+
+// Utilitários auxiliares de layout interno
+.margin-right-20 {
+  margin-right: 20px;
 }

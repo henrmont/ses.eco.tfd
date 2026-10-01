@@ -10,5 +10,5 @@ export interface Professional {
     professional_register?: string,
     cbo?: string,
     user: User,
-    types: ProfessionalType[] | null
+    types: ProfessionalType[] | null,
 }

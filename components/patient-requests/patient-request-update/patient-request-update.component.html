@@ -104,12 +104,11 @@
                     <input 
                         matInput 
                         formControlName="type" 
-                        readonly 
                         placeholder="Sem solicitação de entrada aprovada">
                     <mat-icon matSuffix class="locked-icon">lock</mat-icon>
                     
                     @for (item of errorMessages['type']; track $index) {
-                        <mat-error [hidden]="!patientRequestForm.get('type')?.hasError(item.type)">
+                        <mat-error [hidden]="patientRequestForm.getRawValue().type">
                             {{ item.message }}
                         </mat-error>
                     }
@@ -159,7 +158,7 @@
         mat-flat-button 
         color="primary" 
         type="button" 
-        [disabled]="patientRequestForm.invalid || patientRequestForm.pending || patientRequestForm.pristine || isSubmitting()"
+        [disabled]="isFormInvalid()"
         (click)="onSubmit()"
     >
         <div class="waiting">

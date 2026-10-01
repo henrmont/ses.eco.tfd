@@ -1,26 +1,25 @@
 import { CommonModule } from '@angular/common';
-import { 
-  ChangeDetectionStrategy, 
-  Component, 
-  DestroyRef, 
-  Injector, 
-  OnDestroy, 
-  OnInit, 
-  effect, 
-  inject, 
-  signal, 
-  viewChild 
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  OnDestroy,
+  OnInit,
+  effect,
+  inject,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { finalize, switchMap } from 'rxjs';
-import { NgxMaskDirective, NgxMaskPipe } from 'ngx-mask';
+import { finalize } from 'rxjs';
+import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
 import { Overlay } from '@angular/cdk/overlay';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -29,32 +28,40 @@ import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core, Models e Serviços
+// Core & Models
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
 import { PatientRequest } from '../../models/patient-request.model';
 import { Permission } from '../../models/permission.model';
 import { Role } from '../../models/role.model';
+import { User } from '../../models/user.model';
 import { PatientRequestOpinionService } from '../../services/patient-request-opinion.service';
 
 // Dialog Components
 import { PatientRequestDetailComponent } from '../../components/patient-requests/patient-request-detail/patient-request-detail.component';
-import { PatientRequestOpinionsComponent } from '../../components/patient-request-opinions/patient-request-opinions/patient-request-opinions.component';
 import { PatientRequestMoveFromArchiveComponent } from '../../components/patient-request-opinions/patient-request-move-from-archive/patient-request-move-from-archive.component';
+import { PatientRequestOpinionsComponent } from '../../components/patient-request-opinions/patient-request-opinions/patient-request-opinions.component';
 
-// Define o tipo aceito para as propriedades dos Modais
-type PatientRequestDialogData =
-  | { patient_request: PatientRequest }
-  | { patient_request: PatientRequest; type: 'medical' | 'social' }
-  | { patient_request: PatientRequest; permissions: Role[] };
+// Interface das colunas da tabela de pareceres arquivados
+interface ArchivePatientRequestSocialOpinionsTableRow extends PatientRequest {
+  name: string;
+  cns: string;
+  document: string;
+  responsible: string;
+}
+
+type PatientRequestDialogData = {
+  patient_request?: PatientRequest;
+  type?: string;
+  permissions?: any;
+};
 
 @Component({
-  selector: 'app-archive-patient-request-opinions-page',
+  selector: 'app-archive-patient-request-social-opinions-page',
   standalone: true,
   imports: [
     CommonModule,
     MatBadgeModule,
     MatButtonModule,
-    MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -62,14 +69,14 @@ type PatientRequestDialogData =
     MatSortModule,
     MatTableModule,
     MatTooltipModule,
-    NgxMaskDirective,
     NgxMaskPipe,
   ],
-  templateUrl: './archive-patient-request-opinions.page.html',
-  styleUrl: './archive-patient-request-opinions.page.scss',
+  providers: [provideNgxMask()],
+  templateUrl: './archive-patient-request-social-opinions.page.html',
+  styleUrl: './archive-patient-request-social-opinions.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ArchivePatientRequestOpinionsPage implements OnInit, OnDestroy {
+export class ArchivePatientRequestSocialOpinionsPage implements OnInit, OnDestroy {
   // ==========================================
   // Instância própria do canal
   // ==========================================
@@ -95,19 +102,18 @@ export class ArchivePatientRequestOpinionsPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser = this.route.parent?.parent?.snapshot.data['user'];
+  private readonly currentUser: User | undefined = this.route.parent?.parent?.snapshot.data['user'];
 
-  protected readonly profileType = signal<'medical' | 'social'>('medical');
   protected readonly displayedColumns: string[] = [
     'name',
     'cns',
-    'type',
-    'medical_responsible',
-    'social_responsible',
+    'document',
+    'responsible',
+    'status',
     'actions',
   ];
 
-  protected readonly archivedDataSource = new MatTableDataSource<any>([]);
+  protected readonly archivedDataSource = new MatTableDataSource<ArchivePatientRequestSocialOpinionsTableRow>([]);
 
   // ==========================================
   // Ciclo de Vida (Hooks)
@@ -145,19 +151,11 @@ export class ArchivePatientRequestOpinionsPage implements OnInit, OnDestroy {
   }
 
   // Ações disparadas pelos botões da tabela
-  protected showPatientRequest(patientRequest: PatientRequest): void {
+  protected patientRequestDetail(patientRequest: PatientRequest): void {
     this.openDialog(PatientRequestDetailComponent, { patient_request: patientRequest }, '1000px', 'auto', false);
   }
 
-  protected movePatientRequestFromArchive(patientRequest: PatientRequest): void {
-    this.openDialog(
-      PatientRequestMoveFromArchiveComponent,
-      { patient_request: patientRequest, type: this.profileType() },
-      '400px'
-    );
-  }
-
-  protected opinions(patientRequest: PatientRequest): void {
+  protected patientRequestOpinions(patientRequest: PatientRequest): void {
     this.openDialog(
       PatientRequestOpinionsComponent,
       { patient_request: patientRequest, permissions: this.currentUser?.roles },
@@ -167,17 +165,25 @@ export class ArchivePatientRequestOpinionsPage implements OnInit, OnDestroy {
     );
   }
 
+  protected patientRequestMoveFromArchive(patientRequest: PatientRequest): void {
+    this.openDialog(
+      PatientRequestMoveFromArchiveComponent,
+      { patient_request: patientRequest, type: 'social' },
+      '400px'
+    );
+  }
+
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
   private setupTableBindings(): void {
     effect(
       () => {
-        const sortRef = this.archiveSort();
-        const paginatorRef = this.archivePaginator();
+        const archiveSort = this.archiveSort();
+        const archivePaginator = this.archivePaginator();
 
-        if (sortRef) this.archivedDataSource.sort = sortRef;
-        if (paginatorRef) this.archivedDataSource.paginator = paginatorRef;
+        if (archiveSort) this.archivedDataSource.sort = archiveSort;
+        if (archivePaginator) this.archivedDataSource.paginator = archivePaginator;
       },
       { injector: this.injector }
     );
@@ -187,13 +193,8 @@ export class ArchivePatientRequestOpinionsPage implements OnInit, OnDestroy {
     if (showLoading) this.openLoading();
 
     this.opinionService
-      .getType()
+      .getArchivePatientRequests('social')
       .pipe(
-        switchMap((profileResponse) => {
-          const isMedical = profileResponse === 'Médico';
-          this.profileType.set(isMedical ? 'medical' : 'social');
-          return this.opinionService.getArchivePatientRequests();
-        }),
         finalize(() => {
           if (showLoading && this.loadingDialog) {
             this.loadingDialog.close();
@@ -204,9 +205,7 @@ export class ArchivePatientRequestOpinionsPage implements OnInit, OnDestroy {
       .subscribe({
         next: (response: any) => {
           const rawData: any[] = response || [];
-
-          const archivedRequests = rawData.map((item) => this.mapPatientRequestRow(item));
-
+          const archivedRequests = rawData.map((item) => this.mapArchivedRequestRow(item));
           this.archivedDataSource.data = archivedRequests;
         },
         error: () => {
@@ -223,14 +222,13 @@ export class ArchivePatientRequestOpinionsPage implements OnInit, OnDestroy {
     };
   }
 
-  private mapPatientRequestRow(item: any) {
+  private mapArchivedRequestRow(item: any): ArchivePatientRequestSocialOpinionsTableRow {
     return {
       ...item,
-      name: item.report?.patient_care?.patient?.name || 'Não informado',
-      cns: item.report?.patient_care?.patient?.cns || '',
-      type: item.type,
-      medical_responsible: item.medical_professional?.name || '-',
-      social_responsible: item.social_professional?.name || '-',
+      name: item.report?.patient_care?.patient?.name || '-',
+      cns: item.report?.patient_care?.patient?.cns || '-',
+      document: item.report?.patient_care?.patient?.document || '-',
+      responsible: item.social_professional?.name || '-',
     };
   }
 
@@ -262,12 +260,12 @@ export class ArchivePatientRequestOpinionsPage implements OnInit, OnDestroy {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (result && requiresRefresh) {
-          this.handleRequestsChange();
+          this.handleOpinionChange();
         }
       });
   }
 
-  private handleRequestsChange(): void {
+  private handleOpinionChange(): void {
     this.fetchArchivePatientRequests(false);
     this.opinionsChannel.postMessage('update');
   }

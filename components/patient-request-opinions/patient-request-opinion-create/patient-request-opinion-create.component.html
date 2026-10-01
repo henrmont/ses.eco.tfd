@@ -1,14 +1,14 @@
 <h2 mat-dialog-title>Novo parecer</h2>
 
-<form [formGroup]="opinionForm" (ngSubmit)="onSubmit()">
-  <mat-dialog-content>
+<mat-dialog-content>
+  <form [formGroup]="opinionForm">
     <div class="stepper">
       
+      <!-- Linha 1: Nome e Toggle Favorável -->
       <div class="line cols-1-1">
         <mat-form-field appearance="outline">
           <mat-label>Nome</mat-label>
           <input matInput type="text" formControlName="name">
-          
           @for (item of errorMessages['name']; track $index) {
             <mat-error [hidden]="!opinionForm.get('name')?.hasError(item.type)">
               {{ item.message }}
@@ -16,13 +16,14 @@
           }
         </mat-form-field>
 
-        <div class="toggle-cell">
+        <div class="toggle">
           <mat-slide-toggle formControlName="is_approved">
-            <span>Parecer favorável</span>
+            Parecer favorável
           </mat-slide-toggle>
         </div>
       </div>
 
+      <!-- Linha 2: Rich Text Editor -->
       <div class="line cols-1-col my-custom-editor">
         <div class="NgxEditor__Wrapper" style="width: 100%;">
           <ngx-editor-menu [editor]="editor" [toolbar]="toolbar"></ngx-editor-menu>
@@ -44,26 +45,26 @@
       </div>
 
     </div>
-  </mat-dialog-content>
+  </form>
+</mat-dialog-content>
 
-  <mat-dialog-actions align="end">
-    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
-      Cancelar
-    </button>
-    
-    <button 
-      mat-flat-button 
-      color="primary" 
-      type="button" 
-      [disabled]="opinionForm.invalid || opinionForm.pending || isSubmitting()"
-      (click)="onSubmit()"
-    >
-      <div class="waiting">
-        @if (isSubmitting()) {
-          <mat-spinner [diameter]="20"></mat-spinner>
-        }
-        Criar parecer
-      </div>
-    </button>
-  </mat-dialog-actions>
-</form>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
+    Cancelar
+  </button>
+  
+  <button 
+    mat-flat-button 
+    color="primary" 
+    type="button" 
+    [disabled]="opinionForm.invalid || opinionForm.pending || isSubmitting()"
+    (click)="onSubmit()"
+  >
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      Criar parecer
+    </div>
+  </button>
+</mat-dialog-actions>

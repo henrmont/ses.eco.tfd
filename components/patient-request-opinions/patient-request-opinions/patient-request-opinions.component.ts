@@ -1,11 +1,10 @@
-import { ComponentType } from '@angular/cdk/portal';
-import { Overlay } from '@angular/cdk/overlay';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
-// Angular Material
+// Angular Material & CDK
+import { Overlay } from '@angular/cdk/overlay';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,7 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core, Models e Serviços
+// Core, Services & Models
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestOpinion } from '../../../models/patient-request-opinion.model';
@@ -25,13 +24,11 @@ import { PatientRequestOpinionDeleteComponent } from '../patient-request-opinion
 import { PatientRequestOpinionDetailComponent } from '../patient-request-opinion-detail/patient-request-opinion-detail.component';
 import { PatientRequestOpinionUpdateComponent } from '../patient-request-opinion-update/patient-request-opinion-update.component';
 
-// Define o tipo aceito para as propriedades dos Modais de Pareceres
-type PatientRequestOpinionDialogData =
-  | { opinion: PatientRequestOpinion }
-  | { patient_request: PatientRequest | undefined };
-
-// Constantes Locais
-const TFD_OPINIONS_CHANNEL = new BroadcastChannel('tfd-opinions-channel');
+// Tipagem dos Dados do Modal
+type PatientRequestOpinionDialogData = {
+  opinion?: PatientRequestOpinion;
+  patient_request?: PatientRequest;
+};
 
 @Component({
   selector: 'app-patient-request-opinions',
@@ -50,6 +47,11 @@ const TFD_OPINIONS_CHANNEL = new BroadcastChannel('tfd-opinions-channel');
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PatientRequestOpinionsComponent implements OnInit, OnDestroy {
+  // ==========================================
+  // Instância própria do canal
+  // ==========================================
+  private readonly opinionsChannel = new BroadcastChannel('tfd-opinions-channel');
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
@@ -72,10 +74,11 @@ export class PatientRequestOpinionsComponent implements OnInit, OnDestroy {
   // ==========================================
   ngOnInit(): void {
     this.fetchOpinions(true);
+    this.listenToBroadcastChannel();
   }
 
   ngOnDestroy(): void {
-    TFD_OPINIONS_CHANNEL.close();
+    this.opinionsChannel.close();
   }
 
   // ==========================================
@@ -92,19 +95,27 @@ export class PatientRequestOpinionsComponent implements OnInit, OnDestroy {
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected opinionCreate(): void {
-    this.openDialog(PatientRequestOpinionCreateComponent, { patient_request: this.data?.patient_request }, '1200px');
+    this.openDialog(PatientRequestOpinionCreateComponent, { 
+      patient_request: this.data?.patient_request 
+    }, '1200px');
   }
 
   protected opinionDetail(opinion: PatientRequestOpinion): void {
-    this.openDialog(PatientRequestOpinionDetailComponent, { opinion }, '1200px', 'auto', false, false);
+    this.openDialog(PatientRequestOpinionDetailComponent, { 
+      opinion 
+    }, '1200px', 'auto', false);
   }
 
   protected opinionUpdate(opinion: PatientRequestOpinion): void {
-    this.openDialog(PatientRequestOpinionUpdateComponent, { opinion }, '1200px');
+    this.openDialog(PatientRequestOpinionUpdateComponent, { 
+      opinion 
+    }, '1200px');
   }
 
   protected opinionDelete(opinion: PatientRequestOpinion): void {
-    this.openDialog(PatientRequestOpinionDeleteComponent, { opinion }, '400px', 'auto', false);
+    this.openDialog(PatientRequestOpinionDeleteComponent, { 
+      opinion 
+    }, '400px', 'auto', true);
   }
 
   // ==========================================
@@ -129,6 +140,7 @@ export class PatientRequestOpinionsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (response: PatientRequestOpinion[]) => {
+          console.log(response)
           this.dataSource.data = response || [];
         },
         error: (err) => {
@@ -139,13 +151,20 @@ export class PatientRequestOpinionsComponent implements OnInit, OnDestroy {
       });
   }
 
+  private listenToBroadcastChannel(): void {
+    this.opinionsChannel.onmessage = (message: MessageEvent<string>) => {
+      if (message.data === 'update') {
+        this.fetchOpinions(false);
+      }
+    };
+  }
+
   private openDialog<T>(
-    component: ComponentType<T>,
+    component: new (...args: any[]) => T,
     data: PatientRequestOpinionDialogData,
     width = '800px',
     height = 'auto',
-    requiresRefresh = true,
-    emitGlobalBroadcast = true
+    requiresRefresh = true
   ): void {
     this.dialog.open(component, {
       width,
@@ -158,13 +177,14 @@ export class PatientRequestOpinionsComponent implements OnInit, OnDestroy {
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
-        if (result) {
-          this.fetchOpinions(requiresRefresh);
-
-          if (emitGlobalBroadcast) {
-            TFD_OPINIONS_CHANNEL.postMessage('update');
-          }
+        if (result && requiresRefresh) {
+          this.handleOpinionChange();
         }
       });
+  }
+
+  private handleOpinionChange(): void {
+    this.fetchOpinions(false);
+    this.opinionsChannel.postMessage('update');
   }
 }

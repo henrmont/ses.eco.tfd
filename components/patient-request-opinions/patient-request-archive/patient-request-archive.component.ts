@@ -44,6 +44,7 @@ export class PatientRequestArchiveComponent {
   // ==========================================
   protected onSubmit(): void {
     const patientRequestId = this.data?.patient_request?.id;
+    const profileType = this.data?.type;
 
     if (!patientRequestId) {
       this.messageService.showMessage('Erro: Identificador da solicitação não encontrado.');
@@ -53,7 +54,7 @@ export class PatientRequestArchiveComponent {
     this.isSubmitting.set(true);
     this.cdr.markForCheck();
 
-    this.opinionService.archivePatientRequest(patientRequestId)
+    this.opinionService.archivePatientRequest(profileType, patientRequestId)
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);

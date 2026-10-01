@@ -24,6 +24,7 @@ import { MatSelectModule } from '@angular/material/select';
 // Services, Models e Interfaces
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequestOpinionService } from '../../../services/patient-request-opinion.service';
+import { Professionals } from '../../../enums/professionals';
 
 @Component({
   selector: 'app-patient-request-undo',
@@ -122,6 +123,7 @@ export class PatientRequestUndoComponent implements OnInit {
     }
 
     const requestId = this.data?.patient_request?.id;
+    const requestType = this.data?.type;
     if (!requestId) {
       this.messageService.showMessage('Identificador da solicitação não encontrado.');
       return;
@@ -131,7 +133,7 @@ export class PatientRequestUndoComponent implements OnInit {
 
     const payload = this.undoForm.getRawValue();
 
-    this.opinionService.undoPatientRequest(requestId, payload)
+    this.opinionService.undoPatientRequest(requestId, requestType, payload)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
@@ -146,5 +148,13 @@ export class PatientRequestUndoComponent implements OnInit {
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
       });
+  }
+
+  // Expõe o enum para o template
+  Professionals = Professionals;
+
+  // Método auxiliar se você precisar buscar por chave dinâmica
+  getProfessionalValue(key: keyof typeof Professionals): string {
+    return Professionals[key];
   }
 }

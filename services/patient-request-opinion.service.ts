@@ -20,12 +20,12 @@ export class PatientRequestOpinionService {
   // 1. CONSULTAS E LISTAGENS PRINCIPAIS
   // ==========================================
 
-  getPatientRequests(): Observable<PatientRequest[]> {
-    return this.http.get<PatientRequest[]>(`${this.apiUrl}/patient-requests`);
+  getPatientRequests(type: string): Observable<PatientRequest[]> {
+    return this.http.get<PatientRequest[]>(`${this.apiUrl}/patient-requests/${type}`);
   }
 
-  getArchivePatientRequests(): Observable<PatientRequest[]> {
-    return this.http.get<PatientRequest[]>(`${this.apiUrl}/patient-requests/archived`);
+  getArchivePatientRequests(type: string): Observable<PatientRequest[]> {
+    return this.http.get<PatientRequest[]>(`${this.apiUrl}/patient-requests/${type}/archived`);
   }
 
   getType(): Observable<string> {
@@ -41,7 +41,7 @@ export class PatientRequestOpinionService {
   // ==========================================
 
   getOpinions(patientRequestId: number): Observable<PatientRequestOpinion[]> {
-    return this.http.get<PatientRequestOpinion[]>(`${this.apiUrl}/patient-requests/${patientRequestId}`);
+    return this.http.get<PatientRequestOpinion[]>(`${this.apiUrl}/patient-requests/${patientRequestId}/opinions`);
   }
 
   createOpinion(patientRequestId: number, data: PatientRequestOpinion): Observable<ApiResponse> {
@@ -68,8 +68,8 @@ export class PatientRequestOpinionService {
     return this.http.patch<ApiResponse>(`${this.apiUrl}/patient-requests/${patientRequestId}/process-to-cost-and-travel`, data);
   }
 
-  undoPatientRequest(patientRequestId: number, data: Record<string, unknown>): Observable<ApiResponse> {
-    return this.http.patch<ApiResponse>(`${this.apiUrl}/patient-requests/${patientRequestId}/undo`, data);
+  undoPatientRequest(patientRequestId: number, type: string, data: Record<string, unknown>): Observable<ApiResponse> {
+    return this.http.patch<ApiResponse>(`${this.apiUrl}/patient-requests/${patientRequestId}/undo/${type}`, data);
   }
 
   finishBackPatientRequest(type: string, patientRequestId: number): Observable<ApiResponse> {
@@ -80,12 +80,12 @@ export class PatientRequestOpinionService {
   // 4. AÇÕES DE ESTADO, MOVIMENTAÇÕES E ARQUIVAMENTO
   // ==========================================
 
-  archivePatientRequest(patientRequestId: number): Observable<ApiResponse> {
-    return this.http.patch<ApiResponse>(`${this.apiUrl}/patient-requests/${patientRequestId}/archive`, {});
+  archivePatientRequest(type: string, patientRequestId: number): Observable<ApiResponse> {
+    return this.http.patch<ApiResponse>(`${this.apiUrl}/patient-requests/${type}/${patientRequestId}/archive`, {});
   }
 
   haltedPatientRequest(type: string, patientRequestId: number): Observable<ApiResponse> {
-    return this.http.patch<ApiResponse>(`${this.apiUrl}/patient-requests/${patientRequestId}/halted/${type}`, {});
+    return this.http.patch<ApiResponse>(`${this.apiUrl}/patient-requests/${type}/${patientRequestId}/halted`, {});
   }
 
   movePatientRequestFromProcesses(type: string, patientRequestId: number): Observable<ApiResponse> {

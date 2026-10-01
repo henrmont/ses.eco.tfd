@@ -28,6 +28,10 @@ export class PatientRequestService {
     return this.http.get<PatientRequest[]>(`${this.apiUrl}`);
   }
 
+  getArchivePatientRequests(): Observable<PatientRequest[]> {
+    return this.http.get<PatientRequest[]>(`${this.apiUrl}/archived`);
+  }
+
   createPatientRequest(data: PatientRequest): Observable<ApiResponse> {
     return this.http.post<ApiResponse>(`${this.apiUrl}`, data);
   }
@@ -48,8 +52,12 @@ export class PatientRequestService {
     return this.http.patch<ApiResponse>(`${this.apiUrl}/${patientRequestId}/halted`, {});
   }
 
-  processPatientRequestToMedical(patientRequestId: number, data: Record<string, unknown>): Observable<ApiResponse> {
-    return this.http.patch<ApiResponse>(`${this.apiUrl}/${patientRequestId}/process-to-medical`, data);
+  archivePatientRequest(patientRequestId: number): Observable<ApiResponse> {
+    return this.http.patch<ApiResponse>(`${this.apiUrl}/${patientRequestId}/archive`, {});
+  }
+
+  processPatientRequest(patientRequestId: number, data: Record<string, unknown>): Observable<ApiResponse> {
+    return this.http.patch<ApiResponse>(`${this.apiUrl}/${patientRequestId}/process`, data);
   }
 
   movePatientRequestFromProcesses(patientRequestId: number): Observable<ApiResponse> {
@@ -104,8 +112,8 @@ export class PatientRequestService {
     return this.http.get<HospitalUnity[]>(`${this.apiUrl}/hospital-unities`);
   }
 
-  getMedicalProfessionals(): Observable<Professional[]> {
-    return this.http.get<Professional[]>(`${this.apiUrl}/medical-professionals`);
+  getProfessionals(): Observable<Professional[]> {
+    return this.http.get<Professional[]>(`${this.apiUrl}/professionals`);
   }
 
   // ==========================================
