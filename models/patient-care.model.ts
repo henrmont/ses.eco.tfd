@@ -18,5 +18,6 @@ export interface PatientCare {
     user?: User,
     escorts?: PatientEscort[],
     reports?: PatientReport[],
-    owner?: boolean
+    owner?: boolean,
+    has_reports?: boolean,
 }

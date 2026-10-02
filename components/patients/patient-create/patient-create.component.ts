@@ -1,16 +1,13 @@
 import { STEPPER_GLOBAL_OPTIONS } from '@angular/cdk/stepper';
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
-  ChangeDetectorRef,
   Component,
   DestroyRef,
-  Injector,
-  OnInit,
   inject,
+  OnInit,
   signal
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   FormBuilder,
   FormControl,
@@ -19,7 +16,8 @@ import {
   ReactiveFormsModule,
   Validators
 } from '@angular/forms';
-import { Observable, debounceTime, distinctUntilChanged, filter, finalize, map, startWith } from 'rxjs';
+import { debounceTime, distinctUntilChanged, filter, finalize, map, Observable, startWith } from 'rxjs';
+import { CommonModule } from '@angular/common';
 
 // Angular Material
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
@@ -71,6 +69,11 @@ interface AttachedFileState {
   hasFile: ReturnType<typeof signal<boolean>>;
 }
 
+interface ErrorMessage {
+  type: string;
+  message: string;
+}
+
 @Component({
   selector: 'app-patient-create',
   standalone: true,
@@ -107,9 +110,7 @@ export class PatientCreateComponent implements OnInit {
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientCreateComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -136,7 +137,7 @@ export class PatientCreateComponent implements OnInit {
   };
 
   // Mapeamento de Mensagens de Erro Tipado
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     cns: [
       { type: 'required', message: 'O número do CNS é obrigatório.' },
       { type: 'cnsInvalid', message: 'Número de CNS inválido.' },
@@ -215,18 +216,16 @@ export class PatientCreateComponent implements OnInit {
     this.setupAutocompleteFilters();
     this.fetchNaturalness();
     this.registerCepListener();
-    this.setupFormSubmittingHandler();
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected setBirthDate(event: MatDatepickerInputEvent<any>): void {
+  protected setBirthDate(event: MatDatepickerInputEvent<unknown>): void {
     if (event.value) {
       const momentDate = moment(event.value);
       this.personalForm.get('birth_date')?.setValue(momentDate, { emitEvent: true });
       this.personalForm.markAsDirty();
-      this.cdr.markForCheck();
     }
   }
 
@@ -238,7 +237,6 @@ export class PatientCreateComponent implements OnInit {
       this.files[type].file = file;
       this.files[type].label.set(file.name);
       this.files[type].hasFile.set(true);
-      this.cdr.markForCheck();
     }
   }
 
@@ -262,6 +260,7 @@ export class PatientCreateComponent implements OnInit {
     }
 
     this.isSubmitting.set(true);
+    this.setFormsState(false);
 
     const rawPersonal = this.personalForm.getRawValue();
     const formattedBirthDate = rawPersonal.birth_date
@@ -283,7 +282,10 @@ export class PatientCreateComponent implements OnInit {
 
     this.patientService.createPatient(payload)
       .pipe(
-        finalize(() => this.isSubmitting.set(false)),
+        finalize(() => {
+          this.isSubmitting.set(false);
+          this.setFormsState(true);
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
@@ -372,7 +374,6 @@ export class PatientCreateComponent implements OnInit {
               state: response.uf
             });
             this.addressForm.markAsDirty();
-            this.cdr.markForCheck();
           }
         });
     });
@@ -393,7 +394,6 @@ export class PatientCreateComponent implements OnInit {
           ethnicityCtrl?.disable();
           ethnicityCtrl?.reset();
         }
-        this.cdr.markForCheck();
       });
   }
 
@@ -406,7 +406,6 @@ export class PatientCreateComponent implements OnInit {
         finalize(() => {
           this.naturalnessLoading.set(false);
           this.naturalnessReadOnly.set(false);
-          this.cdr.markForCheck();
         }),
         takeUntilDestroyed(this.destroyRef)
       )
@@ -523,34 +522,26 @@ export class PatientCreateComponent implements OnInit {
     } else {
       ethnicityCtrl?.disable({ emitEvent: false });
     }
-
-    this.cdr.markForCheck();
   }
 
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        const forms = [
-          this.identificationForm,
-          this.personalForm,
-          this.addressForm,
-          this.infoForm
-        ];
+  private setFormsState(enable: boolean): void {
+    const forms = [
+      this.identificationForm,
+      this.personalForm,
+      this.addressForm,
+      this.infoForm
+    ];
 
-        forms.forEach(form => {
-          if (isSubmitting) {
-            form.disable({ emitEvent: false });
-          } else {
-            form.enable({ emitEvent: false });
-          }
-        });
+    for (const form of forms) {
+      if (enable) {
+        form.enable({ emitEvent: false });
+      } else {
+        form.disable({ emitEvent: false });
+      }
+    }
 
-        if (!isSubmitting && this.personalForm.get('race')?.value !== 'Indígena') {
-          this.personalForm.get('ethnicity')?.disable({ emitEvent: false });
-        }
-
-        this.cdr.markForCheck();
-      });
+    if (enable && this.personalForm.get('race')?.value !== 'Indígena') {
+      this.personalForm.get('ethnicity')?.disable({ emitEvent: false });
+    }
   }
 }

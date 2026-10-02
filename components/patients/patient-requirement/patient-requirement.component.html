@@ -3,8 +3,9 @@
 <mat-dialog-content>
   @if (requirements().length > 0) {
     <mat-list>
-      @for (item of requirements(); track item.label) {
-        <mat-list-item [class.fulfilled]="item.fulfilled" [class.unfulfilled]="!item.fulfilled">
+      @for (item of requirements(); track $index) {
+        <mat-list-item
+          [className]="item.fulfilled ? 'fulfilled' : 'unfulfilled'">
           <mat-icon matListItemIcon>
             {{ item.fulfilled ? 'check_circle' : 'cancel' }}
           </mat-icon>
@@ -22,5 +23,10 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+  <button 
+    mat-button 
+    type="button" 
+    [mat-dialog-close]="false">
+    Fechar
+  </button>
 </mat-dialog-actions>

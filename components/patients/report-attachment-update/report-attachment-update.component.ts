@@ -67,7 +67,7 @@ export class ReportAttachmentUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<ReportAttachmentUpdateDialogData>(MAT_DIALOG_DATA);
+  protected readonly data = inject<ReportAttachmentUpdateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);

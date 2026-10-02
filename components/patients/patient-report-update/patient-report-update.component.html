@@ -1,7 +1,7 @@
 <h2 mat-dialog-title>Editar laudo</h2>
 
-<mat-dialog-content>
-  <form [formGroup]="reportForm">
+<form [formGroup]="reportForm">
+  <mat-dialog-content>
     <div class="stepper">
       
       <!-- Linha 1: Protocolo e Ação Judicial -->
@@ -55,8 +55,7 @@
             type="text" 
             matInput 
             formControlName="cid_search" 
-            [matAutocomplete]="cidAuto" 
-            [readonly]="cidReadOnly()">
+            [matAutocomplete]="cidAuto">
           
           @if (cidLoading()) {
             <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
@@ -92,22 +91,22 @@
       </div>
 
     </div>
-  </form>
-</mat-dialog-content>
+  </mat-dialog-content>
 
-<mat-dialog-actions align="end">
-  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
-  <button 
-    mat-flat-button 
-    color="primary" 
-    type="button" 
-    [disabled]="reportForm.invalid || reportForm.pending || reportForm.pristine || isSubmitting()" 
-    (click)="onSubmit()">
-    <div class="waiting">
-      @if (isSubmitting()) {
-        <mat-spinner [diameter]="20"></mat-spinner>
-      }
-      Salvar alterações
-    </div>
-  </button>
-</mat-dialog-actions>
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="submit" 
+      [disabled]="reportForm.invalid || reportForm.pending || isSubmitting()"
+      (click)="onSubmit()">
+      <div class="waiting">
+        @if (isSubmitting()) {
+          <mat-spinner [diameter]="20"></mat-spinner>
+        }
+        Atualizar laudo
+      </div>
+    </button>
+  </mat-dialog-actions>
+</form>

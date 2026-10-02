@@ -15,5 +15,6 @@ export interface PatientReport {
     patient_requests?: PatientRequest[], 
     attachments?: ReportAttachment[],
     has_patient_requests?: boolean,
-    has_entrance_or_lawsuit?: boolean
+    has_entrance_or_lawsuit?: boolean,
+    specialty?: string,
 }

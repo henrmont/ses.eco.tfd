@@ -4,7 +4,7 @@
   <mat-dialog-content>
     @if (isLoading()) {
       <div class="loading-container">
-        <mat-progress-spinner mode="indeterminate" [diameter]="40"></mat-progress-spinner>
+        <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
       </div>
     } @else {
       <div class="line cols-1-col">
@@ -20,7 +20,7 @@
       </div>
 
       <div class="details-container">
-        @for (group of permissionGroups; track $index) {
+        @for (group of permissionGroups; track group.filter) {
           <mat-card appearance="outlined" class="detail-card permission-card">
             <mat-card-header>
               <div class="title-header">
@@ -31,10 +31,14 @@
             
             <mat-card-content>
               <div class="group-grid">
-                @for (item of getFilteredRole(group.filter); track $index) {
+                @for (item of getFilteredRole(group.filter); track item.id ?? $index) {
                   <div class="toggle-item">
-                    <mat-slide-toggle [disabled]="isSubmitting()" (toggleChange)="togglePermission(item)" color="primary">
-                      {{ item.name.split('/').pop() }}
+                    <mat-slide-toggle 
+                      [checked]="isPermissionSelected(item.id)"
+                      [disabled]="isSubmitting()" 
+                      (toggleChange)="togglePermission(item)" 
+                      color="primary">
+                      {{ formatPermissionName(item.name) }}
                     </mat-slide-toggle>
                   </div>
                 }
@@ -53,16 +57,20 @@
   </mat-dialog-content>
   
   <mat-dialog-actions align="end">
-    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
-    <button mat-flat-button color="primary" type="button" 
-            [disabled]="roleForm.invalid || roleForm.pending || isSubmitting()"
-            (click)="onSubmit()"
-            >
+    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
+      Fechar
+    </button>
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="button" 
+      [disabled]="roleForm.invalid || roleForm.pending || isSubmitting()"
+      (click)="onSubmit()">
       <div class="waiting">
         @if (isSubmitting()) {
-          <mat-spinner [diameter]="20"></mat-spinner>
+          <mat-spinner diameter="20"></mat-spinner>
         }
-        Criar regra
+        <span>{{ isSubmitting() ? 'Criando...' : 'Criar regra' }}</span>
       </div>
     </button>
   </mat-dialog-actions>

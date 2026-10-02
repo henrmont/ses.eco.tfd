@@ -1,18 +1,18 @@
-import { ComponentType } from '@angular/cdk/portal';
 import { Overlay } from '@angular/cdk/overlay';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, Injector, OnInit, signal } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ComponentType } from '@angular/cdk/portal';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { NgxMaskDirective } from 'ngx-mask';
 
 // Angular Material
 import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatIconModule } from '@angular/material/icon';
 
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
@@ -23,16 +23,19 @@ import { Professionals } from '../../../enums/professionals';
 import { UserService } from '../../../services/user.service';
 import { ProfessionalTypesComponent } from '../professional-types/professional-types.component';
 
-// Define o tipo aceito para os dados do modal de tipos profissionais
-type ProfessionalTypesDialogData = {
+export type ProfessionalTypesDialogData = {
   selectedTypes: string[];
 };
+
+interface ErrorMessage {
+  type: string;
+  message: string;
+}
 
 @Component({
   selector: 'app-user-create',
   standalone: true,
   imports: [
-    FormsModule,
     MatButtonModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -50,15 +53,13 @@ export class UserCreateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
-  private readonly fb = inject(FormBuilder);
+  private readonly fb = inject(FormBuilder).nonNullable;
   private readonly userService = inject(UserService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<UserCreateComponent>);
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -66,8 +67,7 @@ export class UserCreateComponent implements OnInit {
   protected userForm!: FormGroup;
   protected readonly isSubmitting = signal<boolean>(false);
 
-  // Mapeamento de Mensagens de Erro Tipado
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     name: [
       { type: 'required', message: 'O nome é obrigatório.' }
     ],
@@ -93,14 +93,14 @@ export class UserCreateComponent implements OnInit {
   // ==========================================
   ngOnInit(): void {
     this.initForm();
-    this.setupFormSubmittingHandler();
+    this.setupProfessionalTypesListener();
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected openProfessionalTypesDialog(): void {
-    const currentTypes = this.userForm.get('types')?.value || [];
+    const currentTypes: string[] = this.userForm.get('types')?.value || [];
     this.openDialog(ProfessionalTypesComponent, { selectedTypes: currentTypes });
   }
 
@@ -111,10 +111,15 @@ export class UserCreateComponent implements OnInit {
     }
 
     this.isSubmitting.set(true);
+    this.userForm.disable({ emitEvent: false });
 
     this.userService.createUser(this.userForm.getRawValue())
       .pipe(
-        finalize(() => this.isSubmitting.set(false)),
+        finalize(() => {
+          this.isSubmitting.set(false);
+          this.userForm.enable({ emitEvent: false });
+          this.evaluateProfessionalControls(this.userForm.get('types')?.value || []);
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
@@ -136,14 +141,14 @@ export class UserCreateComponent implements OnInit {
     this.userForm = this.fb.group({
       name: ['', [Validators.required]],
       email: [
-        '', 
-        [Validators.required, Validators.email], 
+        '',
+        [Validators.required, Validators.email],
         [this.userService.emailUserExistsValidator(null)]
       ],
-      types: [[], [Validators.required]],
+      types: [<string[]>[], [Validators.required]],
       cns: [
-        '', 
-        [Validators.required], 
+        '',
+        [Validators.required],
         [this.userService.cnsUserExistsValidator(null)]
       ],
       registration: ['', [Validators.required]],
@@ -152,16 +157,11 @@ export class UserCreateComponent implements OnInit {
     });
   }
 
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
+  private setupProfessionalTypesListener(): void {
+    this.userForm.get('types')?.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.userForm.disable({ emitEvent: false });
-        } else {
-          this.userForm.enable({ emitEvent: false });
-          this.evaluateProfessionalControls(this.userForm.get('types')?.value || []);
-        }
+      .subscribe((selectedTypes: string[]) => {
+        this.evaluateProfessionalControls(selectedTypes || []);
       });
   }
 
@@ -205,9 +205,9 @@ export class UserCreateComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((selectedTypes: string[]) => {
         if (selectedTypes) {
-          this.userForm.get('types')?.setValue(selectedTypes);
-          this.userForm.get('types')?.markAsTouched();
-          this.evaluateProfessionalControls(selectedTypes);
+          const typesCtrl = this.userForm.get('types');
+          typesCtrl?.setValue(selectedTypes);
+          typesCtrl?.markAsTouched();
         }
       });
   }

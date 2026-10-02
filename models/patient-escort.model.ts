@@ -22,5 +22,6 @@ export interface PatientEscort {
     neighborhood: string,
     city?: string,
     state?: Ufs,
-    patient_care?: PatientCare
+    patient_care?: PatientCare,
+    status?: boolean,
 }

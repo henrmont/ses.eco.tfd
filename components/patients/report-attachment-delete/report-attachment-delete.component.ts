@@ -11,6 +11,16 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientService } from '../../../services/patient.service';
+import { PatientCare } from '../../../models/patient-care.model';
+import { PatientReport } from '../../../models/patient-report.model';
+import { ReportAttachment } from '../../../models/report-attachment.model';
+
+type ReportAttachmentDeleteDialogData = {
+  patient_care: PatientCare;
+  patient_report: PatientReport;
+  report_attachment: ReportAttachment;
+};
+
 
 @Component({
   selector: 'app-report-attachment-delete',
@@ -28,7 +38,7 @@ export class ReportAttachmentDeleteComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<ReportAttachmentDeleteDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<ReportAttachmentDeleteComponent>);

@@ -13,6 +13,8 @@ mat-list {
 }
 
 mat-list-item {
+  display: flex;
+  margin: 10px 0;
   // Requisito Cumprido (Verde)
   &.fulfilled {
     mat-icon {

@@ -1,12 +1,18 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
+
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
-// Services, Enums & Local Components
+// Enums & Models
 import { Professionals } from '../../../enums/professionals';
+
+type ProfessionalTypesDialogData = {
+  selectedTypes?: string[];
+};
 
 @Component({
   selector: 'app-professional-types',
@@ -27,7 +33,7 @@ export class ProfessionalTypesComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<ProfessionalTypesDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly dialogRef = inject(MatDialogRef<ProfessionalTypesComponent>);
 
@@ -36,6 +42,13 @@ export class ProfessionalTypesComponent implements OnInit {
   // ==========================================
   protected typesForm!: FormGroup;
   protected readonly professionalTypes = signal<string[]>(Object.values(Professionals));
+
+  // ==========================================
+  // Getters Utilitários
+  // ==========================================
+  protected get selectedTypes(): string[] {
+    return this.typesForm?.get('types')?.value || [];
+  }
 
   // ==========================================
   // Ciclo de Vida (Hooks)
@@ -51,7 +64,7 @@ export class ProfessionalTypesComponent implements OnInit {
     const typesControl = this.typesForm.get('types');
     if (!typesControl) return;
 
-    const currentTypes: string[] = [...(typesControl.value || [])];
+    const currentTypes: string[] = Array.isArray(typesControl.value) ? [...typesControl.value] : [];
     const index = currentTypes.indexOf(type);
 
     if (index !== -1) {
@@ -66,16 +79,15 @@ export class ProfessionalTypesComponent implements OnInit {
   }
 
   protected checkType(type: string): boolean {
-    const currentTypes: string[] = this.typesForm?.get('types')?.value || [];
-    return currentTypes.includes(type);
+    return this.selectedTypes.includes(type);
   }
 
   protected onConfirm(): void {
     if (this.typesForm.invalid) {
       return;
     }
-    const selectedTypes = this.typesForm.get('types')?.value || [];
-    this.dialogRef.close(selectedTypes);
+
+    this.dialogRef.close(this.selectedTypes);
   }
 
   // ==========================================

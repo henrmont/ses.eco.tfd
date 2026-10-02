@@ -3,3 +3,7 @@
 :host {
   @include dialog-base;
 }
+
+mat-dialog-content {
+  @include dialog-content;
+}

@@ -1,17 +1,16 @@
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
-  ChangeDetectorRef,
   Component,
   DestroyRef,
-  Injector,
   OnInit,
+  computed,
   inject,
   signal
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, finalize, map, startWith } from 'rxjs';
+import { CommonModule } from '@angular/common';
 
 // Angular Material
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
@@ -26,7 +25,14 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { Specialty } from '../../../enums/specialties';
+import { PatientCare } from '../../../models/patient-care.model';
+import { PatientReport } from '../../../models/patient-report.model';
 import { PatientService } from '../../../services/patient.service';
+
+type PatientReportUpdateDialogData = {
+  patient_care?: PatientCare;
+  patient_report?: PatientReport;
+};
 
 interface SpecialtyOption {
   key: string;
@@ -62,14 +68,12 @@ export class PatientReportUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientReportUpdateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  private readonly dialogRef = inject(MatDialogRef<PatientReportUpdateComponent>);
   private readonly fb = inject(FormBuilder);
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
-  private readonly dialogRef = inject(MatDialogRef<PatientReportUpdateComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -77,8 +81,10 @@ export class PatientReportUpdateComponent implements OnInit {
   protected reportForm!: FormGroup;
 
   protected readonly isSubmitting = signal<boolean>(false);
-  protected readonly cidReadOnly = signal<boolean>(true);
   protected readonly cidLoading = signal<boolean>(false);
+
+  private readonly patientCareId = computed(() => this.data?.patient_care?.id ?? null);
+  private readonly patientReportId = computed(() => this.data?.patient_report?.id ?? null);
 
   // Mensagens de Erro por Controle
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
@@ -90,9 +96,6 @@ export class PatientReportUpdateComponent implements OnInit {
     ],
     cid_search: [
       { type: 'required', message: 'A seleção do CID é obrigatória para o laudo.' }
-    ],
-    lawsuit: [
-      { type: 'required', message: 'Informe se o laudo possui processo judicial.' }
     ],
     diagnosis: [
       { type: 'required', message: 'A descrição do diagnóstico é obrigatória.' }
@@ -112,38 +115,37 @@ export class PatientReportUpdateComponent implements OnInit {
   ngOnInit(): void {
     this.initForm();
     this.setupAutocompleteFilters();
-    this.fetchCids();
+    this.fetchCidsAndPopulate();
     this.registerCleaners();
-    this.setupFormSubmittingHandler();
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected displayCid(cid: CidOption): string {
-    return cid && cid.name && cid.code ? `${cid.code} - ${cid.name}` : '';
+  protected displayCid(cid?: CidOption | null): string {
+    return cid?.code && cid?.name ? `${cid.code} - ${cid.name}` : '';
   }
 
-  protected displaySpecialty(specialty: SpecialtyOption): string {
+  protected displaySpecialty(specialty?: SpecialtyOption | null): string {
     return specialty?.label || '';
   }
 
   protected setCid(cid: CidOption): void {
-    this.reportForm.get('cid_id')?.setValue(cid.id);
+    this.reportForm.patchValue({ cid_id: cid.id });
     this.reportForm.get('cid_id')?.markAsDirty();
   }
 
   protected setSpecialty(option: SpecialtyOption): void {
-    this.reportForm.get('specialty')?.setValue(option.key);
+    this.reportForm.patchValue({ specialty: option.key });
     this.reportForm.get('specialty')?.markAsDirty();
   }
 
   protected onSubmit(): void {
-    const patientCareId = this.data?.patient_care?.id || this.data?.patient_report?.patient_care?.id;
-    const reportId = this.data?.patient_report?.id;
+    const careId = this.patientCareId();
+    const reportId = this.patientReportId();
 
-    if (!patientCareId || !reportId) {
-      this.messageService.showMessage('Identificadores do atendimento ou do laudo não encontrados.');
+    if (!careId || !reportId) {
+      this.messageService.showMessage('Identificadores do atendimento ou laudo inválidos.');
       return;
     }
 
@@ -153,6 +155,7 @@ export class PatientReportUpdateComponent implements OnInit {
     }
 
     this.isSubmitting.set(true);
+    this.reportForm.disable({ emitEvent: false });
 
     const rawValue = this.reportForm.getRawValue();
     const payload = {
@@ -163,9 +166,12 @@ export class PatientReportUpdateComponent implements OnInit {
       diagnosis: rawValue.diagnosis
     };
 
-    this.patientService.updatePatientReport(patientCareId, reportId, payload)
+    this.patientService.updatePatientReport(careId, reportId, payload)
       .pipe(
-        finalize(() => this.isSubmitting.set(false)),
+        finalize(() => {
+          this.isSubmitting.set(false);
+          this.reportForm.enable({ emitEvent: false });
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
@@ -174,7 +180,7 @@ export class PatientReportUpdateComponent implements OnInit {
           this.dialogRef.close(true);
         },
         error: (err) => {
-          const fallbackError = 'Ocorreu um erro ao tentar atualizar o laudo médico.';
+          const fallbackError = 'Erro ao atualizar o laudo médico.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
       });
@@ -184,16 +190,14 @@ export class PatientReportUpdateComponent implements OnInit {
   // Métodos Privados / Auxiliares
   // ==========================================
   private initForm(): void {
-    const isExported = !!this.data?.patient_report?.is_export;
-
     this.reportForm = this.fb.group({
-      protocol: [{ value: this.data?.patient_report?.protocol ?? null, disabled: isExported }, [Validators.required]],
-      specialty: [this.data?.patient_report?.specialty ?? null, [Validators.required]],
+      protocol: [null, [Validators.required]],
+      specialty: [null, [Validators.required]],
       specialty_search: [null, [Validators.required]],
-      cid_id: [this.data?.patient_report?.cid_id ?? this.data?.patient_report?.cid?.id ?? null, [Validators.required]],
-      cid_search: [{ value: null, disabled: isExported }, [Validators.required]],
-      lawsuit: [{ value: !!this.data?.patient_report?.lawsuit, disabled: isExported }, [Validators.required]],
-      diagnosis: [this.data?.patient_report?.diagnosis ?? null, [Validators.required]]
+      cid_id: [null, [Validators.required]],
+      cid_search: [null, [Validators.required]],
+      lawsuit: [false, [Validators.required]],
+      diagnosis: [null, [Validators.required]]
     });
   }
 
@@ -203,20 +207,13 @@ export class PatientReportUpdateComponent implements OnInit {
       label: value
     }));
 
-    // Preenche a seleção inicial da especialidade
-    const initialKey = this.data?.patient_report?.specialty;
-    const initialOption = this.specialtyOptions.find(opt => opt.key === initialKey);
-    if (initialOption) {
-      this.reportForm.get('specialty_search')?.setValue(initialOption);
-    }
-
     const specialtySearchCtrl = this.reportForm.get('specialty_search');
     if (specialtySearchCtrl) {
       this.filteredSpecialtyOptions = specialtySearchCtrl.valueChanges.pipe(
-        startWith(specialtySearchCtrl.value),
-        map(value => {
+        startWith(''),
+        map((value) => {
           const term = typeof value === 'string' ? value : value?.label || '';
-          return term ? this._filterSpecialty(term) : this.specialtyOptions.slice(0, 10);
+          return term ? this.filterSpecialty(term) : this.specialtyOptions.slice(0, 10);
         }),
         takeUntilDestroyed(this.destroyRef)
       );
@@ -227,10 +224,10 @@ export class PatientReportUpdateComponent implements OnInit {
     const cidSearchCtrl = this.reportForm.get('cid_search');
     if (cidSearchCtrl) {
       this.filteredCidOptions = cidSearchCtrl.valueChanges.pipe(
-        startWith(cidSearchCtrl.value),
-        map(value => {
+        startWith(''),
+        map((value) => {
           const term = typeof value === 'string' ? value : (value?.code ? `${value.code} - ${value.name}` : '');
-          return term ? this._filterCid(term) : this.cidOptions.slice(0, 10);
+          return term ? this.filterCid(term) : this.cidOptions.slice(0, 10);
         }),
         takeUntilDestroyed(this.destroyRef)
       );
@@ -240,38 +237,35 @@ export class PatientReportUpdateComponent implements OnInit {
   private registerCleaners(): void {
     this.reportForm.get('cid_search')?.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(value => {
+      .subscribe((value) => {
         if (!value || typeof value !== 'object') {
-          this.reportForm.get('cid_id')?.setValue(null);
+          this.reportForm.patchValue({ cid_id: null });
           this.reportForm.get('cid_id')?.markAsDirty();
         }
       });
 
     this.reportForm.get('specialty_search')?.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(value => {
+      .subscribe((value) => {
         if (!value || typeof value !== 'object') {
-          this.reportForm.get('specialty')?.setValue(null);
+          this.reportForm.patchValue({ specialty: null });
           this.reportForm.get('specialty')?.markAsDirty();
         }
       });
   }
 
-  private fetchCids(): void {
-    const patientCareId = this.data?.patient_care?.id || this.data?.patient_report?.patient_care?.id;
-
-    if (!patientCareId) {
-      return;
-    }
+  private fetchCidsAndPopulate(): void {
+    const careId = this.patientCareId();
+    if (!careId) return;
 
     this.cidLoading.set(true);
-    this.cdr.markForCheck();
+    this.reportForm.get('cid_search')?.disable({ emitEvent: false });
 
-    this.patientService.getCids(patientCareId)
+    this.patientService.getCids(careId)
       .pipe(
         finalize(() => {
           this.cidLoading.set(false);
-          this.cdr.markForCheck();
+          this.reportForm.get('cid_search')?.enable({ emitEvent: false });
         }),
         takeUntilDestroyed(this.destroyRef)
       )
@@ -279,59 +273,47 @@ export class PatientReportUpdateComponent implements OnInit {
         next: (response: CidOption[]) => {
           this.cidOptions = response || [];
           this.configureCidFilter();
-
-          // Se já existir um CID vinculado no laudo, seleciona no autocomplete
-          if (this.data?.patient_report?.cid) {
-            this.reportForm.get('cid_search')?.setValue(this.data.patient_report.cid);
-          }
-
-          if (!this.data?.patient_report?.is_export) {
-            this.cidReadOnly.set(false);
-          }
-          this.cdr.markForCheck();
+          this.populateForm();
         },
         error: () => {
-          this.cidReadOnly.set(true);
           this.cidOptions = [];
-          this.cdr.markForCheck();
+          this.populateForm();
         }
       });
   }
 
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        const isExported = !!this.data?.patient_report?.is_export;
+  private populateForm(): void {
+    const report = this.data?.patient_report;
+    if (!report) return;
 
-        if (isSubmitting) {
-          this.reportForm.disable({ emitEvent: false });
-        } else {
-          this.reportForm.enable({ emitEvent: false });
+    const matchedSpecialty = this.specialtyOptions.find((opt) => opt.key === report.specialty);
+    const matchedCid = this.cidOptions.find((opt) => opt.id === report.cid_id || opt.id === report.cid?.id);
 
-          // Se for um laudo exportado, re-desabilita os campos protegidos
-          if (isExported) {
-            this.reportForm.get('protocol')?.disable({ emitEvent: false });
-            this.reportForm.get('cid_search')?.disable({ emitEvent: false });
-            this.reportForm.get('lawsuit')?.disable({ emitEvent: false });
-          }
-        }
-        this.cdr.markForCheck();
-      });
+    this.reportForm.patchValue({
+      protocol: report.protocol,
+      specialty: report.specialty,
+      specialty_search: matchedSpecialty || null,
+      cid_id: report.cid_id || report.cid?.id || null,
+      cid_search: matchedCid || report.cid || null,
+      lawsuit: !!report.lawsuit,
+      diagnosis: report.diagnosis
+    }, { emitEvent: false });
   }
 
-  private _filterCid(term: string): CidOption[] {
+  private filterCid(term: string): CidOption[] {
     const filterValue = term.toLowerCase();
-    return this.cidOptions.filter(option =>
-      option.name?.toLowerCase().includes(filterValue) ||
-      option.code?.toLowerCase().includes(filterValue)
-    ).slice(0, 10);
+    return this.cidOptions
+      .filter((option) =>
+        option.name?.toLowerCase().includes(filterValue) ||
+        option.code?.toLowerCase().includes(filterValue)
+      )
+      .slice(0, 10);
   }
 
-  private _filterSpecialty(label: string): SpecialtyOption[] {
+  private filterSpecialty(label: string): SpecialtyOption[] {
     const filterValue = label.toLowerCase();
-    return this.specialtyOptions.filter(option =>
-      option.label.toLowerCase().includes(filterValue)
-    ).slice(0, 10);
+    return this.specialtyOptions
+      .filter((option) => option.label.toLowerCase().includes(filterValue))
+      .slice(0, 10);
   }
 }

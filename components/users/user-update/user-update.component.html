@@ -40,9 +40,11 @@
         </button>
 
         @if (userForm.get('types')?.touched && userForm.get('types')?.hasError('required')) {
-          <mat-error class="custom-error">
-            Selecione ao menos um tipo de profissional.
-          </mat-error>
+          @for (item of errorMessages['types']; track $index) {
+            @if (userForm.get('types')?.hasError(item.type)) {
+              <span class="custom-error-message">{{ item.message }}</span>
+            }
+          }
         }
       </div>
     </div>
@@ -92,8 +94,7 @@
       color="primary" 
       type="button" 
       [disabled]="userForm.invalid || userForm.pending || userForm.pristine || isSubmitting()"
-      (click)="onSubmit()"
-      >
+      (click)="onSubmit()">
       <div class="waiting">
         @if (isSubmitting()) {
           <mat-spinner [diameter]="20"></mat-spinner>

@@ -15,9 +15,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
-
-// Services & Models
+import { DailyCost } from '../../../models/daily-cost.model';
 import { SettingService } from '../../../services/setting.service';
+
+interface DailyCostUpdateDialogData {
+  daily_cost?: DailyCost;
+}
 
 @Component({
   selector: 'app-daily-cost-update',
@@ -41,7 +44,7 @@ export class DailyCostUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<DailyCostUpdateDialogData>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly settingService = inject(SettingService);
   private readonly messageService = inject(MessageService);
@@ -55,7 +58,6 @@ export class DailyCostUpdateComponent implements OnInit {
   protected dailyCostForm!: FormGroup;
   protected readonly isSubmitting = signal<boolean>(false);
 
-  // Mapeamento de Mensagens de Erro Tipado
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
     value: [
       { type: 'required', message: 'O valor é obrigatório.' },
@@ -72,7 +74,7 @@ export class DailyCostUpdateComponent implements OnInit {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Métodos Acessíveis pelo Template
   // ==========================================
   protected onSubmit(): void {
     const dailyCostId = this.data?.daily_cost?.id;

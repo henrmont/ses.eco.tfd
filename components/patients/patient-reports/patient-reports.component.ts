@@ -1,10 +1,10 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
 // Angular Material & CDK
 import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -26,7 +26,6 @@ import { PatientReportDetailComponent } from '../patient-report-detail/patient-r
 import { PatientReportUpdateComponent } from '../patient-report-update/patient-report-update.component';
 import { ReportAttachmentsComponent } from '../report-attachments/report-attachments.component';
 
-// Tipagem dos Dados do Modal
 type PatientReportDialogData = {
   patient_care?: PatientCare;
   patient_report?: PatientReport;
@@ -36,7 +35,6 @@ type PatientReportDialogData = {
   selector: 'app-patient-reports',
   standalone: true,
   imports: [
-    CommonModule,
     MatDialogModule,
     MatButtonModule,
     MatTableModule,
@@ -48,16 +46,16 @@ type PatientReportDialogData = {
   styleUrl: './patient-reports.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PatientReportsComponent implements OnInit, OnDestroy {
+export class PatientReportsComponent implements OnInit {
   // ==========================================
-  // Instância própria do canal
+  // Instância do Broadcast Channel
   // ==========================================
   private readonly patientsChannel = new BroadcastChannel('tfd-patients-channel');
 
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientReportDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly patientService = inject(PatientService);
@@ -71,67 +69,51 @@ export class PatientReportsComponent implements OnInit, OnDestroy {
   protected readonly dataSource = new MatTableDataSource<PatientReport>([]);
   protected readonly isLoading = signal<boolean>(true);
 
+  private readonly patientCareId = computed(() => this.data?.patient_care?.id ?? null);
+
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
+    this.setupBroadcastChannel();
     this.fetchPatientReports(true);
-    this.listenToBroadcastChannel();
-  }
-
-  ngOnDestroy(): void {
-    this.patientsChannel.close();
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected getSpecialtyLabel(specialtyKey: string): string {
+  protected getSpecialtyLabel(specialtyKey?: string | null): string {
     if (!specialtyKey) return 'Não informada';
     return Specialty[specialtyKey as keyof typeof Specialty] ?? specialtyKey;
   }
 
   protected patientReportDetail(patientReport: PatientReport): void {
-    this.openDialog(PatientReportDetailComponent, { 
-      patient_care: this.data?.patient_care,
-      patient_report: patientReport 
-    }, '800px', 'auto', false);
+    this.openDialog(PatientReportDetailComponent, { patient_care: this.data?.patient_care, patient_report: patientReport }, '800px', 'auto', false);
   }
 
   protected patientReportCreate(): void {
-    this.openDialog(PatientReportCreateComponent, { 
-      patient_care: this.data?.patient_care 
-    });
+    this.openDialog(PatientReportCreateComponent, { patient_care: this.data?.patient_care });
   }
 
   protected patientReportUpdate(patientReport: PatientReport): void {
-    this.openDialog(PatientReportUpdateComponent, {
-      patient_care: this.data?.patient_care,
-      patient_report: patientReport
-    });
+    this.openDialog(PatientReportUpdateComponent, { patient_care: this.data?.patient_care, patient_report: patientReport });
   }
 
   protected patientReportDelete(patientReport: PatientReport): void {
-    this.openDialog(PatientReportDeleteComponent, {
-      patient_care: this.data?.patient_care,
-      patient_report: patientReport
-    }, '400px', 'auto', true);
+    this.openDialog(PatientReportDeleteComponent, { patient_care: this.data?.patient_care, patient_report: patientReport }, '400px', 'auto', true);
   }
 
   protected reportAttachments(patientReport: PatientReport): void {
-    this.openDialog(ReportAttachmentsComponent, {
-      patient_care: this.data?.patient_care,
-      patient_report: patientReport
-    }, '600px', 'auto', false);
+    this.openDialog(ReportAttachmentsComponent, { patient_care: this.data?.patient_care, patient_report: patientReport}, '600px', 'auto', false);
   }
 
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
   private fetchPatientReports(showLoading = false): void {
-    const patientCareId = this.data?.patient_care?.id;
+    const careId = this.patientCareId();
 
-    if (!patientCareId) {
+    if (!careId) {
       this.isLoading.set(false);
       return;
     }
@@ -140,7 +122,7 @@ export class PatientReportsComponent implements OnInit, OnDestroy {
       this.isLoading.set(true);
     }
 
-    this.patientService.getPatientReports(patientCareId)
+    this.patientService.getPatientReports(careId)
       .pipe(
         finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
@@ -157,16 +139,20 @@ export class PatientReportsComponent implements OnInit, OnDestroy {
       });
   }
 
-  private listenToBroadcastChannel(): void {
+  private setupBroadcastChannel(): void {
     this.patientsChannel.onmessage = (message: MessageEvent<string>) => {
       if (message.data === 'update') {
         this.fetchPatientReports(false);
       }
     };
+
+    this.destroyRef.onDestroy(() => {
+      this.patientsChannel.close();
+    });
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PatientReportDialogData,
     width = '800px',
     height = 'auto',

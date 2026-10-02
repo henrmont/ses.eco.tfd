@@ -14,9 +14,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
-
-// Services & Models
+import { BudgetAllocation } from '../../../models/budget-allocation.model';
 import { SettingService } from '../../../services/setting.service';
+
+interface BudgetAllocationUpdateDialogData {
+  budget_allocation?: BudgetAllocation;
+}
 
 @Component({
   selector: 'app-budget-allocation-update',
@@ -39,7 +42,7 @@ export class BudgetAllocationUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<BudgetAllocationUpdateDialogData>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly settingService = inject(SettingService);
   private readonly messageService = inject(MessageService);
@@ -53,7 +56,6 @@ export class BudgetAllocationUpdateComponent implements OnInit {
   protected budgetAllocationForm!: FormGroup;
   protected readonly isSubmitting = signal<boolean>(false);
 
-  // Mapeamento de Mensagens de Erro Tipado
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
     program: [
       { type: 'required', message: 'O programa é obrigatório.' }
@@ -78,7 +80,7 @@ export class BudgetAllocationUpdateComponent implements OnInit {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Métodos Acessíveis pelo Template
   // ==========================================
   protected onSubmit(): void {
     const budgetId = this.data?.budget_allocation?.id;

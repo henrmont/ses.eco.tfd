@@ -26,6 +26,13 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientService } from '../../../services/patient.service';
+import { PatientCare } from '../../../models/patient-care.model';
+import { PatientReport } from '../../../models/patient-report.model';
+
+type ReportAttachmentCreateDialogData = {
+  patient_care?: PatientCare;
+  patient_report?: PatientReport;
+};
 
 interface AttachedFileState {
   file: File | null;
@@ -56,7 +63,7 @@ export class ReportAttachmentCreateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<ReportAttachmentCreateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);

@@ -24,8 +24,8 @@
             class="btn-archive" 
             type="button" 
             mat-icon-button 
-            [disabled]="!data.report_attachment.archive_id || isSubmitting()" 
-            (click)="download(data.report_attachment.archive_id, attachmentForm.get('name')?.value)"
+            [disabled]="!data?.report_attachment?.archive_id || isSubmitting()" 
+            (click)="download(data?.report_attachment?.archive_id, attachmentForm.get('name')?.value)"
             matTooltip="Baixar arquivo atual">
             <mat-icon>download</mat-icon>
           </button>

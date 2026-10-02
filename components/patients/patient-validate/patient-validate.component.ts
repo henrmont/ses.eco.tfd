@@ -1,21 +1,30 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
+// Angular Material
+import { MatButtonModule } from '@angular/material/button';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+
+// Core & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientCare } from '../../../models/patient-care.model';
+
+// Services
 import { PatientService } from '../../../services/patient.service';
+
+type PatientValidateDialogData = {
+  patient_care?: PatientCare;
+};
 
 @Component({
   selector: 'app-patient-validate',
   standalone: true,
   imports: [
-    CommonModule, 
-    MatDialogModule, 
-    MatButtonModule, 
+    MatButtonModule,
+    MatDialogModule,
     MatProgressSpinnerModule
   ],
   templateUrl: './patient-validate.component.html',
@@ -26,51 +35,54 @@ export class PatientValidateComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientValidateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientValidateComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
 
   // ==========================================
-  // Estados Reativos via Signals
+  // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // Submissão / Ações
+  // Getters para Facilitação do Template
+  // ==========================================
+  protected get isValid(): boolean {
+    return !!this.data?.patient_care?.is_valid;
+  }
+
+  protected get patientName(): string {
+    return this.data?.patient_care?.patient?.name || 'Paciente';
+  }
+
+  // ==========================================
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected onSubmit(): void {
     const patientCareId = this.data?.patient_care?.id;
+
     if (!patientCareId) {
-      this.messageService.showMessage('Erro: Identificador do atendimento não encontrado.');
+      this.messageService.showMessage('Identificador do atendimento inválido.');
       return;
     }
 
     this.isSubmitting.set(true);
-    this.cdr.markForCheck();
-
-    const isValid = this.data?.patientCare?.is_valid;
-    const acaoSucesso = isValid ? 'invalidado' : 'validado';
-    const acaoErro = isValid ? 'invalidar' : 'validar';
 
     this.patientService.validatePatient(patientCareId)
       .pipe(
-        finalize(() => {
-          this.isSubmitting.set(false);
-          this.cdr.markForCheck();
-        }),
+        finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
-          this.messageService.showMessage(response?.message || `Atendimento ${acaoSucesso} com sucesso!`);
+        next: (response: ApiResponse) => {
+          this.messageService.showMessage(response?.message || 'Status do atendimento atualizado com sucesso!');
           this.dialogRef.close(true);
         },
         error: (err) => {
-          const fallbackError = err?.error?.message || `Ocorreu um erro ao tentar ${acaoErro} o atendimento.`;
-          this.messageService.showMessage(fallbackError);
+          const fallbackError = 'Erro ao tentar alterar a validação do atendimento.';
+          this.messageService.showMessage(err?.error?.message || fallbackError);
         }
       });
   }

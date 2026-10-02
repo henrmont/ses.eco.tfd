@@ -51,6 +51,7 @@ import { Gender } from '../../../enums/gender';
 import { Ufs } from '../../../enums/ufs';
 import { PatientEscort } from '../../../models/patient-escort.model';
 import { PatientService } from '../../../services/patient.service';
+import { PatientCare } from '../../../models/patient-care.model';
 
 // Types & Interfaces
 type FileType = 'cns' | 'document' | 'address';
@@ -60,6 +61,15 @@ interface AttachedFileState {
   label: ReturnType<typeof signal<string>>;
   hasFile: ReturnType<typeof signal<boolean>>;
 }
+
+interface ErrorMessage {
+  type: string;
+  message: string;
+}
+
+type PatientEscortCreateDialogData = {
+  patient_care: PatientCare;
+};
 
 @Component({
   selector: 'app-patient-escort-create',
@@ -85,17 +95,14 @@ interface AttachedFileState {
   ],
   templateUrl: './patient-escort-create.component.html',
   styleUrl: './patient-escort-create.component.scss',
-  providers: [
-    { provide: STEPPER_GLOBAL_OPTIONS, useValue: { showError: true } },
-    { provide: MAT_DATE_LOCALE, useValue: 'pt-BR' }
-  ],
+  providers: [{ provide: STEPPER_GLOBAL_OPTIONS, useValue: { showError: true } }],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PatientEscortCreateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientEscortCreateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly viacepService = inject(ViacepService);
   private readonly patientService = inject(PatientService);
@@ -121,7 +128,7 @@ export class PatientEscortCreateComponent implements OnInit {
   };
 
   // Mapeamento de Mensagens de Erro Tipado
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     cns: [
       { type: 'required', message: 'O número do CNS é obrigatório.' },
       { type: 'cnsInvalid', message: 'Número de CNS inválido.' },
@@ -187,7 +194,7 @@ export class PatientEscortCreateComponent implements OnInit {
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected setBirthDate(event: MatDatepickerInputEvent<any>): void {
+  protected setBirthDate(event: MatDatepickerInputEvent<unknown>): void {
     if (event.value) {
       const momentDate = moment(event.value);
       this.personalForm.get('birth_date')?.setValue(momentDate, { emitEvent: true });

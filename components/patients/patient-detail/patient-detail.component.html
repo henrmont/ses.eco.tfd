@@ -8,41 +8,53 @@
       <mat-card-header>
         <mat-card-subtitle>DADOS PESSOAIS</mat-card-subtitle>
       </mat-card-header>
+
       <mat-card-content>
         <div class="line cols-1-col">
           <div>
-            <strong>Nome:</strong> {{ data?.patient_care?.patient?.name ?? 'Não informado' }}
+            <strong>Nome:</strong> {{ patient?.name || 'Não informado' }}
           </div>
-          
         </div>
 
         <div class="line cols-2-3-2">
           <div>
-            <strong>Tipo de Documento:</strong> {{ data?.patient_care?.patient?.document_type ?? 'Não informado' }}
+            <strong>Tipo de Documento:</strong> {{ patient?.document_type || 'Não informado' }}
           </div>
+
           <div class="action-cell">
-            <strong>Documento:</strong> 
-            {{ data?.patient_care?.patient?.document ? (data.patient_care.patient.document | mask: (data.patient_care.patient.document_type === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00')) : 'Não informado' }}
+            <strong>Documento:</strong>
+            <span>
+              @if (patient?.document; as doc) {
+                {{ doc | mask: documentMask }}
+              } @else {
+                Não informado
+              }
+            </span>
             <button 
               mat-icon-button 
               type="button"
               matTooltip="Baixar documento"
-              [disabled]="!data?.patient_care?.patient?.file_document_id" 
-              (click)="download(data.patient_care.patient.file_document_id, 'documento')"
-            >
+              [disabled]="!patient?.file_document_id" 
+              (click)="download(patient?.file_document_id, 'documento')">
               <mat-icon>download</mat-icon>
             </button>
           </div>
+
           <div class="action-cell">
-            <strong>CNS:</strong> 
-            {{ data?.patient_care?.patient?.cns ? (data.patient_care.patient.cns | mask: '000 0000 0000 0000') : 'Não informado' }}
+            <strong>CNS:</strong>
+            <span>
+              @if (patient?.cns; as cnsVal) {
+                {{ cnsVal | mask: '000 0000 0000 0000' }}
+              } @else {
+                Não informado
+              }
+            </span>
             <button 
               mat-icon-button 
               type="button"
               matTooltip="Baixar comprovante de CNS"
-              [disabled]="!data?.patient_care?.patient?.file_cns_id" 
-              (click)="download(data.patient_care.patient.file_cns_id, 'cns')"
-            >
+              [disabled]="!patient?.file_cns_id" 
+              (click)="download(patient?.file_cns_id, 'cns')">
               <mat-icon>download</mat-icon>
             </button>
           </div>
@@ -50,47 +62,47 @@
 
         <div class="line cols-15-1-1-1-1">
           <div>
-            <strong>Data de Nascimento:</strong> {{ data?.patient_care?.patient?.birth_date ? (data.patient_care.patient.birth_date | date: 'dd/MM/yyyy') : 'Não informado' }}
+            <strong>Data de Nascimento:</strong>
+            {{ patient?.birth_date ? (patient?.birth_date | date: 'dd/MM/yyyy') : 'Não informado' }}
           </div>
           <div>
-            <strong>Sexo:</strong> {{ data?.patient_care?.patient?.gender ?? 'Não informado' }}
+            <strong>Sexo:</strong> {{ patient?.gender || 'Não informado' }}
           </div>
           <div>
-            <strong>Recém Nascido:</strong> {{ data?.patient_care?.patient?.newborn ? 'Sim' : 'Não' }}
+            <strong>Recém Nascido:</strong> {{ patient?.newborn ? 'Sim' : 'Não' }}
           </div>
           <div>
-            <strong>Raça:</strong> {{ data?.patient_care?.patient?.race ?? 'Não informado' }}
+            <strong>Raça:</strong> {{ patient?.race || 'Não informado' }}
           </div>
           <div>
-            <strong>Estado Civil:</strong> {{ data?.patient_care?.patient?.marital_status ?? 'Não informado' }}
+            <strong>Estado Civil:</strong> {{ patient?.marital_status || 'Não informado' }}
           </div>
         </div>
 
         <div class="line cols-1-1">
           <div>
-            <strong>Nome do Pai:</strong> {{ data?.patient_care?.patient?.father_name ?? 'Não informado' }}
+            <strong>Nome do Pai:</strong> {{ patient?.father_name || 'Não informado' }}
           </div>
           <div>
-            <strong>Nome da Mãe:</strong> {{ data?.patient_care?.patient?.mother_name ?? 'Não informado' }}
+            <strong>Nome da Mãe:</strong> {{ patient?.mother_name || 'Não informado' }}
           </div>
         </div>
 
         <div class="line cols-1-1-1">
           <div>
-            <strong>Naturalidade:</strong> {{ data?.patient_care?.patient?.naturalness ?? 'Não informado' }}
+            <strong>Naturalidade:</strong> {{ patient?.naturalness || 'Não informado' }}
           </div>
           <div>
-            <strong>Profissão:</strong> {{ data?.patient_care?.patient?.profession ?? 'Não informado' }}
+            <strong>Profissão:</strong> {{ patient?.profession || 'Não informado' }}
           </div>
           <div class="action-cell">
-            <strong>Deficiência:</strong> {{ data?.patient_care?.patient?.deficiency ?? 'Não informado' }}
+            <strong>Deficiência:</strong> {{ patient?.deficiency || 'Não informado' }}
             <button 
               mat-icon-button 
               type="button"
               matTooltip="Baixar laudo de deficiência"
-              [disabled]="!data?.patient_care?.patient?.file_deficiency_id" 
-              (click)="download(data.patient_care.patient.file_deficiency_id, 'laudo_deficiencia')"
-            >
+              [disabled]="!patient?.file_deficiency_id" 
+              (click)="download(patient?.file_deficiency_id, 'laudo_deficiencia')">
               <mat-icon>download</mat-icon>
             </button>
           </div>
@@ -98,13 +110,23 @@
 
         <div class="line cols-1-1-1">
           <div>
-            <strong>Telefone:</strong> {{ data?.patient_care?.patient?.phone ? (data.patient_care.patient.phone | mask: '(00) 0000-0000') : 'Não informado' }}
+            <strong>Telefone:</strong>
+            @if (patient?.phone; as phoneVal) {
+              {{ phoneVal | mask: '(00) 0000-0000' }}
+            } @else {
+              Não informado
+            }
           </div>
           <div>
-            <strong>Celular:</strong> {{ data?.patient_care?.patient?.cell_phone ? (data.patient_care.patient.cell_phone | mask: '(00) 00000-0000') : 'Não informado' }}
+            <strong>Celular:</strong>
+            @if (patient?.cell_phone; as cellPhoneVal) {
+              {{ cellPhoneVal | mask: '(00) 00000-0000' }}
+            } @else {
+              Não informado
+            }
           </div>
           <div>
-            <strong>E-mail:</strong> {{ data?.patient_care?.patient?.email ?? 'Não informado' }}
+            <strong>E-mail:</strong> {{ patient?.email || 'Não informado' }}
           </div>
         </div>
       </mat-card-content>
@@ -115,20 +137,25 @@
       <mat-card-header>
         <mat-card-subtitle>DADOS DE ENDEREÇO</mat-card-subtitle>
       </mat-card-header>
+
       <mat-card-content>
         <div class="line cols-1-2">
           <div>
-            <strong>CEP:</strong> {{ data?.patient_care?.patient?.cep ? (data.patient_care.patient.cep | mask: '00000-000') : 'Não informado' }}
+            <strong>CEP:</strong>
+            @if (patient?.cep; as cepVal) {
+              {{ cepVal | mask: '00000-000' }}
+            } @else {
+              Não informado
+            }
           </div>
           <div class="action-cell">
-            <strong>Endereço:</strong> {{ data?.patient_care?.patient?.address ?? 'Não informado' }}
+            <strong>Endereço:</strong> {{ patient?.address || 'Não informado' }}
             <button 
               mat-icon-button 
               type="button"
               matTooltip="Baixar comprovante de endereço"
-              [disabled]="!data?.patient_care?.patient?.file_address_id" 
-              (click)="download(data.patient_care.patient.file_address_id, 'comprovante_endereco')"
-            >
+              [disabled]="!patient?.file_address_id" 
+              (click)="download(patient?.file_address_id, 'comprovante_endereco')">
               <mat-icon>download</mat-icon>
             </button>
           </div>
@@ -136,22 +163,22 @@
 
         <div class="line cols-1-2">
           <div>
-            <strong>Número:</strong> {{ data?.patient_care?.patient?.number ?? 'Não informado' }}
+            <strong>Número:</strong> {{ patient?.number || 'Não informado' }}
           </div>
           <div>
-            <strong>Complemento:</strong> {{ data?.patient_care?.patient?.complement ?? 'Não informado' }}
+            <strong>Complemento:</strong> {{ patient?.complement || 'Não informado' }}
           </div>
         </div>
 
         <div class="line cols-2-2-1">
           <div>
-            <strong>Bairro:</strong> {{ data?.patient_care?.patient?.neighborhood ?? 'Não informado' }}
+            <strong>Bairro:</strong> {{ patient?.neighborhood || 'Não informado' }}
           </div>
           <div>
-            <strong>Cidade:</strong> {{ data?.patient_care?.patient?.city ?? 'Não informado' }}
+            <strong>Cidade:</strong> {{ patient?.city || 'Não informado' }}
           </div>
           <div>
-            <strong>Estado:</strong> {{ data?.patient_care?.patient?.state ?? 'Não informado' }}
+            <strong>Estado:</strong> {{ patient?.state || 'Não informado' }}
           </div>
         </div>
       </mat-card-content>
@@ -162,20 +189,20 @@
       <mat-card-header>
         <mat-card-subtitle>DADOS ADICIONAIS</mat-card-subtitle>
       </mat-card-header>
+
       <mat-card-content>
         <div class="line cols-1-1">
           <div>
-            <strong>Número de Controle:</strong> {{ data?.patient_care?.patient?.patient_info?.control_number ?? 'Não informado' }}
+            <strong>Número de Controle:</strong> {{ patientInfo?.control_number || 'Não informado' }}
           </div>
           <div class="action-cell">
-            <strong>Sigadoc:</strong> {{ data?.patient_care?.patient?.patient_info?.sigadoc ?? 'Não informado' }}
+            <strong>Sigadoc:</strong> {{ patientInfo?.sigadoc || 'Não informado' }}
             <button 
               mat-icon-button 
               type="button"
               matTooltip="Baixar sigadoc"
-              [disabled]="!data?.patient_care?.patient?.patient_info?.file_sigadoc_id" 
-              (click)="download(data.patient_care.patient.patient_info.file_sigadoc_id, 'sigadoc')"
-            >
+              [disabled]="!patientInfo?.file_sigadoc_id" 
+              (click)="download(patientInfo?.file_sigadoc_id, 'sigadoc')">
               <mat-icon>download</mat-icon>
             </button>
           </div>
@@ -183,7 +210,7 @@
 
         <div class="line cols-1-col">
           <div>
-            <strong>Observação:</strong> {{ data?.patient_care?.patient?.patient_info?.observation ?? 'Não informado' }}
+            <strong>Observação:</strong> {{ patientInfo?.observation || 'Não informado' }}
           </div>
         </div>
       </mat-card-content>
@@ -194,26 +221,31 @@
       <mat-card-header>
         <mat-card-subtitle>ACOMPANHANTES</mat-card-subtitle>
       </mat-card-header>
+
       <mat-card-content>
-        @for (item of data?.patient_care?.escorts; track item.id) {
+        @for (item of escorts; track item.id) {
           <div class="line cols-escort-grid">
             <div class="action-cell">
               <strong>Nome:</strong>
-              <span>{{ item?.name ?? 'Não informado' }}</span>
+              <span>{{ item.name || 'Não informado' }}</span>
               <button 
                 mat-icon-button 
                 type="button" 
                 matTooltip="Detalhes do acompanhante" 
-                (click)="showEscortDetail(item)"
-              >
+                (click)="showEscortDetail(item)">
                 <mat-icon>visibility</mat-icon>
               </button>
             </div>
             <div>
-              <strong>Relação:</strong> {{ item?.relation ?? 'Não informado' }}
+              <strong>Relação:</strong> {{ item.relation || 'Não informado' }}
             </div>
             <div>
-              <strong>CPF:</strong> {{ item?.document ? (item.document | mask: '000.000.000-00') : 'Não informado' }}
+              <strong>CPF:</strong>
+              @if (item.document; as escortDoc) {
+                {{ escortDoc | mask: '000.000.000-00' }}
+              } @else {
+                Não informado
+              }
             </div>
             <div class="action-cell">
               <button mat-icon-button type="button" disabled>
@@ -236,13 +268,14 @@
       <mat-card-header>
         <mat-card-subtitle>LAUDOS MÉDICOS</mat-card-subtitle>
       </mat-card-header>
+
       <mat-card-content>
-        @for (item of data?.patient_care?.reports; track item.id) {
+        @for (item of reports; track item.id) {
           <div class="line cols-4-1">
             <div class="action-cell">
               <strong>CID:</strong>
               <span>
-                @if (item?.cid) {
+                @if (item.cid) {
                   {{ item.cid.code }} - {{ item.cid.name }}
                 } @else {
                   Não informado
@@ -252,13 +285,12 @@
                 mat-icon-button 
                 type="button" 
                 matTooltip="Detalhes do laudo" 
-                (click)="showReportDetail(item)"
-              >
+                (click)="showReportDetail(item)">
                 <mat-icon>visibility</mat-icon>
               </button>
             </div>
             <div>
-              <strong>Judicial:</strong> {{ item?.lawsuit ? 'Sim' : 'Não' }}
+              <strong>Judicial:</strong> {{ item.lawsuit ? 'Sim' : 'Não' }}
             </div>
           </div>
         } @empty {
@@ -273,5 +305,7 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
+  <button mat-button type="button" [mat-dialog-close]="false">
+    Fechar
+  </button>
 </mat-dialog-actions>

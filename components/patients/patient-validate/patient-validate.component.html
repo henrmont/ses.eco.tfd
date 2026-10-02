@@ -1,28 +1,37 @@
 <h2 mat-dialog-title>
-  {{ data?.patient_care?.is_valid ? 'Invalidar paciente' : 'Validar paciente' }}
+  {{ isValid ? 'Invalidar paciente' : 'Validar paciente' }}
 </h2>
 
 <mat-dialog-content>
   <p>
-    @if (data?.patient_care?.is_valid) {
-      Você deseja realmente invalidar o paciente <strong>{{ data?.patient_care?.patient?.name }}</strong>?
+    @if (isValid) {
+      Você deseja realmente invalidar o paciente <strong>{{ patientName }}</strong>?
     } @else {
-      Você deseja realmente validar o paciente <strong>{{ data?.patient_care?.patient?.name }}</strong>?
+      Você deseja realmente validar o paciente <strong>{{ patientName }}</strong>?
     }
   </p>
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
+  <button 
+    mat-button 
+    type="button" 
+    [mat-dialog-close]="false" 
+    [disabled]="isSubmitting()">
     Fechar
   </button>
-  
-  <button mat-flat-button color="primary" type="button" [disabled]="isSubmitting()" (click)="onSubmit()">
+
+  <button 
+    mat-flat-button 
+    color="primary" 
+    type="button" 
+    [disabled]="isSubmitting()" 
+    (click)="onSubmit()">
     <div class="waiting">
       @if (isSubmitting()) {
         <mat-spinner [diameter]="20"></mat-spinner>
       }
-      {{ data?.patient_care?.is_valid ? 'Invalidar' : 'Validar' }}
+      <span>{{ isValid ? 'Invalidar' : 'Validar' }}</span>
     </div>
   </button>
 </mat-dialog-actions>

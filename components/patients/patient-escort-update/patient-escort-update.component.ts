@@ -55,6 +55,12 @@ type FileType = 'cns' | 'document' | 'address';
 interface AttachedFileState {
   file: File | null;
   label: ReturnType<typeof signal<string>>;
+  hasFile: ReturnType<typeof signal<boolean>>;
+}
+
+interface ErrorMessage {
+  type: string;
+  message: string;
 }
 
 type PatientEscortUpdateDialogData = {
@@ -70,19 +76,19 @@ type PatientEscortUpdateDialogData = {
     FormsModule,
     ReactiveFormsModule,
     MatAutocompleteModule,
-    MatDialogModule,
     MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatIconModule,
     MatDatepickerModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
     MatNativeDateModule,
-    MatStepperModule,
+    MatProgressSpinnerModule,
     MatSelectModule,
     MatSlideToggleModule,
+    MatStepperModule,
     MatTooltipModule,
-    NgxMaskDirective,
-    MatProgressSpinnerModule
+    NgxMaskDirective
   ],
   templateUrl: './patient-escort-update.component.html',
   styleUrl: './patient-escort-update.component.scss',
@@ -96,7 +102,7 @@ export class PatientEscortUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientEscortUpdateDialogData>(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientEscortUpdateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly viacepService = inject(ViacepService);
   private readonly patientService = inject(PatientService);
@@ -116,14 +122,14 @@ export class PatientEscortUpdateComponent implements OnInit {
   protected readonly isSubmitting = signal<boolean>(false);
   protected readonly isSameAddressSignal = signal<boolean>(false);
 
-  // Opções dos Enums Centralizadas no Controle
+  // Opções dos Enums Centralizadas
   protected readonly options = {
     genders: Object.values(Gender),
     ufs: Object.keys(Ufs)
   };
 
-  // Mapeamento de Mensagens de Erro
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  // Mapeamento de Mensagens de Erro Tipado
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     cns: [
       { type: 'required', message: 'O número do CNS é obrigatório.' },
       { type: 'cnsInvalid', message: 'Número de CNS inválido.' },
@@ -165,14 +171,14 @@ export class PatientEscortUpdateComponent implements OnInit {
     ]
   };
 
-  // Gerenciamento de Anexos/Arquivos
+  // Gerenciamento de Anexos/Arquivos com Signals
   protected readonly files: Record<FileType, AttachedFileState> = {
-    cns: { file: null, label: signal('Nenhum arquivo selecionado') },
-    document: { file: null, label: signal('Nenhum arquivo selecionado') },
-    address: { file: null, label: signal('Nenhum arquivo selecionado') }
+    cns: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) },
+    document: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) },
+    address: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) }
   };
 
-  // Controles Independentes & Autocomplete
+  // Autocomplete e Observables
   protected filteredUfsOptions!: Observable<string[]>;
 
   // ==========================================
@@ -189,7 +195,7 @@ export class PatientEscortUpdateComponent implements OnInit {
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected setBirthDate(event: MatDatepickerInputEvent<any>): void {
+  protected setBirthDate(event: MatDatepickerInputEvent<unknown>): void {
     if (event.value) {
       const momentDate = moment(event.value);
       this.personalForm.get('birth_date')?.setValue(momentDate, { emitEvent: true });
@@ -216,6 +222,7 @@ export class PatientEscortUpdateComponent implements OnInit {
     if (file) {
       this.files[type].file = file;
       this.files[type].label.set(file.name);
+      this.files[type].hasFile.set(true);
 
       switch (type) {
         case 'cns':

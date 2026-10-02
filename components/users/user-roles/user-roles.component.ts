@@ -1,21 +1,32 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
+
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatListModule } from '@angular/material/list';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs';
 
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
-
-// Services, Models & Local Components
 import { Role } from '../../../models/role.model';
 import { UserService } from '../../../services/user.service';
+
+type UserRolesDialogData = {
+  user?: {
+    id?: number;
+    name?: string;
+    professional?: {
+      name?: string;
+    };
+    roles?: Role[];
+  };
+};
 
 @Component({
   selector: 'app-user-roles',
@@ -38,7 +49,7 @@ export class UserRolesComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<UserRolesDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly userService = inject(UserService);
   private readonly messageService = inject(MessageService);
@@ -55,6 +66,17 @@ export class UserRolesComponent implements OnInit {
   protected readonly roles = signal<Role[]>([]);
 
   // ==========================================
+  // Getters Utilitários
+  // ==========================================
+  protected get user() {
+    return this.data?.user;
+  }
+
+  protected get userName(): string {
+    return this.user?.professional?.name || this.user?.name || 'Usuário';
+  }
+
+  // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
@@ -66,19 +88,18 @@ export class UserRolesComponent implements OnInit {
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected toggleRole(item: Role): void {
-    // Evita modificações caso o formulário esteja submetendo ou desativado
-    if (this.isSubmitting() || this.userRolesForm.disabled) return;
+    if (!item.id || this.isSubmitting() || this.userRolesForm.disabled) return;
 
     const rolesControl = this.userRolesForm.get('roles');
     if (!rolesControl) return;
 
-    const currentRoles: number[] = [...rolesControl.value];
-    const index = currentRoles.indexOf(item.id!);
+    const currentRoles: number[] = Array.isArray(rolesControl.value) ? [...rolesControl.value] : [];
+    const index = currentRoles.indexOf(item.id);
 
     if (index !== -1) {
       currentRoles.splice(index, 1);
     } else {
-      currentRoles.push(item.id!);
+      currentRoles.push(item.id);
     }
 
     this.userRolesForm.markAsDirty();
@@ -86,18 +107,19 @@ export class UserRolesComponent implements OnInit {
     rolesControl.updateValueAndValidity();
   }
 
-  protected checkRole(id: number): boolean {
+  protected checkRole(id?: number): boolean {
+    if (!id) return false;
     const currentRoles: number[] = this.userRolesForm?.get('roles')?.value || [];
     return currentRoles.includes(id);
   }
 
-  protected formatRoleName(roleName: string): string {
-    if (!roleName) return '';
+  protected formatRoleName(roleName?: string): string {
+    if (!roleName) return 'Sem nome';
     return roleName.split('/').pop() || roleName;
   }
 
   protected onSubmit(): void {
-    const userId = this.data?.user?.id;
+    const userId = this.user?.id;
     if (!userId) {
       this.messageService.showMessage('Identificador do usuário inválido.');
       return;
@@ -131,10 +153,12 @@ export class UserRolesComponent implements OnInit {
   // Métodos Privados / Auxiliares
   // ==========================================
   private initForm(): void {
-    const initialRoleIds = this.data?.user?.roles?.map((item: Role) => item.id) || [];
+    const initialRoleIds = this.user?.roles
+      ?.map((item: Role) => item.id)
+      .filter((id): id is number => id !== undefined) || [];
 
     this.userRolesForm = this.fb.group({
-      id: [this.data?.user?.id, [Validators.required]],
+      id: [this.user?.id || null, [Validators.required]],
       roles: [initialRoleIds]
     });
   }

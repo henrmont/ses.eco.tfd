@@ -2,23 +2,33 @@
 
 <mat-dialog-content>
   <p>
-    Você tem certeza que deseja remover o acompanhante <strong>{{ data?.patient_escort?.name }}</strong>? 
-    <br>
-    <span>Esta ação não poderá ser desfeita.</span>
+    Você deseja realmente deletar o acompanhante <strong>{{ escortName }}</strong>?
+  </p>
+  <p class="warning-text">
+    Esta ação não poderá ser desfeita.
   </p>
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+  <button 
+    mat-button 
+    type="button" 
+    [mat-dialog-close]="false" 
+    [disabled]="isSubmitting()">
     Cancelar
   </button>
 
-  <button mat-flat-button color="warn" type="button" [disabled]="isSubmitting()" (click)="onSubmit()">
+  <button 
+    mat-flat-button 
+    color="warn" 
+    type="button" 
+    [disabled]="isSubmitting()" 
+    (click)="onSubmit()">
     <div class="waiting">
       @if (isSubmitting()) {
         <mat-spinner [diameter]="20"></mat-spinner>
       }
-      <span>{{ isSubmitting() ? 'Excluindo...' : 'Confirmar exclusão' }}</span>
+      <span>{{ isSubmitting() ? 'Excluindo...' : 'Confirmar Exclusão' }}</span>
     </div>
   </button>
 </mat-dialog-actions>

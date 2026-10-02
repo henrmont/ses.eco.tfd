@@ -1,16 +1,33 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
+
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs';
 
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 
-// Services & Local Components
+// Services
 import { UserService } from '../../../services/user.service';
+
+export type UserLockDialogData = {
+  user?: {
+    id: number;
+    name?: string;
+    professional?: {
+      name?: string;
+    };
+    module?: {
+      pivot?: {
+        is_editable?: boolean;
+      };
+    };
+  };
+};
 
 @Component({
   selector: 'app-user-lock',
@@ -28,7 +45,7 @@ export class UserLockComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<UserLockDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly userService = inject(UserService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<UserLockComponent>);
@@ -38,6 +55,17 @@ export class UserLockComponent {
   // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
+
+  // ==========================================
+  // Getters para Facilitação do Template
+  // ==========================================
+  protected get isEditable(): boolean {
+    return !!this.data?.user?.module?.pivot?.is_editable;
+  }
+
+  protected get userName(): string {
+    return this.data?.user?.professional?.name || this.data?.user?.name || 'Usuário';
+  }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)

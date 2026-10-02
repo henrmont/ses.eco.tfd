@@ -13,21 +13,23 @@ mat-list {
 }
 
 mat-list-item {
+  display: flex;
+  margin: 10px 0;
   // Requisito Cumprido (Verde)
   &.fulfilled {
     mat-icon {
-      color: $color-success;
+      color: $color-success;; // Verde escuro legível
     }
 
     .requirement-title {
-      color: $color-success;
+      color: $color-success;;
     }
   }
 
   // Requisito Pendente (Vermelho)
   &.unfulfilled {
     mat-icon {
-      color: $color-danger;
+      color: $color-danger; // Vermelho
     }
 
     .requirement-title {
@@ -44,3 +46,4 @@ mat-list-item {
   color: #757575;
   font-style: italic;
 }
+

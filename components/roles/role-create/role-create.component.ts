@@ -6,7 +6,7 @@ import { finalize } from 'rxjs';
 // Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -16,8 +16,6 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 // Core & Models
 import { MessageService } from '../../../../core/services/message-service';
 import { CustomValidators } from '../../../../core/validators/custom.validator';
-
-// Services, Enums & Local Components
 import { Permission } from '../../../models/permission.model';
 import { RoleService } from '../../../services/role.service';
 
@@ -44,7 +42,6 @@ export class RoleCreateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
   private readonly fb = inject(FormBuilder);
   private readonly roleService = inject(RoleService);
   private readonly messageService = inject(MessageService);
@@ -79,6 +76,13 @@ export class RoleCreateComponent implements OnInit {
   };
 
   // ==========================================
+  // Getters Utilitários
+  // ==========================================
+  protected get selectedPermissions(): number[] {
+    return this.roleForm?.get('permissions')?.value || [];
+  }
+
+  // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
@@ -92,7 +96,7 @@ export class RoleCreateComponent implements OnInit {
   // ==========================================
   protected getFilteredRole(groupFilter: string): Permission[] {
     return this.permissions().filter((permission: Permission) => {
-      const name = permission.name;
+      const name = permission.name || '';
       const slashIndex = name.indexOf('/');
       const lastSpaceIndex = name.lastIndexOf(' ');
 
@@ -106,14 +110,26 @@ export class RoleCreateComponent implements OnInit {
     });
   }
 
+  protected isPermissionSelected(id?: number): boolean {
+    if (!id) return false;
+    return this.selectedPermissions.includes(id);
+  }
+
+  protected formatPermissionName(name?: string): string {
+    if (!name) return '';
+    return name.split('/').pop() || name;
+  }
+
   protected togglePermission(item: Permission): void {
-    // Evita modificações caso o formulário esteja submetendo ou desativado
-    if (this.isSubmitting() || this.roleForm.disabled) return;
+    if (!item.id || this.isSubmitting() || this.roleForm.disabled) return;
     
     const permissionsControl = this.roleForm.get('permissions');
     if (!permissionsControl) return;
 
-    const currentPermissions: number[] = [...(permissionsControl.value || [])];
+    const currentPermissions: number[] = Array.isArray(permissionsControl.value) 
+      ? [...permissionsControl.value] 
+      : [];
+      
     const index = currentPermissions.indexOf(item.id);
 
     if (index !== -1) {

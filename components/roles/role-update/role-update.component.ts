@@ -16,10 +16,13 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 // Core & Models
 import { MessageService } from '../../../../core/services/message-service';
 import { CustomValidators } from '../../../../core/validators/custom.validator';
-
-// Services, Enums & Local Components
+import { Role } from '../../../models/role.model';
 import { Permission } from '../../../models/permission.model';
 import { RoleService } from '../../../services/role.service';
+
+interface RoleUpdateDialogData {
+  role?: Role;
+}
 
 @Component({
   selector: 'app-role-update',
@@ -44,7 +47,7 @@ export class RoleUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<RoleUpdateDialogData>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly roleService = inject(RoleService);
   private readonly messageService = inject(MessageService);
@@ -79,6 +82,13 @@ export class RoleUpdateComponent implements OnInit {
   };
 
   // ==========================================
+  // Getters Utilitários
+  // ==========================================
+  protected get selectedPermissions(): number[] {
+    return this.roleForm?.get('permissions')?.value || [];
+  }
+
+  // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
@@ -92,7 +102,7 @@ export class RoleUpdateComponent implements OnInit {
   // ==========================================
   protected getFilteredRole(groupFilter: string): Permission[] {
     return this.permissions().filter((permission: Permission) => {
-      const name = permission.name;
+      const name = permission.name || '';
       const slashIndex = name.indexOf('/');
       const lastSpaceIndex = name.lastIndexOf(' ');
 
@@ -106,14 +116,26 @@ export class RoleUpdateComponent implements OnInit {
     });
   }
 
+  protected isPermissionSelected(id?: number): boolean {
+    if (!id) return false;
+    return this.selectedPermissions.includes(id);
+  }
+
+  protected formatPermissionName(name?: string): string {
+    if (!name) return '';
+    return name.split('/').pop() || name;
+  }
+
   protected togglePermission(item: Permission): void {
-    // Evita modificações caso o formulário esteja submetendo ou desativado
-    if (this.isSubmitting() || this.roleForm.disabled) return;
+    if (!item.id || this.isSubmitting() || this.roleForm.disabled) return;
 
     const permissionsControl = this.roleForm.get('permissions');
     if (!permissionsControl) return;
 
-    const currentPermissions: number[] = [...(permissionsControl.value || [])];
+    const currentPermissions: number[] = Array.isArray(permissionsControl.value) 
+      ? [...permissionsControl.value] 
+      : [];
+
     const index = currentPermissions.indexOf(item.id);
 
     if (index !== -1) {
@@ -127,20 +149,21 @@ export class RoleUpdateComponent implements OnInit {
     permissionsControl.updateValueAndValidity();
   }
 
-  protected checkPermission(id: number): boolean {
-    const permissions = this.roleForm.get('permissions')?.value;
-    return Array.isArray(permissions) ? permissions.includes(id) : false;
-  }
-
   protected onSubmit(): void {
     if (this.roleForm.invalid) {
       this.roleForm.markAllAsTouched();
       return;
     }
 
+    const roleId = this.data?.role?.id;
+    if (!roleId) {
+      this.messageService.showMessage('Identificador da regra não encontrado.');
+      return;
+    }
+
     this.isSubmitting.set(true);
 
-    this.roleService.updateRole(this.data?.role?.id, this.roleForm.getRawValue())
+    this.roleService.updateRole(roleId, this.roleForm.getRawValue())
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
@@ -161,9 +184,11 @@ export class RoleUpdateComponent implements OnInit {
   // Métodos Privados
   // ==========================================
   private initForm(): void {
-    const roleName = this.data?.role?.name ? this.data.role.name.split('/')[1] : '';
-    const rolePermissions = this.data?.role?.permissions 
-      ? this.data.role.permissions.map((item: Permission) => item.id) 
+    const rawName = this.data?.role?.name || '';
+    const roleName = rawName.includes('/') ? rawName.split('/')[1] : rawName;
+    
+    const rolePermissions = Array.isArray(this.data?.role?.permissions) 
+      ? this.data!.role!.permissions.map((item: Permission) => item.id).filter((id): id is number => id !== undefined)
       : [];
 
     this.roleForm = this.fb.group({

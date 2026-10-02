@@ -1,11 +1,11 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { saveAs } from 'file-saver';
 
 // Angular Material & CDK
 import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -26,7 +26,6 @@ import { ReportAttachmentCreateComponent } from '../report-attachment-create/rep
 import { ReportAttachmentDeleteComponent } from '../report-attachment-delete/report-attachment-delete.component';
 import { ReportAttachmentUpdateComponent } from '../report-attachment-update/report-attachment-update.component';
 
-// Tipagem dos Dados do Modal
 type ReportAttachmentDialogData = {
   patient_care?: PatientCare;
   patient_report?: PatientReport;
@@ -37,7 +36,6 @@ type ReportAttachmentDialogData = {
   selector: 'app-report-attachments',
   standalone: true,
   imports: [
-    CommonModule,
     MatDialogModule,
     MatButtonModule,
     MatTableModule,
@@ -49,16 +47,16 @@ type ReportAttachmentDialogData = {
   styleUrl: './report-attachments.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ReportAttachmentsComponent implements OnInit, OnDestroy {
+export class ReportAttachmentsComponent implements OnInit {
   // ==========================================
-  // Instância própria do canal
+  // Instância do Broadcast Channel
   // ==========================================
   private readonly patientsChannel = new BroadcastChannel('tfd-patients-channel');
 
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<ReportAttachmentDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly patientService = inject(PatientService);
@@ -73,16 +71,16 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
   protected readonly dataSource = new MatTableDataSource<ReportAttachment>([]);
   protected readonly isLoading = signal<boolean>(true);
 
+  private readonly patientCareId = computed(() => this.data?.patient_care?.id ?? null);
+
+  private readonly reportId = computed(() => this.data?.patient_report?.id ?? null);
+
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
+    this.setupBroadcastChannel();
     this.fetchReportAttachments(true);
-    this.listenToBroadcastChannel();
-  }
-
-  ngOnDestroy(): void {
-    this.patientsChannel.close();
   }
 
   // ==========================================
@@ -103,36 +101,25 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
   }
 
   protected reportAttachmentCreate(): void {
-    this.openDialog(ReportAttachmentCreateComponent, {
-      patient_care: this.data?.patient_care,
-      patient_report: this.data?.patient_report
-    });
+    this.openDialog(ReportAttachmentCreateComponent, { patient_care: this.data?.patient_care, patient_report: this.data?.patient_report});
   }
 
   protected reportAttachmentUpdate(reportAttachment: ReportAttachment): void {
-    this.openDialog(ReportAttachmentUpdateComponent, {
-      patient_care: this.data?.patient_care,
-      patient_report: this.data?.patient_report,
-      report_attachment: reportAttachment
-    });
+    this.openDialog(ReportAttachmentUpdateComponent, { patient_care: this.data?.patient_care, patient_report: this.data?.patient_report, report_attachment: reportAttachment });
   }
 
   protected reportAttachmentDelete(reportAttachment: ReportAttachment): void {
-    this.openDialog(ReportAttachmentDeleteComponent, {
-      patient_care: this.data?.patient_care,
-      patient_report: this.data?.patient_report,
-      report_attachment: reportAttachment
-    }, '400px', 'auto', true);
+    this.openDialog(ReportAttachmentDeleteComponent, { patient_care: this.data?.patient_care, patient_report: this.data?.patient_report, report_attachment: reportAttachment }, '400px', 'auto', true);
   }
 
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
   private fetchReportAttachments(showLoading = false): void {
-    const patientCareId = this.data?.patient_care?.id || this.data?.patient_report?.patient_care_id || this.data?.patient_report?.patient_care?.id;
-    const reportId = this.data?.patient_report?.id;
+    const careId = this.patientCareId();
+    const repId = this.reportId();
 
-    if (!patientCareId || !reportId) {
+    if (!careId || !repId) {
       this.isLoading.set(false);
       return;
     }
@@ -141,7 +128,7 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
       this.isLoading.set(true);
     }
 
-    this.patientService.getReportAttachments(patientCareId, reportId)
+    this.patientService.getReportAttachments(careId, repId)
       .pipe(
         finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
@@ -158,16 +145,20 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
       });
   }
 
-  private listenToBroadcastChannel(): void {
+  private setupBroadcastChannel(): void {
     this.patientsChannel.onmessage = (message: MessageEvent<string>) => {
       if (message.data === 'update') {
         this.fetchReportAttachments(false);
       }
     };
+
+    this.destroyRef.onDestroy(() => {
+      this.patientsChannel.close();
+    });
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: ReportAttachmentDialogData,
     width = '400px',
     height = 'auto',

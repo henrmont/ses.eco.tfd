@@ -1,12 +1,10 @@
-import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { NgxMaskPipe } from 'ngx-mask';
 
 // Angular Material & CDK
-import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType, Overlay } from '@angular/cdk/overlay';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -23,8 +21,8 @@ import { PatientService } from '../../../services/patient.service';
 import { PatientEscortCreateComponent } from '../patient-escort-create/patient-escort-create.component';
 import { PatientEscortDeleteComponent } from '../patient-escort-delete/patient-escort-delete.component';
 import { PatientEscortDetailComponent } from '../patient-escort-detail/patient-escort-detail.component';
-import { PatientEscortUpdateComponent } from '../patient-escort-update/patient-escort-update.component';
 import { PatientEscortRequirementComponent } from '../patient-escort-requirement/patient-escort-requirement.component';
+import { PatientEscortUpdateComponent } from '../patient-escort-update/patient-escort-update.component';
 
 // Tipagem dos Dados do Modal
 type PatientEscortDialogData = {
@@ -36,15 +34,12 @@ type PatientEscortDialogData = {
   selector: 'app-patient-escorts',
   standalone: true,
   imports: [
-    CommonModule,
-    FormsModule,
-    ReactiveFormsModule,
-    MatDialogModule,
     MatButtonModule,
-    MatTableModule,
+    MatDialogModule,
     MatIconModule,
-    MatTooltipModule,
     MatProgressSpinnerModule,
+    MatTableModule,
+    MatTooltipModule,
     NgxMaskPipe
   ],
   templateUrl: './patient-escorts.component.html',
@@ -53,14 +48,14 @@ type PatientEscortDialogData = {
 })
 export class PatientEscortsComponent implements OnInit, OnDestroy {
   // ==========================================
-  // Instância própria do canal
+  // Instância do Canal Broadcast
   // ==========================================
   private readonly patientsChannel = new BroadcastChannel('tfd-patients-channel');
 
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientEscortDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly patientService = inject(PatientService);
@@ -86,38 +81,26 @@ export class PatientEscortsComponent implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Handlers do Template
   // ==========================================
   protected patientEscortDetail(patientEscort: PatientEscort): void {
-    this.openDialog(PatientEscortDetailComponent, { 
-      patient_escort: patientEscort 
-    }, '800px', 'auto', false);
+    this.openDialog(PatientEscortDetailComponent, { patient_escort: patientEscort }, '800px', 'auto', false);
   }
 
   protected patientEscortCreate(): void {
-    this.openDialog(PatientEscortCreateComponent, { 
-      patient_care: this.data?.patient_care 
-    });
+    this.openDialog(PatientEscortCreateComponent, { patient_care: this.data?.patient_care });
   }
 
   protected patientEscortUpdate(patientEscort: PatientEscort): void {
-    this.openDialog(PatientEscortUpdateComponent, {
-      patient_care: this.data?.patient_care,
-      patient_escort: patientEscort
-    });
+    this.openDialog(PatientEscortUpdateComponent, { patient_care: this.data?.patient_care, patient_escort: patientEscort });
   }
 
   protected patientEscortDelete(patientEscort: PatientEscort): void {
-    this.openDialog(PatientEscortDeleteComponent, { 
-      patient_care: this.data?.patient_care,
-      patient_escort: patientEscort
-    }, '400px', 'auto', true);
+    this.openDialog(PatientEscortDeleteComponent, { patient_care: this.data?.patient_care, patient_escort: patientEscort }, '400px', 'auto', true);
   }
 
   protected patientEscortRequirement(patientEscort: PatientEscort): void {
-    this.openDialog(PatientEscortRequirementComponent, { 
-      patient_escort: patientEscort
-    }, '500px', 'auto', true);
+    this.openDialog(PatientEscortRequirementComponent, { patient_escort: patientEscort }, '500px', 'auto', true);
   }
 
   // ==========================================
@@ -159,7 +142,7 @@ export class PatientEscortsComponent implements OnInit, OnDestroy {
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PatientEscortDialogData,
     width = '800px',
     height = 'auto',

@@ -3,7 +3,7 @@
 <mat-dialog-content>
   <mat-stepper #stepper>
 
-    <!-- ETAPA 1: DADOS DE IDENTIFICAÇÃO -->
+    <!-- ETAPA 1: IDENTIFICAÇÃO -->
     <mat-step [stepControl]="identificationForm">
       <ng-template matStepLabel>Dados de identificação</ng-template>
       <form [formGroup]="identificationForm">
@@ -13,24 +13,25 @@
               <mat-label>CNS</mat-label>
               <input matInput type="text" mask="000 0000 0000 0000" formControlName="cns">
               @for (item of errorMessages['cns']; track $index) {
-                <mat-error [hidden]="!identificationForm.get('cns')?.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!identificationForm.get('cns')?.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
 
-            <div class="file-actions-cell">
+            <div class="file-upload-cell">
               <button 
-                class="btn-archive" 
                 type="button" 
                 mat-icon-button 
-                [disabled]="!data.patient_care.patient?.file_cns_id || isSubmitting()" 
-                (click)="download(data.patient_care.patient?.file_cns_id, 'cns')">
+                [disabled]="!data?.patient_care?.patient?.file_cns_id || isSubmitting()" 
+                (click)="download(data?.patient_care?.patient?.file_cns_id, 'cns')">
                 <mat-icon>download</mat-icon>
               </button>
               <input type="file" hidden (change)="onFileSelected($event, 'cns')" #fileCNS [disabled]="isSubmitting()">
               <button 
                 mat-raised-button 
                 type="button" 
-                [class.attached]="files.cns.file !== null" 
+                [class.attached]="files.cns.hasFile()" 
                 (click)="fileCNS.click()" 
                 [matTooltip]="files.cns.label()" 
                 [disabled]="isSubmitting()">
@@ -48,7 +49,9 @@
                 <mat-option value="Certidão de nascimento">Certidão de nascimento</mat-option>
               </mat-select>
               @for (item of errorMessages['document_type']; track $index) {
-                <mat-error [hidden]="!identificationForm.get('document_type')?.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!identificationForm.get('document_type')?.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
 
@@ -60,24 +63,25 @@
                 [mask]="identificationForm.get('document_type')?.value === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00'" 
                 formControlName="document">
               @for (item of errorMessages['document']; track $index) {
-                <mat-error [hidden]="!identificationForm.get('document')?.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!identificationForm.get('document')?.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
 
-            <div class="file-actions-cell">
+            <div class="file-upload-cell">
               <button 
-                class="btn-archive" 
                 type="button" 
                 mat-icon-button 
-                [disabled]="!data.patient_care.patient?.file_document_id || isSubmitting()" 
-                (click)="download(data.patient_care.patient?.file_document_id, 'document')">
+                [disabled]="!data?.patient_care?.patient?.file_document_id || isSubmitting()" 
+                (click)="download(data?.patient_care?.patient?.file_document_id, 'document')">
                 <mat-icon>download</mat-icon>
               </button>
               <input type="file" hidden (change)="onFileSelected($event, 'document')" #fileDocument [disabled]="isSubmitting()">
               <button 
                 mat-raised-button 
                 type="button" 
-                [class.attached]="files.document.file !== null" 
+                [class.attached]="files.document.hasFile()" 
                 (click)="fileDocument.click()" 
                 [matTooltip]="files.document.label()" 
                 [disabled]="isSubmitting()">
@@ -100,7 +104,9 @@
               <mat-label>Nome</mat-label>
               <input matInput type="text" formControlName="name">
               @for (item of errorMessages['name']; track $index) {
-                <mat-error [hidden]="!personalForm.get('name')?.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!personalForm.get('name')?.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
 
@@ -115,7 +121,9 @@
               <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
               <mat-datepicker #picker></mat-datepicker>
               @for (item of errorMessages['birth_date']; track $index) {
-                <mat-error [hidden]="!personalForm.get('birth_date')?.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!personalForm.get('birth_date')?.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
 
@@ -138,7 +146,9 @@
                 }
               </mat-select>
               @for (item of errorMessages['race']; track $index) {
-                <mat-error [hidden]="!personalForm.get('race')?.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!personalForm.get('race')?.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
 
@@ -168,7 +178,9 @@
                 }
               </mat-autocomplete>
               @for (item of errorMessages['naturalness']; track $index) {
-                <mat-error [hidden]="!naturalnessControl.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!naturalnessControl.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
 
@@ -180,7 +192,9 @@
                 }
               </mat-select>
               @for (item of errorMessages['gender']; track $index) {
-                <mat-error [hidden]="!personalForm.get('gender')?.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!personalForm.get('gender')?.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
           </div>
@@ -238,20 +252,19 @@
               </mat-select>
             </mat-form-field>
 
-            <div class="file-actions-cell">
+            <div class="file-upload-cell">
               <button 
-                class="btn-archive" 
                 type="button" 
                 mat-icon-button 
-                [disabled]="!data.patient_care.patient?.file_deficiency_id || isSubmitting()" 
-                (click)="download(data.patient_care.patient?.file_deficiency_id, 'deficiency')">
+                [disabled]="!data?.patient_care?.patient?.file_deficiency_id || isSubmitting()" 
+                (click)="download(data?.patient_care?.patient?.file_deficiency_id, 'deficiency')">
                 <mat-icon>download</mat-icon>
               </button>
               <input type="file" hidden (change)="onFileSelected($event, 'deficiency')" #fileDeficiency [disabled]="isSubmitting()">
               <button 
                 mat-raised-button 
                 type="button" 
-                [class.attached]="files.deficiency.file !== null" 
+                [class.attached]="files.deficiency.hasFile()" 
                 (click)="fileDeficiency.click()" 
                 [matTooltip]="files.deficiency.label()" 
                 [disabled]="isSubmitting()">
@@ -264,7 +277,7 @@
       </form>
     </mat-step>
 
-    <!-- ETAPA 3: DADOS DE ENDEREÇO -->
+    <!-- ETAPA 3: ENDEREÇO -->
     <mat-step [stepControl]="addressForm">
       <ng-template matStepLabel>Dados de endereço</ng-template>
       <form [formGroup]="addressForm">
@@ -274,24 +287,25 @@
               <mat-label>CEP</mat-label>
               <input matInput type="text" mask="00000-000" formControlName="cep">
               @for (item of errorMessages['cep']; track $index) {
-                <mat-error [hidden]="!addressForm.get('cep')?.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!addressForm.get('cep')?.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
 
-            <div class="file-actions-cell">
+            <div class="file-upload-cell">
               <button 
-                class="btn-archive" 
                 type="button" 
                 mat-icon-button 
-                [disabled]="!data.patient_care.patient?.file_address_id || isSubmitting()" 
-                (click)="download(data.patient_care.patient?.file_address_id, 'address')">
+                [disabled]="!data?.patient_care?.patient?.file_address_id || isSubmitting()" 
+                (click)="download(data?.patient_care?.patient?.file_address_id, 'address')">
                 <mat-icon>download</mat-icon>
               </button>
               <input type="file" hidden (change)="onFileSelected($event, 'address')" #fileAddress [disabled]="isSubmitting()">
               <button 
                 mat-raised-button 
                 type="button" 
-                [class.attached]="files.address.file !== null" 
+                [class.attached]="files.address.hasFile()" 
                 (click)="fileAddress.click()" 
                 [matTooltip]="files.address.label()" 
                 [disabled]="isSubmitting()">
@@ -305,7 +319,9 @@
             <mat-label>Endereço</mat-label>
             <input matInput type="text" formControlName="address">
             @for (item of errorMessages['address']; track $index) {
-              <mat-error [hidden]="!addressForm.get('address')?.hasError(item.type)">{{ item.message }}</mat-error>
+              <mat-error [hidden]="!addressForm.get('address')?.hasError(item.type)">
+                {{ item.message }}
+              </mat-error>
             }
           </mat-form-field>
 
@@ -319,7 +335,9 @@
               <mat-label>Número</mat-label>
               <input matInput type="text" formControlName="number">
               @for (item of errorMessages['number']; track $index) {
-                <mat-error [hidden]="!addressForm.get('number')?.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!addressForm.get('number')?.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
 
@@ -327,7 +345,9 @@
               <mat-label>Bairro</mat-label>
               <input matInput type="text" formControlName="neighborhood">
               @for (item of errorMessages['neighborhood']; track $index) {
-                <mat-error [hidden]="!addressForm.get('neighborhood')?.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!addressForm.get('neighborhood')?.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
           </div>
@@ -374,24 +394,25 @@
               <mat-label>Sigadoc</mat-label>
               <input matInput type="text" placeholder="SES-PRO-0000/00000" formControlName="sigadoc">
               @for (item of errorMessages['sigadoc']; track $index) {
-                <mat-error [hidden]="!infoForm.get('sigadoc')?.hasError(item.type)">{{ item.message }}</mat-error>
+                <mat-error [hidden]="!infoForm.get('sigadoc')?.hasError(item.type)">
+                  {{ item.message }}
+                </mat-error>
               }
             </mat-form-field>
 
-            <div class="file-actions-cell">
+            <div class="file-upload-cell">
               <button 
-                class="btn-archive" 
                 type="button" 
                 mat-icon-button 
-                [disabled]="!data.patient_care.patient?.patient_info?.file_sigadoc_id || isSubmitting()" 
-                (click)="download(data.patient_care.patient?.patient_info?.file_sigadoc_id, 'sigadoc')">
+                [disabled]="!data?.patient_care?.patient?.patient_info?.file_sigadoc_id || isSubmitting()" 
+                (click)="download(data?.patient_care?.patient?.patient_info?.file_sigadoc_id, 'sigadoc')">
                 <mat-icon>download</mat-icon>
               </button>
               <input type="file" hidden (change)="onFileSelected($event, 'sigadoc')" #fileSigadoc [disabled]="isSubmitting()">
               <button 
                 mat-raised-button 
                 type="button" 
-                [class.attached]="files.sigadoc.file !== null" 
+                [class.attached]="files.sigadoc.hasFile()" 
                 (click)="fileSigadoc.click()" 
                 [matTooltip]="files.sigadoc.label()" 
                 [disabled]="isSubmitting()">
@@ -413,13 +434,13 @@
     mat-flat-button 
     color="primary" 
     type="button" 
-    [disabled]="identificationForm.invalid || personalForm.invalid || addressForm.invalid || infoForm.invalid || isFormsPristine() || isSubmitting()" 
+    [disabled]="isFormsPristine() || identificationForm.invalid || personalForm.invalid || addressForm.invalid || infoForm.invalid || identificationForm.pending || isSubmitting()" 
     (click)="onSubmit()">
     <div class="waiting">
       @if (isSubmitting()) {
         <mat-spinner [diameter]="20"></mat-spinner>
       }
-      Salvar alterações
+      Atualizar paciente
     </div>
   </button>
 </mat-dialog-actions>

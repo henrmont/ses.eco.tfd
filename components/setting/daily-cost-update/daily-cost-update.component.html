@@ -3,7 +3,7 @@
 <form [formGroup]="dailyCostForm">
   <mat-dialog-content>
     
-    <div class="line">
+    <div class="line cols-1-col">
       <mat-form-field appearance="outline" floatLabel="always">
         <mat-label>Valor</mat-label>
         <input 
@@ -17,7 +17,7 @@
           [dropSpecialCharacters]="true" 
           formControlName="value"
         >
-        @for (item of errorMessages['value']; track $index) {
+        @for (item of errorMessages['value']; track item.type) {
           <mat-error [hidden]="!dailyCostForm.get('value')?.hasError(item.type)">
             {{ item.message }}
           </mat-error>
@@ -40,9 +40,9 @@
     >
       <div class="waiting">
         @if (isSubmitting()) {
-          <mat-spinner [diameter]="20"></mat-spinner>
+          <mat-spinner diameter="20"></mat-spinner>
         }
-        <span>Salvar alterações</span>
+        <span>{{ isSubmitting() ? 'Salvando...' : 'Salvar alterações' }}</span>
       </div>
     </button>
   </mat-dialog-actions>

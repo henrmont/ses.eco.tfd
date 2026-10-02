@@ -15,7 +15,9 @@ mat-dialog-content {
   column-gap: $spacing-xl;
   row-gap: $spacing-form-gap;
 
-  &.cols-1-1 { --grid-cols: 1fr 1fr; }
+  &.cols-1-1 { 
+    --grid-cols: 1fr 1fr; 
+  }
 }
 
 .types-button-container {
@@ -25,7 +27,7 @@ mat-dialog-content {
 
   .select-types-btn {
     width: 100%;
-    height: 56px; // Altura compatível com os inputs do mat-form-field (outline)
+    height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -71,6 +71,7 @@ interface NaturalnessOption {
 interface AttachedFileState {
   file: File | null;
   label: ReturnType<typeof signal<string>>;
+  hasFile: () => boolean;
 }
 
 type PatientUpdateDialogData = {
@@ -107,7 +108,7 @@ export class PatientUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientUpdateDialogData>(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientUpdateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly viacepService = inject(ViacepService);
   private readonly patientService = inject(PatientService);
@@ -131,7 +132,7 @@ export class PatientUpdateComponent implements OnInit {
   protected readonly naturalnessReadOnly = signal<boolean>(true);
   protected readonly naturalnessLoading = signal<boolean>(false);
 
-  // Opções dos Enums Centralizadas no Controle
+  // Opções dos Enums Centralizadas
   protected readonly options = {
     races: Object.values(Race),
     deficiencies: Object.values(Deficiency),
@@ -193,13 +194,13 @@ export class PatientUpdateComponent implements OnInit {
     ]
   };
 
-  // Gerenciamento de Anexos/Arquivos
+  // Gerenciamento de Anexos/Arquivos com Helper Method `hasFile()`
   protected readonly files: Record<FileType, AttachedFileState> = {
-    cns: { file: null, label: signal('Nenhum arquivo selecionado') },
-    document: { file: null, label: signal('Nenhum arquivo selecionado') },
-    deficiency: { file: null, label: signal('Nenhum arquivo selecionado') },
-    address: { file: null, label: signal('Nenhum arquivo selecionado') },
-    sigadoc: { file: null, label: signal('Nenhum arquivo selecionado') }
+    cns: this.createFileState(),
+    document: this.createFileState(),
+    deficiency: this.createFileState(),
+    address: this.createFileState(),
+    sigadoc: this.createFileState()
   };
 
   // Controles Independentes & Autocomplete
@@ -226,7 +227,7 @@ export class PatientUpdateComponent implements OnInit {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Métodos Acessíveis pelo Template
   // ==========================================
   protected setBirthDate(event: MatDatepickerInputEvent<any>): void {
     if (event.value) {
@@ -283,12 +284,14 @@ export class PatientUpdateComponent implements OnInit {
   }
 
   protected isFormsPristine(): boolean {
+    const isFilesUnchanged = Object.values(this.files).every(f => f.file === null);
     return (
       this.identificationForm.pristine &&
       this.personalForm.pristine &&
       this.addressForm.pristine &&
       this.infoForm.pristine &&
-      this.naturalnessControl.pristine
+      this.naturalnessControl.pristine &&
+      isFilesUnchanged
     );
   }
 
@@ -358,6 +361,16 @@ export class PatientUpdateComponent implements OnInit {
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
+  private createFileState(): AttachedFileState {
+    const labelSignal = signal<string>('Nenhum arquivo selecionado');
+    const state: AttachedFileState = {
+      file: null,
+      label: labelSignal,
+      hasFile: () => state.file !== null
+    };
+    return state;
+  }
+
   private initForms(): void {
     const patient = this.data?.patient_care?.patient;
 

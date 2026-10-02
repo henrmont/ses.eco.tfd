@@ -87,10 +87,12 @@
   
   <mat-dialog-actions align="end">
     <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
-    <button mat-flat-button color="primary" type="button" 
-            [disabled]="userForm.invalid || userForm.pending || isSubmitting()"
-            (click)="onSubmit()"
-            >
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="button" 
+      [disabled]="userForm.invalid || userForm.pending || isSubmitting()"
+      (click)="onSubmit()">
       <div class="waiting">
         @if (isSubmitting()) {
           <mat-spinner [diameter]="20"></mat-spinner>
