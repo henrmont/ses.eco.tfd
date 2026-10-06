@@ -1,3 +1,5 @@
+import { Professional } from "./professional.model";
+
 export interface PatientRequestOpinion {
     id: number,
     patient_request_id: number,
@@ -6,4 +8,5 @@ export interface PatientRequestOpinion {
     content: string,
     is_approved: boolean,
     my_opinion: boolean,
+    professional?: Professional,
 }

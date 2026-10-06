@@ -1,10 +1,10 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
 // Angular Material & CDK
 import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,8 +14,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Core, Services & Models
 import { MessageService } from '../../../../core/services/message-service';
-import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestOpinion } from '../../../models/patient-request-opinion.model';
+import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestOpinionService } from '../../../services/patient-request-opinion.service';
 
 // Dialog Components
@@ -23,18 +23,18 @@ import { PatientRequestOpinionCreateComponent } from '../patient-request-opinion
 import { PatientRequestOpinionDeleteComponent } from '../patient-request-opinion-delete/patient-request-opinion-delete.component';
 import { PatientRequestOpinionDetailComponent } from '../patient-request-opinion-detail/patient-request-opinion-detail.component';
 import { PatientRequestOpinionUpdateComponent } from '../patient-request-opinion-update/patient-request-opinion-update.component';
+import { Role } from '../../../models/role.model';
 
-// Tipagem dos Dados do Modal
-type PatientRequestOpinionDialogData = {
+export type PatientRequestOpinionDialogData = {
   opinion?: PatientRequestOpinion;
   patient_request?: PatientRequest;
+  roles?: Role[];
 };
 
 @Component({
   selector: 'app-patient-request-opinions',
   standalone: true,
   imports: [
-    CommonModule,
     MatDialogModule,
     MatButtonModule,
     MatTableModule,
@@ -46,16 +46,16 @@ type PatientRequestOpinionDialogData = {
   styleUrl: './patient-request-opinions.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PatientRequestOpinionsComponent implements OnInit, OnDestroy {
+export class PatientRequestOpinionsComponent implements OnInit {
   // ==========================================
-  // Instância própria do canal
+  // Instância do Broadcast Channel
   // ==========================================
   private readonly opinionsChannel = new BroadcastChannel('tfd-opinions-channel');
 
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestOpinionDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly opinionService = inject(PatientRequestOpinionService);
@@ -69,24 +69,22 @@ export class PatientRequestOpinionsComponent implements OnInit, OnDestroy {
   protected readonly dataSource = new MatTableDataSource<PatientRequestOpinion>([]);
   protected readonly isLoading = signal<boolean>(true);
 
+  private readonly patientRequestId = computed(() => this.data?.patient_request?.id ?? null);
+
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
+    this.setupBroadcastChannel();
     this.fetchOpinions(true);
-    this.listenToBroadcastChannel();
-  }
-
-  ngOnDestroy(): void {
-    this.opinionsChannel.close();
   }
 
   // ==========================================
   // Avaliação de Permissões
   // ==========================================
   protected checkPermissions(permissionName: string): boolean {
-    const roles = this.data?.permissions || [];
-    return !roles.some((role: { permissions?: { name: string }[] }) =>
+    const roles = this.data?.roles || [];
+    return !roles.some((role) =>
       role?.permissions?.some((p) => p?.name === permissionName)
     );
   }
@@ -122,7 +120,7 @@ export class PatientRequestOpinionsComponent implements OnInit, OnDestroy {
   // Métodos Privados / Auxiliares
   // ==========================================
   private fetchOpinions(showLoading = false): void {
-    const requestId = this.data?.patient_request?.id;
+    const requestId = this.patientRequestId();
 
     if (!requestId) {
       this.isLoading.set(false);
@@ -140,7 +138,6 @@ export class PatientRequestOpinionsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (response: PatientRequestOpinion[]) => {
-          console.log(response)
           this.dataSource.data = response || [];
         },
         error: (err) => {
@@ -151,16 +148,20 @@ export class PatientRequestOpinionsComponent implements OnInit, OnDestroy {
       });
   }
 
-  private listenToBroadcastChannel(): void {
+  private setupBroadcastChannel(): void {
     this.opinionsChannel.onmessage = (message: MessageEvent<string>) => {
       if (message.data === 'update') {
         this.fetchOpinions(false);
       }
     };
+
+    this.destroyRef.onDestroy(() => {
+      this.opinionsChannel.close();
+    });
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PatientRequestOpinionDialogData,
     width = '800px',
     height = 'auto',

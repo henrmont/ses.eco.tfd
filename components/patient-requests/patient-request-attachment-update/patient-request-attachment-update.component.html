@@ -1,4 +1,4 @@
-<h2 mat-dialog-title>Atualizar arquivo</h2>
+<h2 mat-dialog-title>Atualizar anexo da solicitação</h2>
 
 <mat-dialog-content>
   <form [formGroup]="attachmentForm">
@@ -24,8 +24,8 @@
             class="btn-archive" 
             type="button" 
             mat-icon-button 
-            [disabled]="!data.patient_request_attachment.archive_id || isSubmitting()" 
-            (click)="download(data.patient_request_attachment.archive_id, attachmentForm.get('name')?.value)"
+            [disabled]="!data?.patient_request_attachment?.archive_id || isSubmitting()" 
+            (click)="download(data?.patient_request_attachment?.archive_id, attachmentForm.get('name')?.value)"
             matTooltip="Baixar arquivo atual">
             <mat-icon>download</mat-icon>
           </button>

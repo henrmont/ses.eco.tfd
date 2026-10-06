@@ -1,7 +1,7 @@
 <h2 mat-dialog-title>Novo parecer</h2>
 
-<mat-dialog-content>
-  <form [formGroup]="opinionForm">
+<form [formGroup]="opinionForm">
+  <mat-dialog-content>
     <div class="stepper">
       
       <!-- Linha 1: Nome e Toggle Favorável -->
@@ -45,26 +45,26 @@
       </div>
 
     </div>
-  </form>
-</mat-dialog-content>
+  </mat-dialog-content>
 
-<mat-dialog-actions align="end">
-  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
-    Cancelar
-  </button>
-  
-  <button 
-    mat-flat-button 
-    color="primary" 
-    type="button" 
-    [disabled]="opinionForm.invalid || opinionForm.pending || isSubmitting()"
-    (click)="onSubmit()"
-  >
-    <div class="waiting">
-      @if (isSubmitting()) {
-        <mat-spinner [diameter]="20"></mat-spinner>
-      }
-      Criar parecer
-    </div>
-  </button>
-</mat-dialog-actions>
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
+      Fechar
+    </button>
+    
+    <button 
+      mat-flat-button 
+      color="primary" 
+      type="button" 
+      (click)="onSubmit()"
+      [disabled]="opinionForm.invalid || opinionForm.pending || isSubmitting()"
+    >
+      <div class="waiting">
+        @if (isSubmitting()) {
+          <mat-spinner [diameter]="20"></mat-spinner>
+        }
+        Criar parecer
+      </div>
+    </button>
+  </mat-dialog-actions>
+</form>

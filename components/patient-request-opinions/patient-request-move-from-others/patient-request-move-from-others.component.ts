@@ -1,24 +1,29 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs/operators';
+import { finalize } from 'rxjs';
 
-// Material Modules
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Services e Models
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestOpinionService } from '../../../services/patient-request-opinion.service';
+
+export type PatientRequestMoveFromOthersDialogData = {
+  patient_request?: PatientRequest;
+  type?: 'medical' | 'social';
+};
 
 @Component({
   selector: 'app-patient-request-move-from-others',
   standalone: true,
   imports: [
-    CommonModule,
-    MatDialogModule,
     MatButtonModule,
+    MatDialogModule,
     MatProgressSpinnerModule
   ],
   templateUrl: './patient-request-move-from-others.component.html',
@@ -29,51 +34,50 @@ export class PatientRequestMoveFromOthersComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestMoveFromOthersDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly opinionService = inject(PatientRequestOpinionService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestMoveFromOthersComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
 
   // ==========================================
-  // Estados Reativos via Signals
+  // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // Submissão / Movimentação
+  // Getters para Facilitação do Template
   // ==========================================
-  /**
-   * Dispara a requisição para movimentar a solicitação dentro do contexto de Opinion
-   */
-  protected onSubmit(): void {
-    const requestType = this.data?.type;
-    const requestId = this.data?.patient_request?.id;
+  protected get patientName(): string {
+    return this.data?.patient_request?.report?.patient_care?.patient?.name || 'Não informado'
+  }
 
-    if (!requestId) {
-      this.messageService.showMessage('Erro: Identificador da solicitação não encontrado.');
+  // ==========================================
+  // Métodos Acessíveis pelo Template (Protected)
+  // ==========================================
+  protected onSubmit(): void {
+    const requestId = this.data?.patient_request?.id;
+    const requestType = this.data?.type;
+
+    if (!requestId || !requestType) {
+      this.messageService.showMessage('Identificador da solicitação ou perfil inválido.');
       return;
     }
 
     this.isSubmitting.set(true);
-    this.cdr.markForCheck();
 
     this.opinionService.movePatientRequestFromOthers(requestType, requestId)
       .pipe(
-        finalize(() => {
-          this.isSubmitting.set(false);
-          this.cdr.markForCheck();
-        }),
+        finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Solicitação movimentada com sucesso!');
           this.dialogRef.close(true);
         },
         error: (err) => {
-          const fallbackError = 'Ocorreu um erro ao tentar movimentar a solicitação.';
+          const fallbackError = 'Erro ao tentar movimentar a solicitação.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
       });

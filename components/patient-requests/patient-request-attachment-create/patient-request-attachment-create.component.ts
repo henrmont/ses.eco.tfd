@@ -26,6 +26,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequestService } from '../../../services/patient-request.service';
+import { PatientRequest } from '../../../models/patient-request.model';
+
+type PatientRequestAttachmentCreateDialogData = {
+  patient_request?: PatientRequest;
+};
 
 interface AttachedFileState {
   file: File | null;
@@ -56,7 +61,7 @@ export class PatientRequestAttachmentCreateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestAttachmentCreateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
@@ -97,9 +102,6 @@ export class PatientRequestAttachmentCreateComponent implements OnInit {
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  /**
-   * Captura e processa o arquivo carregado no input nativo.
-   */
   protected onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
 
@@ -120,11 +122,8 @@ export class PatientRequestAttachmentCreateComponent implements OnInit {
     }
   }
 
-  /**
-   * Processa a submissão e upload do anexo vinculado à solicitação do paciente.
-   */
   protected onSubmit(): void {
-    const patientRequestId = this.data?.patient_request?.id || this.data?.patientRequest?.id;
+    const patientRequestId = this.data?.patient_request?.id;
 
     if (!patientRequestId) {
       this.messageService.showMessage('Identificador da solicitação não encontrado.');

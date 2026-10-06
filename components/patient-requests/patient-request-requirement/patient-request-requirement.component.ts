@@ -1,32 +1,19 @@
-import { CommonModule } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-  input,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 
 // Angular Material
+import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
-import { MatButtonModule } from '@angular/material/button';
 
-export interface PatientRequestRequirementData {
-  type?: string | null;
-  medical?: boolean | null;
-  medical_status?: boolean | null;
-  social?: boolean | null;
-  social_status?: boolean | null;
-  travel?: boolean | null;
-  travel_status?: boolean | null;
-  cost_assistance?: boolean | null;
-  cost_assistance_status?: boolean | null;
-  [key: string]: unknown;
-}
+// Core, Services & Models
+import { PatientRequest } from '../../../models/patient-request.model';
 
-export interface RequirementItem {
+export type PatientRequestRequirementDialogData = {
+  patient_request?: PatientRequest;
+};
+
+interface RequirementItem {
   label: string;
   fulfilled: boolean;
 }
@@ -35,42 +22,31 @@ export interface RequirementItem {
   selector: 'app-patient-request-requirement',
   standalone: true,
   imports: [
-    CommonModule,
+    MatButtonModule,
     MatDialogModule,
     MatIconModule,
-    MatListModule,
-    MatButtonModule
+    MatListModule
   ],
   templateUrl: './patient-request-requirement.component.html',
   styleUrl: './patient-request-requirement.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PatientRequestRequirementComponent {
-  /**
-   * Dados recebidos via MAT_DIALOG_DATA (se aberto via modal)
-   */
-  protected readonly data = inject<{ patient_request?: PatientRequestRequirementData }>(MAT_DIALOG_DATA, { optional: true });
+  // ==========================================
+  // Injeção de Dependências
+  // ==========================================
+  protected readonly data = inject<PatientRequestRequirementDialogData | null>(MAT_DIALOG_DATA, { optional: true });
 
-  /**
-   * Input Signal (se utilizado diretamente via template)
-   */
-  public readonly requestData = input<PatientRequestRequirementData | null>(null);
+  // ==========================================
+  // Computed Properties (Consolidação de Dados)
+  // ==========================================
+  private readonly rawData = computed(() => this.data?.patient_request || null);
 
-  /**
-   * Consolida a fonte de dados (Input ou Dialog Data)
-   */
-  private readonly rawData = computed<PatientRequestRequirementData | null>(() => 
-    this.requestData() || this.data?.patient_request || null
-  );
-
-  /**
-   * Mapeamento reativo condicional ao tipo da solicitação
-   */
   protected readonly requirements = computed<RequirementItem[]>(() => {
     const request = this.rawData();
     if (!request) return [];
 
-    const isEntranceType = request.type?.toLowerCase() === 'entrada' || request.type?.toLowerCase() === 'entrance';
+    const isEntranceType = request.type?.toLowerCase() === 'entrada';
 
     const items: RequirementItem[] = [
       {
@@ -99,4 +75,14 @@ export class PatientRequestRequirementComponent {
 
     return items;
   });
+
+  // ==========================================
+  // Métodos Auxiliares Privados
+  // ==========================================
+  private hasValue(value?: unknown): boolean {
+    if (value == null) return false;
+    if (typeof value === 'string') return value.trim() !== '';
+    if (typeof value === 'number') return !isNaN(value);
+    return true;
+  }
 }

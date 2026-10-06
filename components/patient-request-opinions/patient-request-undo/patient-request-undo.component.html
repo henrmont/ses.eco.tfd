@@ -1,27 +1,20 @@
 <h2 mat-dialog-title>Retornar solicitação</h2>
 
-<form [formGroup]="undoForm">
+<form [formGroup]="undoForm" (ngSubmit)="onSubmit()">
   <mat-dialog-content>
     <div class="stepper">
-      
       <div class="line cols-1-col">
         <!-- Seleção de Destino -->
         <mat-form-field appearance="outline">
           <mat-label>Para</mat-label>
           <mat-select formControlName="to">
-            <mat-option value="user">{{ Professionals.CADASTRO }} ({{ data?.patient_request?.report?.patient_care?.user?.professional?.name ?? 'Não informado' }})</mat-option>
-            <mat-option value="owner">{{ Professionals.ADMINISTRATIVO }} ({{ data?.patient_request?.owner_professional?.name ?? 'Não informado' }})</mat-option>
-            @if (data?.type === 'medical') {
-              <mat-option value="medical">{{ Professionals.MEDICO }} ({{ data?.patient_request?.medical_professional?.name ?? 'Não informado' }})</mat-option>
-            } @else {
-              <mat-option value="social">{{ Professionals.ASSISTENTE_SOCIAL }} ({{ data?.patient_request?.social_professional?.name ?? 'Não informado' }})</mat-option>
-            }
-            @if (data?.patient_request?.type !== 'Entrada') {
-              <mat-option value="travel">{{ Professionals.PASSAGEM }} ({{ data?.patient_request?.travel_professional?.name ?? 'Não informado' }})</mat-option>
-              <mat-option value="cost_assistance">{{ Professionals.AJUDA_DE_CUSTO }} ({{ data?.patient_request?.cost_assistance_professional?.name ?? 'Não informado' }})</mat-option>
+            @for (option of destinationOptions(); track option.value) {
+              <mat-option [value]="option.value">
+                {{ option.label }}
+              </mat-option>
             }
           </mat-select>
-          
+
           @for (item of errorMessages['to']; track $index) {
             <mat-error [hidden]="!undoForm.get('to')?.hasError(item.type)">
               {{ item.message }}
@@ -32,8 +25,12 @@
         <!-- Motivo / Justificativa -->
         <mat-form-field appearance="outline">
           <mat-label>Motivo</mat-label>
-          <textarea matInput rows="4" formControlName="reason" [readonly]="isSubmitting()"></textarea>
-          
+          <textarea 
+            matInput 
+            rows="4" 
+            formControlName="reason">
+          </textarea>
+
           @for (item of errorMessages['reason']; track $index) {
             <mat-error [hidden]="!undoForm.get('reason')?.hasError(item.type)">
               {{ item.message }}
@@ -41,22 +38,23 @@
           }
         </mat-form-field>
       </div>
-
     </div>
   </mat-dialog-content>
 
   <mat-dialog-actions align="end">
-    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+    <button 
+      mat-button 
+      type="button" 
+      [mat-dialog-close]="false" 
+      [disabled]="isSubmitting()">
       Cancelar
     </button>
     
     <button 
       mat-flat-button
       color="primary"
-      type="button" 
-      [disabled]="undoForm.invalid || undoForm.pending || isSubmitting()"
-      (click)="onSubmit()"
-    >
+      type="submit" 
+      [disabled]="undoForm.invalid || isSubmitting()">
       <div class="waiting">
         @if (isSubmitting()) {
           <mat-spinner [diameter]="20"></mat-spinner>

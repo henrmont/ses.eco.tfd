@@ -1,25 +1,22 @@
-import { CommonModule } from '@angular/common';
-import { 
-  ChangeDetectionStrategy, 
-  ChangeDetectorRef, 
-  Component, 
-  DestroyRef, 
-  Injector,
-  OnInit, 
-  inject, 
-  signal 
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  effect,
+  inject,
+  signal
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { STEPPER_GLOBAL_OPTIONS } from '@angular/cdk/stepper';
-import { MAT_DATE_LOCALE, MatNativeDateModule } from '@angular/material/core';
-import { MatDatepickerInputEvent, MatDatepickerModule } from '@angular/material/datepicker';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Observable, finalize, map, startWith } from 'rxjs';
 
 // Angular Material
+import { MAT_DATE_LOCALE, MatNativeDateModule } from '@angular/material/core';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
-import { MatChipsModule } from '@angular/material/chips';
+import { MatDatepickerInputEvent, MatDatepickerModule } from '@angular/material/datepicker';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -31,8 +28,19 @@ import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { CustomValidators } from '../../../../core/validators/custom.validator';
 import { PatientRequestService } from '../../../services/patient-request.service';
+import { PatientCare } from '../../../models/patient-care.model';
+import { PatientReport } from '../../../models/patient-report.model';
+import { HospitalUnity } from '../../../models/hospital-unity.model';
 
-export interface OptionItem {
+// ============================================================================
+// Tipos e Interfaces
+// ============================================================================
+
+export interface PatientCareOption extends PatientCare {
+  name: string;
+}
+
+interface OptionItem {
   id?: number;
   name?: string;
   code?: string;
@@ -40,6 +48,11 @@ export interface OptionItem {
   has_entrance_or_lawsuit?: boolean;
   has_entrance_or_lawsuit_finished?: boolean;
   [key: string]: unknown;
+}
+
+interface ErrorMessage {
+  type: string;
+  message: string;
 }
 
 @Component({
@@ -50,20 +63,18 @@ export interface OptionItem {
     FormsModule,
     ReactiveFormsModule,
     MatAutocompleteModule,
-    MatDialogModule,
     MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
     MatDatepickerModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
     MatNativeDateModule,
-    MatChipsModule,
-    MatIconModule
+    MatProgressSpinnerModule
   ],
   templateUrl: './patient-request-create.component.html',
   styleUrl: './patient-request-create.component.scss',
   providers: [
-    { provide: STEPPER_GLOBAL_OPTIONS, useValue: { showError: true } },
     { provide: MAT_DATE_LOCALE, useValue: 'pt-BR' }
   ],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -73,13 +84,11 @@ export class PatientRequestCreateComponent implements OnInit {
   // Injeção de Dependências
   // ==========================================
   protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  private readonly dialogRef = inject(MatDialogRef<PatientRequestCreateComponent>);
   private readonly fb = inject(FormBuilder);
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
-  private readonly dialogRef = inject(MatDialogRef<PatientRequestCreateComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -100,8 +109,8 @@ export class PatientRequestCreateComponent implements OnInit {
 
   protected readonly currentReportFlags = signal<{ lawsuit: boolean; hasEntranceOrLawsuit: boolean } | null>(null);
 
-  // Mensagens de Erro por Controle
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  // Mapeamento de Mensagens de Erro Tipado
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     patient_search: [
       { type: 'required', message: 'A seleção do paciente é obrigatória.' }
     ],
@@ -123,82 +132,135 @@ export class PatientRequestCreateComponent implements OnInit {
     ]
   };
 
-  // Autocomplete e Observables
-  private patientOptions: OptionItem[] = [];
-  protected filteredPatientOptions!: Observable<OptionItem[]>;
+  // Listas internas de opções e Observables para os Autocompletes
+  private patientOptions: PatientCareOption[] = [];
+  protected filteredPatientOptions!: Observable<PatientCareOption[]>;
 
   private cidOptions: OptionItem[] = [];
   protected filteredCidOptions!: Observable<OptionItem[]>;
 
-  private hospitalOptions: OptionItem[] = [];
-  protected filteredHospitalOptions!: Observable<OptionItem[]>;
+  private hospitalOptions: HospitalUnity[] = [];
+  protected filteredHospitalOptions!: Observable<HospitalUnity[]>;
+
+  // ==========================================
+  // Construtor com a lógica do Effect
+  // ==========================================
+  constructor() {
+    effect(() => {
+      const submitting = this.isSubmitting();
+      const pLoading = this.patientLoading();
+      const cLoading = this.cidLoading();
+      const hLoading = this.hospitalLoading();
+      const pReadOnly = this.patientReadOnly();
+      const cReadOnly = this.cidReadOnly();
+      const hReadOnly = this.hospitalReadOnly();
+      const scheduling = this.isScheduling();
+
+      if (!this.patientRequestForm) return;
+
+      if (submitting) {
+        this.patientRequestForm.disable({ emitEvent: false });
+        return;
+      }
+
+      // Controle do campo Paciente
+      const patientCtrl = this.patientRequestForm.get('patient_search');
+      if (pLoading || pReadOnly) {
+        patientCtrl?.disable({ emitEvent: false });
+      } else {
+        patientCtrl?.enable({ emitEvent: false });
+      }
+
+      // Controle do campo CID/Laudo
+      const cidCtrl = this.patientRequestForm.get('cid_search');
+      if (cLoading || cReadOnly) {
+        cidCtrl?.disable({ emitEvent: false });
+      } else {
+        cidCtrl?.enable({ emitEvent: false });
+      }
+
+      // Controle do campo Hospital
+      const hospitalCtrl = this.patientRequestForm.get('hospital_search');
+      if (hLoading || hReadOnly) {
+        hospitalCtrl?.disable({ emitEvent: false });
+      } else {
+        hospitalCtrl?.enable({ emitEvent: false });
+      }
+
+      // Campos com fluxo de habilitação condicional
+      this.patientRequestForm.get('type')?.disable({ emitEvent: false });
+
+      const dateControl = this.patientRequestForm.get('consultation_date');
+      if (!scheduling && dateControl) {
+        dateControl.disable({ emitEvent: false });
+      }
+    });
+  }
 
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
     this.initForm();
+    this.setupAutocompleteFilters();
+    this.registerCleaners();
     this.fetchPatients();
     this.fetchHospitalUnities();
-    this.registerCleaners();
-    this.setupFormSubmittingHandler();
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected displayPatient(patient: OptionItem): string {
-    return patient?.name || '';
+  protected displayPatient(patient?: PatientCareOption | null): string {
+    return patient?.name ?? '';
   }
 
-  protected displayCid(report: OptionItem): string {
+  protected displayCid(report?: OptionItem | null): string {
     return report?.code && report?.name ? `${report.code} - ${report.name}` : '';
   }
 
-  protected displayHospitalUnity(hospital: OptionItem): string {
-    return hospital?.name || '';
+  protected displayHospitalUnity(hospital?: HospitalUnity | null): string {
+    return hospital?.name ?? '';
   }
 
-  protected setPatient(patientCare: OptionItem): void {
+  protected setPatient(patientCare: PatientCareOption): void {
     if (patientCare?.id) {
       this.fetchCidsByPatient(patientCare.id);
     }
   }
 
   protected setCid(report: OptionItem): void {
-    if (report?.id) {
-      this.patientRequestForm.get('report_id')?.setValue(report.id);
-      this.patientRequestForm.get('report_id')?.markAsDirty();
+    if (!report?.id) return;
 
-      const lawsuit = !!report.lawsuit;
-      const hasEntranceOrLawsuit = !!report.has_entrance_or_lawsuit;
-      const hasEntranceOrLawsuitFinished = !!report.has_entrance_or_lawsuit_finished;
+    this.patientRequestForm.get('report_id')?.setValue(report.id);
+    this.patientRequestForm.get('report_id')?.markAsDirty();
 
-      this.currentReportFlags.set({ lawsuit, hasEntranceOrLawsuit });
+    const lawsuit = !!report.lawsuit;
+    const hasEntranceOrLawsuit = !!report.has_entrance_or_lawsuit;
+    const hasEntranceOrLawsuitFinished = !!report.has_entrance_or_lawsuit_finished;
 
-      let autoValue: string | null = null;
+    this.currentReportFlags.set({ lawsuit, hasEntranceOrLawsuit });
 
-      if (hasEntranceOrLawsuitFinished) {
-        autoValue = 'Agendamento';
-      } else if (!hasEntranceOrLawsuit) {
-        autoValue = lawsuit ? 'Ação Judicial' : 'Entrada';
-      }
+    let autoValue: string | null = null;
 
-      if (autoValue) {
-        const typeCtrl = this.patientRequestForm.get('type');
-        typeCtrl?.setValue(autoValue);
-        typeCtrl?.markAsDirty();
+    if (hasEntranceOrLawsuitFinished) {
+      autoValue = 'Agendamento';
+    } else if (!hasEntranceOrLawsuit) {
+      autoValue = lawsuit ? 'Ação Judicial' : 'Entrada';
+    }
 
-        this.setType(autoValue);
-      } else {
-        this.resetTypeSelection();
-      }
+    if (autoValue) {
+      const typeCtrl = this.patientRequestForm.get('type');
+      typeCtrl?.setValue(autoValue);
+      typeCtrl?.markAsDirty();
 
-      this.cdr.markForCheck();
+      this.setType(autoValue);
+    } else {
+      this.resetTypeSelection();
     }
   }
 
-  protected setHospitalUnity(hospital: OptionItem): void {
+  protected setHospitalUnity(hospital: HospitalUnity): void {
     if (hospital?.id) {
       this.patientRequestForm.get('hospital_unity_id')?.setValue(hospital.id);
       this.patientRequestForm.get('hospital_unity_id')?.markAsDirty();
@@ -221,14 +283,13 @@ export class PatientRequestCreateComponent implements OnInit {
       }
       dateControl.updateValueAndValidity();
     }
-    this.cdr.markForCheck();
   }
 
   protected setConsultationDate(event: MatDatepickerInputEvent<unknown>): void {
     if (event.value) {
-      this.patientRequestForm.get('consultation_date')?.setValue(event.value, { emitEvent: true });
-      this.patientRequestForm.get('consultation_date')?.markAsDirty();
-      this.cdr.markForCheck();
+      const dateCtrl = this.patientRequestForm.get('consultation_date');
+      dateCtrl?.setValue(event.value, { emitEvent: true });
+      dateCtrl?.markAsDirty();
     }
   }
 
@@ -243,12 +304,6 @@ export class PatientRequestCreateComponent implements OnInit {
     return true;
   }
 
-  protected isFormInvalid(): boolean {
-    const rawValue = this.patientRequestForm.getRawValue();
-    const isTypeMissing = !rawValue.type;
-    return this.patientRequestForm.invalid || isTypeMissing || this.patientRequestForm.pending || this.isSubmitting();
-  }
-
   protected onSubmit(): void {
     const rawValue = this.patientRequestForm.getRawValue();
 
@@ -259,13 +314,11 @@ export class PatientRequestCreateComponent implements OnInit {
     }
 
     this.isSubmitting.set(true);
-    this.cdr.markForCheck();
 
     this.patientRequestService.createPatientRequest(rawValue)
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);
-          this.cdr.markForCheck();
         }),
         takeUntilDestroyed(this.destroyRef)
       )
@@ -286,53 +339,49 @@ export class PatientRequestCreateComponent implements OnInit {
   // ==========================================
   private initForm(): void {
     this.patientRequestForm = this.fb.group({
-      patient_search: [null, [Validators.required]],
+      patient_search: [{ value: null, disabled: true }, [Validators.required]],
       report_id: [null, [Validators.required]],
-      cid_search: [null, [Validators.required]],
+      cid_search: [{ value: null, disabled: true }, [Validators.required]],
       type: [{ value: null, disabled: true }, [Validators.required]],
       consultation_date: [{ value: null, disabled: true }],
       hospital_unity_id: [null, [Validators.required]],
-      hospital_search: [null, [Validators.required]],
+      hospital_search: [{ value: null, disabled: true }, [Validators.required]],
       observation: [null, [Validators.required]]
     });
   }
 
-  private configurePatientFilter(): void {
-    const patientSearchCtrl = this.patientRequestForm.get('patient_search');
-    if (patientSearchCtrl) {
-      this.filteredPatientOptions = patientSearchCtrl.valueChanges.pipe(
+  private setupAutocompleteFilters(): void {
+    const patientCtrl = this.patientRequestForm.get('patient_search');
+    if (patientCtrl) {
+      this.filteredPatientOptions = patientCtrl.valueChanges.pipe(
         startWith(''),
-        map(value => {
-          const term = typeof value === 'string' ? value : value?.name || '';
-          return term ? this._filterPatient(term) : this.patientOptions;
+        map((value) => {
+          const term = typeof value === 'string' ? value : this.displayPatient(value);
+          return term ? this.filterPatient(term) : this.patientOptions;
         }),
         takeUntilDestroyed(this.destroyRef)
       );
     }
-  }
 
-  private configureCidFilter(): void {
-    const cidSearchCtrl = this.patientRequestForm.get('cid_search');
-    if (cidSearchCtrl) {
-      this.filteredCidOptions = cidSearchCtrl.valueChanges.pipe(
+    const cidCtrl = this.patientRequestForm.get('cid_search');
+    if (cidCtrl) {
+      this.filteredCidOptions = cidCtrl.valueChanges.pipe(
         startWith(''),
-        map(value => {
+        map((value) => {
           const term = typeof value === 'string' ? value : (value?.code ? `${value.code} - ${value.name}` : '');
-          return term ? this._filterCid(term) : this.cidOptions.slice(0, 10);
+          return term ? this.filterCid(term) : this.cidOptions.slice(0, 10);
         }),
         takeUntilDestroyed(this.destroyRef)
       );
     }
-  }
 
-  private configureHospitalFilter(): void {
-    const hospitalSearchCtrl = this.patientRequestForm.get('hospital_search');
-    if (hospitalSearchCtrl) {
-      this.filteredHospitalOptions = hospitalSearchCtrl.valueChanges.pipe(
+    const hospitalCtrl = this.patientRequestForm.get('hospital_search');
+    if (hospitalCtrl) {
+      this.filteredHospitalOptions = hospitalCtrl.valueChanges.pipe(
         startWith(''),
-        map(value => {
-          const term = typeof value === 'string' ? value : value?.name || '';
-          return term ? this._filterHospital(term) : this.hospitalOptions;
+        map((value) => {
+          const term = typeof value === 'string' ? value : this.displayHospitalUnity(value);
+          return term ? this.filterHospital(term) : this.hospitalOptions;
         }),
         takeUntilDestroyed(this.destroyRef)
       );
@@ -342,36 +391,36 @@ export class PatientRequestCreateComponent implements OnInit {
   private registerCleaners(): void {
     this.patientRequestForm.get('patient_search')?.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(value => {
+      .subscribe((value) => {
         if (!value || typeof value !== 'object') {
-          this.patientRequestForm.get('cid_search')?.setValue('');
-          this.patientRequestForm.get('report_id')?.setValue(null);
+          this.patientRequestForm.patchValue({
+            cid_search: '',
+            report_id: null
+          });
           this.patientRequestForm.get('report_id')?.markAsDirty();
 
           this.cidOptions = [];
           this.cidReadOnly.set(true);
           this.currentReportFlags.set(null);
           this.resetTypeSelection();
-          this.cdr.markForCheck();
         }
       });
 
     this.patientRequestForm.get('cid_search')?.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(value => {
+      .subscribe((value) => {
         if (!value || typeof value !== 'object') {
           this.patientRequestForm.get('report_id')?.setValue(null);
           this.patientRequestForm.get('report_id')?.markAsDirty();
 
           this.currentReportFlags.set(null);
           this.resetTypeSelection();
-          this.cdr.markForCheck();
         }
       });
 
     this.patientRequestForm.get('hospital_search')?.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(value => {
+      .subscribe((value) => {
         if (!value || typeof value !== 'object') {
           this.patientRequestForm.get('hospital_unity_id')?.setValue(null);
           this.patientRequestForm.get('hospital_unity_id')?.markAsDirty();
@@ -381,33 +430,28 @@ export class PatientRequestCreateComponent implements OnInit {
 
   private fetchPatients(): void {
     this.patientLoading.set(true);
-    this.cdr.markForCheck();
 
     this.patientRequestService.getPatients()
       .pipe(
         finalize(() => {
           this.patientLoading.set(false);
-          this.cdr.markForCheck();
         }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any[]) => {
-          const mapped = (response || [])
+        next: (response: PatientCare[]) => {
+          this.patientOptions = (response || [])
             .filter((p: any) => p.status && p.is_valid)
             .map((item: any) => ({
-              name: item.patient?.name || '',
-              ...item
+              ...item,
+              name: item.patient?.name || item.name || ''
             }));
-          this.patientOptions = mapped;
-          this.configurePatientFilter();
           this.patientReadOnly.set(false);
-          this.cdr.markForCheck();
+          this.patientRequestForm.get('patient_search')?.updateValueAndValidity();
         },
         error: () => {
           this.patientReadOnly.set(true);
           this.patientOptions = [];
-          this.cdr.markForCheck();
         }
       });
   }
@@ -421,83 +465,50 @@ export class PatientRequestCreateComponent implements OnInit {
     this.resetTypeSelection();
 
     this.cidLoading.set(true);
-    this.cdr.markForCheck();
 
     this.patientRequestService.getReports(patientCareId)
       .pipe(
         finalize(() => {
           this.cidLoading.set(false);
-          this.cdr.markForCheck();
         }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any[]) => {
-          const mapped = (response || []).map((item: any) => ({
+        next: (response: PatientReport[]) => {
+          this.cidOptions = (response || []).map((item) => ({
             ...item.cid,
             ...item
           }));
-          this.cidOptions = mapped;
-          this.configureCidFilter();
           this.cidReadOnly.set(false);
-          this.cdr.markForCheck();
+          this.patientRequestForm.get('cid_search')?.updateValueAndValidity();
         },
         error: () => {
           this.cidReadOnly.set(true);
           this.cidOptions = [];
-          this.cdr.markForCheck();
         }
       });
   }
 
   private fetchHospitalUnities(): void {
     this.hospitalLoading.set(true);
-    this.cdr.markForCheck();
 
     this.patientRequestService.getHospitalUnities()
       .pipe(
         finalize(() => {
           this.hospitalLoading.set(false);
-          this.cdr.markForCheck();
         }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any[]) => {
-          const mapped: OptionItem[] = (response || []).map(item => ({ ...item }));
-          this.hospitalOptions = mapped;
-          this.configureHospitalFilter();
+        next: (response: HospitalUnity[]) => {
+          this.hospitalOptions = response || [];
           this.hospitalReadOnly.set(false);
-          this.cdr.markForCheck();
+          this.patientRequestForm.get('hospital_search')?.updateValueAndValidity();
         },
         error: () => {
           this.hospitalReadOnly.set(true);
           this.hospitalOptions = [];
-          this.cdr.markForCheck();
         }
-      });
-  }
-
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        const form = this.patientRequestForm;
-
-        if (isSubmitting) {
-          form.disable({ emitEvent: false });
-        } else {
-          form.enable({ emitEvent: false });
-
-          // O tipo permanece disabled/bloqueado via controle
-          form.get('type')?.disable({ emitEvent: false });
-
-          if (!this.isScheduling()) {
-            form.get('consultation_date')?.disable({ emitEvent: false });
-          }
-        }
-
-        this.cdr.markForCheck();
       });
   }
 
@@ -521,25 +532,25 @@ export class PatientRequestCreateComponent implements OnInit {
     this.isScheduling.set(false);
   }
 
-  private _filterPatient(term: string): OptionItem[] {
+  private filterPatient(term: string): PatientCareOption[] {
     const filterValue = term.toLowerCase();
-    return this.patientOptions.filter(option =>
-      option.name?.toLowerCase().includes(filterValue)
+    return this.patientOptions.filter((option) =>
+      this.displayPatient(option).toLowerCase().includes(filterValue)
     );
   }
 
-  private _filterCid(term: string): OptionItem[] {
+  private filterCid(term: string): OptionItem[] {
     const filterValue = term.toLowerCase();
-    return this.cidOptions.filter(option =>
+    return this.cidOptions.filter((option) =>
       option.name?.toLowerCase().includes(filterValue) ||
       option.code?.toLowerCase().includes(filterValue)
     ).slice(0, 10);
   }
 
-  private _filterHospital(term: string): OptionItem[] {
+  private filterHospital(term: string): HospitalUnity[] {
     const filterValue = term.toLowerCase();
-    return this.hospitalOptions.filter(option =>
-      option.name?.toLowerCase().includes(filterValue)
+    return this.hospitalOptions.filter((option) =>
+      this.displayHospitalUnity(option).toLowerCase().includes(filterValue)
     );
   }
 }

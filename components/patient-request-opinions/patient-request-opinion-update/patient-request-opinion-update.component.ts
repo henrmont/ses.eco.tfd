@@ -1,18 +1,16 @@
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
-  ChangeDetectorRef,
   Component,
   DestroyRef,
-  Injector,
   OnInit,
   inject,
   signal
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize } from 'rxjs';
 import { Editor, NgxEditorModule, Toolbar } from 'ngx-editor';
+import { finalize } from 'rxjs';
 
 // Material Modules
 import { MatButtonModule } from '@angular/material/button';
@@ -23,8 +21,19 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 // Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequestOpinionService } from '../../../services/patient-request-opinion.service';
+import { PatientRequestOpinion } from '../../../models/patient-request-opinion.model';
+
+type PatientRequestOpinionUpdateDialogData = {
+  opinion?: PatientRequestOpinion;
+};
+
+interface ErrorMessage {
+  type: string;
+  message: string;
+}
 
 @Component({
   selector: 'app-patient-request-opinion-update',
@@ -49,14 +58,12 @@ export class PatientRequestOpinionUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestOpinionUpdateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  private readonly dialogRef = inject(MatDialogRef<PatientRequestOpinionUpdateComponent>);
   private readonly fb = inject(FormBuilder);
   private readonly opinionService = inject(PatientRequestOpinionService);
   private readonly messageService = inject(MessageService);
-  private readonly dialogRef = inject(MatDialogRef<PatientRequestOpinionUpdateComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -66,8 +73,8 @@ export class PatientRequestOpinionUpdateComponent implements OnInit {
 
   protected readonly isSubmitting = signal<boolean>(false);
 
-  // Mensagens de Erro por Controle
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  // Mapeamento de Mensagens de Erro Tipado
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     name: [
       { type: 'required', message: 'O título ou nome do parecer é obrigatório.' }
     ],
@@ -100,7 +107,6 @@ export class PatientRequestOpinionUpdateComponent implements OnInit {
   ngOnInit(): void {
     this.initForm();
     this.initEditor();
-    this.setupFormSubmittingHandler();
   }
 
   // ==========================================
@@ -120,14 +126,18 @@ export class PatientRequestOpinionUpdateComponent implements OnInit {
     }
 
     this.isSubmitting.set(true);
+    this.opinionForm.disable({ emitEvent: false });
 
     this.opinionService.updateOpinion(opinionId, this.opinionForm.getRawValue())
       .pipe(
-        finalize(() => this.isSubmitting.set(false)),
+        finalize(() => {
+          this.isSubmitting.set(false);
+          this.opinionForm.enable({ emitEvent: false });
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Parecer atualizado com sucesso!');
           this.dialogRef.close(true);
         },
@@ -155,18 +165,5 @@ export class PatientRequestOpinionUpdateComponent implements OnInit {
     this.destroyRef.onDestroy(() => {
       this.editor.destroy();
     });
-  }
-
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.opinionForm.disable({ emitEvent: false });
-        } else {
-          this.opinionForm.enable({ emitEvent: false });
-        }
-        this.cdr.markForCheck();
-      });
   }
 }

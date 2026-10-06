@@ -52,7 +52,7 @@ import { PatientRequestDetailComponent } from '../../components/patient-requests
 type PatientRequestDialogData = {
   patient_request?: PatientRequest;
   type?: string;
-  permissions?: Role[];
+  roles?: Role[];
 };
 
 interface OwnerPatientRequestTableRow extends PatientRequest {
@@ -178,7 +178,7 @@ export class PatientRequestMedicalOpinionsPage implements OnInit, OnDestroy {
   }
 
   protected patientRequestOpinions(patientRequest: PatientRequest): void {
-    this.openDialog(PatientRequestOpinionsComponent, { patient_request: patientRequest, permissions: this.currentUser?.roles }, '800px', 'auto', false);
+    this.openDialog(PatientRequestOpinionsComponent, { patient_request: patientRequest, roles: this.currentUser?.roles }, '800px', 'auto', false);
   }
 
   protected patientRequestHistory(patientRequest: PatientRequest): void {

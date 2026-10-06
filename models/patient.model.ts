@@ -40,4 +40,7 @@ export interface Patient {
     city?: string,
     state?: Ufs,
     patient_info?: PatientInfo,
+    status?: boolean,
+    is_valid?: boolean,
+    patient_care?: PatientCare
 }

@@ -1,22 +1,26 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, ChangeDetectorRef, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs/operators';
+import { finalize } from 'rxjs';
 
 // Material Modules
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Services & Models
-import { PatientRequestService } from '../../../services/patient-request.service';
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientRequest } from '../../../models/patient-request.model';
+import { PatientRequestService } from '../../../services/patient-request.service';
+
+export type PatientRequestDeleteDialogData = {
+  patient_request?: PatientRequest;
+};
 
 @Component({
   selector: 'app-patient-request-delete',
   standalone: true,
   imports: [
-    CommonModule, 
     MatDialogModule, 
     MatButtonModule, 
     MatProgressSpinnerModule
@@ -29,7 +33,7 @@ export class PatientRequestDeleteComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestDeleteDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestDeleteComponent>);
@@ -64,13 +68,13 @@ export class PatientRequestDeleteComponent {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Solicitação removida com sucesso!');
           this.dialogRef.close(true);
         },
         error: (err) => {
-          const fallbackError = 'Ocorreu um erro ao tentar remover a solicitação.';
-          this.messageService.showMessage(err?.error?.message || fallbackError);
+          const fallbackError = err?.error?.message || 'Ocorreu um erro ao tentar remover a solicitação.';
+          this.messageService.showMessage(fallbackError);
         }
       });
   }

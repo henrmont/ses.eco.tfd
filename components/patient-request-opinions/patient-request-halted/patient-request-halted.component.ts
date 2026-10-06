@@ -8,9 +8,16 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Services e Models
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestOpinionService } from '../../../services/patient-request-opinion.service';
+
+export type PatientRequestHaltedDialogData = {
+  patient_request?: PatientRequest;
+  type?: 'medical' | 'social';
+};
 
 @Component({
   selector: 'app-patient-request-halted',
@@ -29,7 +36,7 @@ export class PatientRequestHaltedComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestHaltedDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly opinionService = inject(PatientRequestOpinionService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestHaltedComponent>);
@@ -42,17 +49,28 @@ export class PatientRequestHaltedComponent {
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // Submissão / Sobrestamento
+  // Getters Protegidos / Métodos Auxiliares
   // ==========================================
-  /**
-   * Dispara a requisição para paralisar/sobrestar a solicitação do parecerista (médico/social)
-   */
+  protected isBookmark(): boolean {
+    if (this.data?.type === 'medical') {
+      return !!this.data?.patient_request?.is_medical_bookmark;
+    }
+    return !!this.data?.patient_request?.is_social_bookmark;
+  }
+
+  protected get patientName(): string {
+    return this.data?.patient_request?.report?.patient_care?.patient?.name || 'Não informado';
+  }
+
+  // ==========================================
+  // Métodos de Ação
+  // ==========================================
   protected onSubmit(): void {
     const requestId = this.data?.patient_request?.id;
     const profileType = this.data?.type;
 
-    if (!requestId) {
-      this.messageService.showMessage('Identificador da solicitação inválido.');
+    if (!requestId || !profileType) {
+      this.messageService.showMessage('Identificador da solicitação ou perfil inválido.');
       return;
     }
 
@@ -68,12 +86,12 @@ export class PatientRequestHaltedComponent {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response) => {
-          this.messageService.showMessage(response?.message || 'Status de sobrestamento atualizado!');
+        next: (response: ApiResponse) => {
+          this.messageService.showMessage(response?.message || 'Status de sobrestamento atualizado com sucesso!');
           this.dialogRef.close(true);
         },
         error: (err) => {
-          const fallbackError = 'Ocorreu um erro ao tentar atualizar o sobrestamento.';
+          const fallbackError = 'Erro ao tentar atualizar o sobrestamento da solicitação.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
       });

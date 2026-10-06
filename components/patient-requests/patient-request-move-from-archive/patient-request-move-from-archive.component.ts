@@ -1,24 +1,30 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs/operators';
+import { finalize } from 'rxjs';
 
-// Material Modules
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Services e Models
+// Core & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientRequest } from '../../../models/patient-request.model';
+
+// Services
 import { PatientRequestService } from '../../../services/patient-request.service';
+
+export type PatientRequestMoveFromArchiveDialogData = {
+  patient_request?: PatientRequest;
+};
 
 @Component({
   selector: 'app-patient-request-move-from-archive',
   standalone: true,
   imports: [
-    CommonModule,
-    MatDialogModule,
     MatButtonModule,
+    MatDialogModule,
     MatProgressSpinnerModule
   ],
   templateUrl: './patient-request-move-from-archive.component.html',
@@ -29,50 +35,49 @@ export class PatientRequestMoveFromArchiveComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestMoveFromArchiveDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestMoveFromArchiveComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
 
   // ==========================================
-  // Estados Reativos via Signals
+  // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // Submissão / Desarquivamento
+  // Getters para Facilitação do Template
   // ==========================================
-  /**
-   * Dispara a requisição para desarquivar/movimentar a solicitação
-   */
+  protected get patientName(): string {
+    return this.data?.patient_request?.report?.patient_care?.patient?.name || 'Não informado';
+  }
+
+  // ==========================================
+  // Métodos Acessíveis pelo Template (Protected)
+  // ==========================================
   protected onSubmit(): void {
     const requestId = this.data?.patient_request?.id;
 
     if (!requestId) {
-      this.messageService.showMessage('Erro: Identificador da solicitação não encontrado.');
+      this.messageService.showMessage('Identificador da solicitação inválido.');
       return;
     }
 
     this.isSubmitting.set(true);
-    this.cdr.markForCheck();
 
     this.patientRequestService.movePatientRequestFromArchive(requestId)
       .pipe(
-        finalize(() => {
-          this.isSubmitting.set(false);
-          this.cdr.markForCheck();
-        }),
+        finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Solicitação retirada do arquivo com sucesso!');
           this.dialogRef.close(true);
         },
         error: (err) => {
-          const fallbackError = 'Ocorreu um erro ao tentar retirar a solicitação do arquivo.';
+          const fallbackError = 'Erro ao tentar retirar a solicitação do arquivo.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
       });

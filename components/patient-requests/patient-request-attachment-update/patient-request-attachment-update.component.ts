@@ -39,7 +39,7 @@ interface AttachedFileState {
 
 type PatientRequestAttachmentUpdateDialogData = {
   patient_request?: PatientRequest;
-  patient_request_attachment: PatientRequestAttachment;
+  patient_request_attachment?: PatientRequestAttachment;
 };
 
 @Component({
@@ -65,7 +65,7 @@ export class PatientRequestAttachmentUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientRequestAttachmentUpdateDialogData>(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestAttachmentUpdateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);

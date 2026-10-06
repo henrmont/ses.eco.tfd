@@ -1,11 +1,18 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
-// Material Modules
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+
+// Models
+import { PatientRequestOpinion } from '../../../models/patient-request-opinion.model';
+
+export type PatientRequestOpinionDetailDialogData = {
+  opinion?: PatientRequestOpinion;
+};
 
 @Component({
   selector: 'app-patient-request-opinion-detail',
@@ -22,16 +29,27 @@ import { MatIconModule } from '@angular/material/icon';
 })
 export class PatientRequestOpinionDetailComponent {
   // ==========================================
-  // Injeção de Dependências
+  // Injeção de Dependências e Dados
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestOpinionDetailDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly sanitizer = inject(DomSanitizer);
+
+  // ==========================================
+  // Getters para Facilitação do Template
+  // ==========================================
+  protected get opinion(): PatientRequestOpinion | undefined {
+    return this.data?.opinion;
+  }
+
+  protected get professional() {
+    return this.opinion?.professional;
+  }
 
   // ==========================================
   // Propriedades Computadas (Signals)
   // ==========================================
   protected readonly sanitizedHtml = computed<SafeHtml>(() => {
-    const rawHtml = this.data?.opinion?.content || '';
+    const rawHtml = this.opinion?.content || '';
     return this.sanitizer.bypassSecurityTrustHtml(rawHtml);
   });
 }

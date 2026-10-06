@@ -1,18 +1,7 @@
-import { CommonModule } from '@angular/common';
-import { 
-  ChangeDetectionStrategy, 
-  ChangeDetectorRef, 
-  Component, 
-  DestroyRef, 
-  Injector,
-  OnInit, 
-  inject, 
-  signal 
-} from '@angular/core';
+import { AsyncPipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnInit, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { STEPPER_GLOBAL_OPTIONS } from '@angular/cdk/stepper';
-import { MAT_DATE_LOCALE } from '@angular/material/core';
+import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, finalize, map, startWith } from 'rxjs';
 
 // Angular Material
@@ -28,13 +17,17 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 // Core, Services & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestService } from '../../../services/patient-request.service';
+
+export type PatientRequestProcessDialogData = {
+  patient_request?: PatientRequest;
+};
 
 export interface ProfessionalOption {
   id: number | string;
   name: string;
   requests_count?: number;
-  [key: string]: unknown;
 }
 
 export interface GroupedProfessionalsResponse {
@@ -42,46 +35,36 @@ export interface GroupedProfessionalsResponse {
   social_professionals?: ProfessionalOption[];
   travel_professionals?: ProfessionalOption[];
   cost_assistance_professionals?: ProfessionalOption[];
-  medicos?: ProfessionalOption[];
-  assistentes_sociais?: ProfessionalOption[];
-  passagens?: ProfessionalOption[];
-  ajuda_custo?: ProfessionalOption[];
 }
 
 @Component({
   selector: 'app-patient-request-process',
   standalone: true,
   imports: [
-    CommonModule,
-    FormsModule,
+    AsyncPipe,
     ReactiveFormsModule,
     MatAutocompleteModule,
-    MatDialogModule,
     MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
     MatChipsModule,
-    MatIconModule
+    MatDialogModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatProgressSpinnerModule
   ],
   templateUrl: './patient-request-process.component.html',
   styleUrl: './patient-request-process.component.scss',
-  providers: [
-    { provide: STEPPER_GLOBAL_OPTIONS, useValue: { showError: true } },
-    { provide: MAT_DATE_LOCALE, useValue: 'pt-BR' }
-  ],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PatientRequestProcessComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestProcessDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly fb = inject(FormBuilder);
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestProcessComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
 
@@ -130,6 +113,31 @@ export class PatientRequestProcessComponent implements OnInit {
   protected filteredCostAssistanceOptions!: Observable<ProfessionalOption[]>;
 
   // ==========================================
+  // Construtor
+  // ==========================================
+  constructor() {
+    // Efeito para desabilitar/habilitar controles durante o carregamento de profissionais
+    effect(() => {
+      const loading = this.isLoadingProfessionals();
+      const submitting = this.isSubmitting();
+
+      if (loading || submitting) {
+        this.processForm?.disable({ emitEvent: false });
+        this.medicalProfessionalControl.disable({ emitEvent: false });
+        this.socialProfessionalControl.disable({ emitEvent: false });
+        this.travelProfessionalControl.disable({ emitEvent: false });
+        this.costAssistanceProfessionalControl.disable({ emitEvent: false });
+      } else {
+        this.processForm?.enable({ emitEvent: false });
+        this.medicalProfessionalControl.enable({ emitEvent: false });
+        this.socialProfessionalControl.enable({ emitEvent: false });
+        this.travelProfessionalControl.enable({ emitEvent: false });
+        this.costAssistanceProfessionalControl.enable({ emitEvent: false });
+      }
+    });
+  }
+
+  // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
@@ -151,14 +159,14 @@ export class PatientRequestProcessComponent implements OnInit {
   }
 
   protected isFormInvalid(): boolean {
-    return this.processForm.invalid || this.processForm.pending || this.isSubmitting();
+    return this.processForm.invalid || this.processForm.pending || this.isSubmitting() || this.isLoadingProfessionals();
   }
 
   protected onSubmit(): void {
     const requestId = this.data?.patient_request?.id;
 
     if (!requestId) {
-      this.messageService.showMessage('Identificador do anexo não encontrado.');
+      this.messageService.showMessage('Identificador da solicitação não encontrado.');
       return;
     }
 
@@ -168,16 +176,12 @@ export class PatientRequestProcessComponent implements OnInit {
     }
 
     this.isSubmitting.set(true);
-    this.cdr.markForCheck();
 
     const payload = this.processForm.getRawValue();
 
     this.patientRequestService.processPatientRequest(requestId, payload)
       .pipe(
-        finalize(() => {
-          this.isSubmitting.set(false);
-          this.cdr.markForCheck();
-        }),
+        finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
@@ -237,39 +241,41 @@ export class PatientRequestProcessComponent implements OnInit {
 
         travelCtrl?.updateValueAndValidity();
         costCtrl?.updateValueAndValidity();
-        this.cdr.markForCheck();
       });
   }
 
   private fetchAllProfessionals(): void {
     this.isLoadingProfessionals.set(true);
-    this.cdr.markForCheck();
 
     this.patientRequestService.getProfessionals()
       .pipe(
-        finalize(() => {
-          this.isLoadingProfessionals.set(false);
-          this.cdr.markForCheck();
-        }),
+        finalize(() => this.isLoadingProfessionals.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: GroupedProfessionalsResponse | any) => {
-          if (response) {
-            const data = response as GroupedProfessionalsResponse;
-
-            this.medicalOptions = data.medical_professionals || data.medicos || [];
-            this.socialOptions = data.social_professionals || data.assistentes_sociais || [];
-            this.travelOptions = data.travel_professionals || data.passagens || [];
-            this.costAssistanceOptions = data.cost_assistance_professionals || data.ajuda_custo || [];
-
-            this.configureFilters();
-            this.isReadOnly.set(false);
+        next: (response: unknown) => {
+          if (Array.isArray(response)) {
+            this.medicalOptions = response;
+            this.socialOptions = response;
+            this.travelOptions = response;
+            this.costAssistanceOptions = response;
+          } else if (response && typeof response === 'object') {
+            const grouped = response as GroupedProfessionalsResponse;
+            this.medicalOptions = grouped.medical_professionals || [];
+            this.socialOptions = grouped.social_professionals || [];
+            this.travelOptions = grouped.travel_professionals || [];
+            this.costAssistanceOptions = grouped.cost_assistance_professionals || [];
+          } else {
+            this.clearAllOptions();
           }
+
+          this.configureFilters();
+          this.isReadOnly.set(false);
         },
         error: () => {
           this.isReadOnly.set(true);
           this.clearAllOptions();
+          this.configureFilters();
         }
       });
   }
@@ -350,14 +356,13 @@ export class PatientRequestProcessComponent implements OnInit {
           this.socialProfessionalControl.disable({ emitEvent: false });
           this.travelProfessionalControl.disable({ emitEvent: false });
           this.costAssistanceProfessionalControl.disable({ emitEvent: false });
-        } else {
+        } else if (!this.isLoadingProfessionals()) {
           this.processForm.enable({ emitEvent: false });
           this.medicalProfessionalControl.enable({ emitEvent: false });
           this.socialProfessionalControl.enable({ emitEvent: false });
           this.travelProfessionalControl.enable({ emitEvent: false });
           this.costAssistanceProfessionalControl.enable({ emitEvent: false });
         }
-        this.cdr.markForCheck();
       });
   }
 
@@ -366,13 +371,15 @@ export class PatientRequestProcessComponent implements OnInit {
     this.socialOptions = [];
     this.travelOptions = [];
     this.costAssistanceOptions = [];
-    this.cdr.markForCheck();
   }
 
   private _filterOptions(term: string, options: ProfessionalOption[]): ProfessionalOption[] {
+    if (!Array.isArray(options)) {
+      return [];
+    }
     const filterValue = term.toLowerCase();
     return options.filter(option =>
-      option.name?.toLowerCase().includes(filterValue)
+      option?.name?.toLowerCase().includes(filterValue)
     );
   }
 }

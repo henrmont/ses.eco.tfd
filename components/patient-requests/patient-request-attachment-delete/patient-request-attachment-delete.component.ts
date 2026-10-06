@@ -7,9 +7,17 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Core & Services
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientRequest } from '../../../models/patient-request.model';
+import { PatientRequestAttachment } from '../../../models/patient-request-attachment.model';
 import { PatientRequestService } from '../../../services/patient-request.service';
+
+export type PatientRequestAttachmentDeleteDialogData = {
+  patient_request?: PatientRequest;
+  patient_request_attachment?: PatientRequestAttachment;
+};
 
 @Component({
   selector: 'app-patient-request-attachment-delete',
@@ -27,7 +35,7 @@ export class PatientRequestAttachmentDeleteComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestAttachmentDeleteDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestAttachmentDeleteComponent>);
@@ -62,7 +70,7 @@ export class PatientRequestAttachmentDeleteComponent {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Anexo removido com sucesso!');
           this.dialogRef.close(true);
         },

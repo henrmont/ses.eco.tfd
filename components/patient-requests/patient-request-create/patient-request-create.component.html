@@ -22,7 +22,7 @@
           <mat-autocomplete #patientAuto="matAutocomplete" [displayWith]="displayPatient">
             @for (option of filteredPatientOptions | async; track $index) {
               <mat-option [value]="option" (onSelectionChange)="setPatient(option)">
-                {{ option.name }}
+                {{ displayPatient(option) }}
               </mat-option>
             }
           </mat-autocomplete>
@@ -158,7 +158,7 @@
     mat-flat-button 
     color="primary" 
     type="button" 
-    [disabled]="isFormInvalid()"
+    [disabled]="patientRequestForm.invalid || isSubmitting()"
     (click)="onSubmit()"
   >
     <div class="waiting">

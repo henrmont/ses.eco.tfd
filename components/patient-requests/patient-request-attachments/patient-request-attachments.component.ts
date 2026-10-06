@@ -1,11 +1,11 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { saveAs } from 'file-saver';
 
 // Angular Material & CDK
 import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -25,7 +25,6 @@ import { PatientRequestAttachmentCreateComponent } from '../patient-request-atta
 import { PatientRequestAttachmentDeleteComponent } from '../patient-request-attachment-delete/patient-request-attachment-delete.component';
 import { PatientRequestAttachmentUpdateComponent } from '../patient-request-attachment-update/patient-request-attachment-update.component';
 
-// Tipagem dos Dados do Modal
 type PatientRequestAttachmentDialogData = {
   patient_request?: PatientRequest;
   patient_request_attachment?: PatientRequestAttachment;
@@ -35,7 +34,6 @@ type PatientRequestAttachmentDialogData = {
   selector: 'app-patient-request-attachments',
   standalone: true,
   imports: [
-    CommonModule,
     MatDialogModule,
     MatButtonModule,
     MatTableModule,
@@ -47,16 +45,16 @@ type PatientRequestAttachmentDialogData = {
   styleUrl: './patient-request-attachments.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PatientRequestAttachmentsComponent implements OnInit, OnDestroy {
+export class PatientRequestAttachmentsComponent implements OnInit {
   // ==========================================
-  // Instância própria do canal
+  // Instância do Broadcast Channel
   // ==========================================
   private readonly patientRequestsChannel = new BroadcastChannel('tfd-patient-requests-channel');
 
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestAttachmentDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly patientRequestService = inject(PatientRequestService);
@@ -71,16 +69,14 @@ export class PatientRequestAttachmentsComponent implements OnInit, OnDestroy {
   protected readonly dataSource = new MatTableDataSource<PatientRequestAttachment>([]);
   protected readonly isLoading = signal<boolean>(true);
 
+  private readonly patientRequestId = computed(() => this.data?.patient_request?.id ?? null);
+
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
+    this.setupBroadcastChannel();
     this.fetchPatientRequestAttachments(true);
-    this.listenToBroadcastChannel();
-  }
-
-  ngOnDestroy(): void {
-    this.patientRequestsChannel.close();
   }
 
   // ==========================================
@@ -124,7 +120,7 @@ export class PatientRequestAttachmentsComponent implements OnInit, OnDestroy {
   // Métodos Privados / Auxiliares
   // ==========================================
   private fetchPatientRequestAttachments(showLoading = false): void {
-    const requestId = this.data?.patient_request?.id;
+    const requestId = this.patientRequestId();
 
     if (!requestId) {
       this.isLoading.set(false);
@@ -152,16 +148,20 @@ export class PatientRequestAttachmentsComponent implements OnInit, OnDestroy {
       });
   }
 
-  private listenToBroadcastChannel(): void {
+  private setupBroadcastChannel(): void {
     this.patientRequestsChannel.onmessage = (message: MessageEvent<string>) => {
       if (message.data === 'update') {
         this.fetchPatientRequestAttachments(false);
       }
     };
+
+    this.destroyRef.onDestroy(() => {
+      this.patientRequestsChannel.close();
+    });
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PatientRequestAttachmentDialogData,
     width = '400px',
     height = 'auto',
