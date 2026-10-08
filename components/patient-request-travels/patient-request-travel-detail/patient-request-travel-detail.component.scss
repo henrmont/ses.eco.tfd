@@ -16,21 +16,12 @@ mat-dialog-content {
   gap: $spacing-xxl; 
 }
 
-// Estilização dos Cards de detalhamento da viagem
 mat-card {
   background: $color-card-bg;
   border-radius: $radius-md; 
   box-shadow: $shadow-soft; 
 }
 
-.payment-subtitle {
-  font-size: $font-size-md;
-  font-weight: $font-weight-semibold;
-  color: $color-text-variant;
-  margin: $spacing-lg $spacing-md $spacing-sm;
-}
-
-// Mensagem amigável para listas vazias nos cards (ex: sem passageiros)
 .empty-message {
   padding: $spacing-md;
   color: $color-text-muted;
@@ -38,7 +29,6 @@ mat-card {
   font-size: $font-size-md;
 }
 
-// Estrutura de Linha/Grid para exibição dos dados da viagem
 .line {
   display: grid;
   gap: $spacing-md; 
@@ -67,6 +57,6 @@ mat-card {
   // --- Definições Semânticas das Colunas da Grid ---
   &.cols-1-col       { grid-template-columns: 1fr; }
   &.cols-1-1         { grid-template-columns: 1fr 1fr; }
-  &.cols-1-1-1       { grid-template-columns: 1fr 1fr 1fr; }
+  &.cols-2-1-1       { grid-template-columns: 2fr 1fr 1fr; }
   &.cols-travel-grid { grid-template-columns: 2fr 1fr 1fr 1fr; }
 }

@@ -2,12 +2,13 @@
 
 <mat-dialog-content>
   <div class="details-container">
-    
+
+    <!-- DADOS DA VIAGEM -->
     <mat-card appearance="outlined" class="detail-card">
       <mat-card-header>
         <mat-card-subtitle>DADOS DA VIAGEM</mat-card-subtitle>
       </mat-card-header>
-      
+
       <mat-card-content>
         <div class="line cols-1-1">
           <div>
@@ -30,11 +31,11 @@
         <div class="line cols-1-1">
           <div>
             <strong>Data de ida:</strong> 
-            {{ data?.travel?.departure_date ? (data.travel.departure_date | date: 'dd/MM/yyyy') : 'Não informado' }}
+            {{ data?.travel?.departure_date ? (data?.travel?.departure_date | date: 'dd/MM/yyyy') : 'Não informado' }}
           </div>
           <div>
             <strong>Data de volta:</strong> 
-            {{ data?.travel?.return_date ? (data.travel.return_date | date: 'dd/MM/yyyy') : 'Não informado' }}
+            {{ data?.travel?.return_date ? (data?.travel?.return_date | date: 'dd/MM/yyyy') : 'Não informado' }}
           </div>
         </div>
 
@@ -55,33 +56,50 @@
       </mat-card-content>
     </mat-card>
 
+    <!-- PASSAGEIROS -->
     <mat-card appearance="outlined" class="detail-card">
       <mat-card-header>
         <mat-card-subtitle>PASSAGEIROS</mat-card-subtitle>
       </mat-card-header>
-      
+
       <mat-card-content>
         @for (item of data?.travel?.passengers; track item.id || $index) {
-          <div class="line cols-1-1-1 passenger-row">
+          <div class="line cols-2-1-1 passenger-row">
             @if (item.is_patient) {
-              <div>
-                <strong>Nome:</strong> {{ item.patient?.name ?? 'Não informado' }}
+              <div class="action-cell">
+                <strong>Nome:</strong>
+                <span>{{ item.patient?.name ?? 'Não informado' }}</span>
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Detalhes do passageiro" 
+                  (click)="showPassengerDetail(item)">
+                  <mat-icon>visibility</mat-icon>
+                </button>
               </div>
               <div>
-                <strong>Tipo:</strong> <span class="highlight">PACIENTE</span>
+                <strong>Tipo:</strong> PACIENTE
               </div>
               <div>
-                <strong>CPF:</strong> {{ item.patient?.document ? (item.patient.document | mask: '000.000.000-00') : 'Não informado' }}
+                <strong>CPF:</strong> {{ item.patient?.document ? ((item.patient?.document ?? '') | mask: '000.000.000-00') : 'Não informado' }}
               </div>
             } @else {
-              <div>
-                <strong>Nome:</strong> {{ item.escort?.name ?? 'Não informado' }}
+              <div class="action-cell">
+                <strong>Nome:</strong>
+                <span>{{ item.escort?.name ?? 'Não informado' }}</span>
+                <button 
+                  mat-icon-button 
+                  type="button" 
+                  matTooltip="Detalhes do passageiro" 
+                  (click)="showPassengerDetail(item)">
+                  <mat-icon>visibility</mat-icon>
+                </button>
               </div>
               <div>
                 <strong>Tipo:</strong> ACOMPANHANTE
               </div>
               <div>
-                <strong>CPF:</strong> {{ item.escort?.document ? (item.escort.document | mask: '000.000.000-00') : 'Não informado' }}
+                <strong>CPF:</strong> {{ item.escort?.document ? ((item.escort?.document ?? '') | mask: '000.000.000-00') : 'Não informado' }}
               </div>
             }
           </div>
@@ -93,16 +111,25 @@
       </mat-card-content>
     </mat-card>
 
+    <!-- ROTAS -->
     <mat-card appearance="outlined" class="detail-card">
       <mat-card-header>
         <mat-card-subtitle>ROTAS</mat-card-subtitle>
       </mat-card-header>
-      
+
       <mat-card-content>
         @for (item of data?.travel?.travel_routes; track item.id || $index) {
-          <div class="line cols-1-1-1">
-            <div>
-              <strong>Trecho:</strong> {{ item.origin ?? 'Não informado' }} - {{ item.destination ?? 'Não informado' }}
+          <div class="line cols-2-1-1">
+            <div class="action-cell">
+              <strong>Trecho:</strong>
+              <span>{{ item.origin ?? 'Não informado' }} - {{ item.destination ?? 'Não informado' }}</span>
+              <button 
+                mat-icon-button 
+                type="button" 
+                matTooltip="Detalhes da rota" 
+                (click)="showRouteDetail(item)">
+                <mat-icon>visibility</mat-icon>
+              </button>
             </div>
             <div>
               <strong>Voo:</strong> {{ item.flight ?? 'Não informado' }}

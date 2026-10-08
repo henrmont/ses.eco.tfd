@@ -1,19 +1,9 @@
-import { CommonModule } from '@angular/common';
-import { 
-  ChangeDetectionStrategy, 
-  ChangeDetectorRef, 
-  Component, 
-  DestroyRef, 
-  Injector, 
-  OnInit, 
-  inject, 
-  signal 
-} from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 
-// Material Modules
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -21,22 +11,32 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 
-// Services, Models e Interfaces
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { Professionals } from '../../../enums/professionals';
+import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestTravelService } from '../../../services/patient-request-travel.service';
+
+export type PatientRequestUndoDialogData = {
+  patient_request?: PatientRequest;
+};
+
+export interface DestinationOption {
+  value: string;
+  label: string;
+}
 
 @Component({
   selector: 'app-patient-request-undo',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    ReactiveFormsModule, 
-    MatDialogModule, 
-    MatButtonModule, 
-    MatFormFieldModule, 
-    MatInputModule, 
-    MatSelectModule, 
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
     MatProgressSpinnerModule
   ],
   templateUrl: './patient-request-undo.component.html',
@@ -47,14 +47,12 @@ export class PatientRequestUndoComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
-  private readonly fb = inject(FormBuilder);
+  protected readonly data = inject<PatientRequestUndoDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  private readonly fb = inject(NonNullableFormBuilder);
   private readonly travelService = inject(PatientRequestTravelService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestUndoComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Mensagens de Erro por Controle
@@ -74,46 +72,65 @@ export class PatientRequestUndoComponent implements OnInit {
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // FormGroups
+  // Formulários Reativos
   // ==========================================
-  protected undoForm!: FormGroup;
+  protected readonly undoForm = this.fb.group({
+    to: this.fb.control<string>('', { validators: [Validators.required] }),
+    reason: this.fb.control<string>('', { validators: [Validators.required] })
+  });
+
+  constructor() {
+    effect(() => {
+      if (this.isSubmitting()) {
+        this.undoForm.disable({ emitEvent: false });
+      } else {
+        this.undoForm.enable({ emitEvent: false });
+      }
+    });
+  }
 
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
-    this.initForm();
-    this.setupFormSubmittingHandler();
+    // Inicializações adicionais caso necessário
   }
 
   // ==========================================
-  // Inicialização de Formulário
+  // Computed Properties (Opções de Destino)
   // ==========================================
-  private initForm(): void {
-    this.undoForm = this.fb.group({
-      reason: [null, [Validators.required]],
-      to: [null, [Validators.required]]
-    });
-  }
+  protected readonly destinationOptions = computed<DestinationOption[]>(() => {
+    const request = this.data?.patient_request;
+    if (!request) return [];
+
+    const options: DestinationOption[] = [
+      {
+        value: 'user',
+        label: `${Professionals.CADASTRO} (${request.report?.patient_care?.user?.professional?.name ?? 'Não informado'})`
+      },
+      {
+        value: 'owner',
+        label: `${Professionals.ADMINISTRATIVO} (${request.owner_professional?.name ?? 'Não informado'})`
+      },
+      {
+        value: 'social',
+        label: `${Professionals.ASSISTENTE_SOCIAL} (${request.social_professional?.name ?? 'Não informado'})`
+      },
+      {
+        value: 'medical',
+        label: `${Professionals.MEDICO} (${request.medical_professional?.name ?? 'Não informado'})`
+      },
+      {
+        value: 'cost_assistance',
+        label: `${Professionals.AJUDA_DE_CUSTO} (${request.cost_assistance_professional?.name ?? 'Não informado'})`
+      }
+    ];
+
+    return options;
+  });
 
   // ==========================================
-  // Handlers Reativos
-  // ==========================================
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.undoForm.disable({ emitEvent: false });
-        } else {
-          this.undoForm.enable({ emitEvent: false });
-        }
-        this.cdr.markForCheck();
-      });
-  }
-
-  // ==========================================
-  // Submissão
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected onSubmit(): void {
     if (this.undoForm.invalid) {
@@ -122,13 +139,13 @@ export class PatientRequestUndoComponent implements OnInit {
     }
 
     const requestId = this.data?.patient_request?.id;
+
     if (!requestId) {
-      this.messageService.showMessage('Identificador da solicitação não encontrado.');
+      this.messageService.showMessage('Identificador da solicitação ou perfil inválido.');
       return;
     }
 
     this.isSubmitting.set(true);
-
     const payload = this.undoForm.getRawValue();
 
     this.travelService.undoPatientRequest(requestId, payload)
@@ -137,11 +154,11 @@ export class PatientRequestUndoComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Solicitação devolvida com sucesso!');
           this.dialogRef.close(true);
         },
-        error: err => {
+        error: (err) => {
           const fallbackError = 'Erro ao tentar devolver a solicitação.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }

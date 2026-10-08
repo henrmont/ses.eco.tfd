@@ -112,7 +112,7 @@ export class PatientRequestTravelService {
     return this.http.patch<ApiResponse>(`${this.apiUrl}/patient-requests/${patientRequestId}/escorts`, data);
   }
 
-  undoPatientRequest(patientRequestId: number, data: PatientRequest): Observable<ApiResponse> {
+  undoPatientRequest(patientRequestId: number, data: Record<string, unknown>): Observable<ApiResponse> {
     return this.http.patch<ApiResponse>(`${this.apiUrl}/patient-requests/${patientRequestId}/undo`, data);
   }
 
@@ -143,30 +143,6 @@ export class PatientRequestTravelService {
   // ==========================================
   // 7. VALIDADORES ASSÍNCRONOS & AUXILIARES
   // ==========================================
-  passengerExistsValidator(travelId: number | null | undefined): AsyncValidatorFn {
-    return (control: AbstractControl): Observable<ValidationErrors | null> => {
-      const selectedOption = control.value as UnifiedPassengerOption | null;
-
-      if (!selectedOption || !travelId) {
-        return of(null);
-      }
-
-      const params = new HttpParams()
-        .set('passenger_id', selectedOption.id.toString())
-        .set('is_patient', selectedOption.isPatient.toString());
-
-      return this.http
-        .get<{ passengerExists: boolean }>(`${this.apiUrl}/${travelId}/passengers/exists`, { params })
-        .pipe(
-          map(res => {
-            const exists = res && (res.passengerExists === true || (res as any) === true);
-            return exists ? { passengerExists: true } : null;
-          }),
-          catchError(() => of(null))
-        );
-    };
-  }
-
   private mountFormData(data: any): FormData {
     const formData = new FormData();
 

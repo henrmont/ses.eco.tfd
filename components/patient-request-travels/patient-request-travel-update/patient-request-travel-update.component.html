@@ -1,7 +1,7 @@
 <h2 mat-dialog-title>Atualizar viagem</h2>
 
-<form [formGroup]="updateTravelForm">
-  <mat-dialog-content>
+<mat-dialog-content>
+  <form [formGroup]="updateTravelForm">
     <div class="stepper">
 
       <!-- Linha 1: Transporte e OS -->
@@ -13,7 +13,7 @@
               <mat-option [value]="item">{{ item }}</mat-option>
             }
           </mat-select>
-          
+
           @for (item of errorMessages['transportation']; track $index) {
             <mat-error [hidden]="!updateTravelForm.get('transportation')?.hasError(item.type)">
               {{ item.message }}
@@ -27,11 +27,12 @@
         </mat-form-field>
       </div>
 
-      <!-- Linha 2: Tipo de Viagem, Localizador e Companhia Aérea (3 Colunas) -->
+      <!-- Linha 2: Tipo de Viagem, Localizador e Companhia Aérea -->
       <div class="line cols-1-1-1">
         <mat-form-field appearance="outline">
           <mat-label>Tipo</mat-label>
           <mat-select formControlName="type" (selectionChange)="onSelection($event)">
+            <mat-option [value]="null">Selecione...</mat-option>
             @for (item of types; track $index) {
               <mat-option [value]="item">{{ item }}</mat-option>
             }
@@ -70,8 +71,7 @@
             formControlName="departure_date" 
             placeholder="DD/MM/AAAA"
             (keypress)="onlyNumbersAndSlashes($event)"
-            (dateChange)="setDepartureDate($event)"
-          >
+            (dateChange)="setDepartureDate($event)">
           <mat-datepicker-toggle matIconSuffix [for]="pickerDeparture"></mat-datepicker-toggle>
           <mat-datepicker #pickerDeparture></mat-datepicker>
 
@@ -90,8 +90,7 @@
             formControlName="return_date" 
             placeholder="DD/MM/AAAA"
             (keypress)="onlyNumbersAndSlashes($event)"
-            (dateChange)="setReturnDate($event)"
-          >
+            (dateChange)="setReturnDate($event)">
           <mat-datepicker-toggle matIconSuffix [for]="pickerReturn"></mat-datepicker-toggle>
           <mat-datepicker #pickerReturn></mat-datepicker>
 
@@ -128,7 +127,7 @@
         </mat-form-field>
       </div>
 
-      <!-- Linha 5: Descrição / Observações -->
+      <!-- Linha 5: Descrição -->
       <div class="line cols-1-col">
         <mat-form-field appearance="outline">
           <mat-label>Descrição</mat-label>
@@ -137,26 +136,23 @@
       </div>
 
     </div>
-  </mat-dialog-content>
+  </form>
+</mat-dialog-content>
 
-  <mat-dialog-actions align="end">
-    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
-      Cancelar
-    </button>
-    
-    <button 
-      mat-flat-button 
-      color="primary" 
-      type="button" 
-      [disabled]="updateTravelForm.invalid || updateTravelForm.pending || isSubmitting()"
-      (click)="onSubmit()"
-    >
-      <div class="waiting">
-        @if (isSubmitting()) {
-          <mat-spinner [diameter]="20"></mat-spinner>
-        }
-        <span>{{ isSubmitting() ? 'Atualizando...' : 'Atualizar' }}</span>
-      </div>
-    </button>
-  </mat-dialog-actions>
-</form>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
+  <button 
+    mat-flat-button 
+    color="primary" 
+    type="button" 
+    [disabled]="updateTravelForm.invalid || isSubmitting()"
+    (click)="onSubmit()"
+  >
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      Atualizar
+    </div>
+  </button>
+</mat-dialog-actions>

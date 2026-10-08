@@ -10,34 +10,30 @@
       </mat-card-header>
       
       <mat-card-content>
-        <div class="line cols-1-1-1">
+        <div class="line cols-2-1-1">
           <div>
-            <strong>Nome:</strong> 
-            {{ data?.passenger?.patient?.name || data?.passenger?.escort?.name || 'Não informado' }}
+            <strong>Nome:</strong> {{ passengerName }}
           </div>
           <div>
             <strong>Vínculo:</strong> 
             @if (data?.passenger?.is_patient) {
-              <span class="highlight">PACIENTE</span>
+              <span>PACIENTE</span>
             } @else {
               <span>ACOMPANHANTE</span>
             }
           </div>
           <div>
-            <strong>Tipo:</strong> 
-            {{ getPassengerTypeLabel(data?.passenger?.type) }}
+            <strong>Tipo:</strong> {{ getPassengerTypeLabel(data?.passenger?.type) }}
           </div>
         </div>
 
         <div class="line cols-1-1">
           <div>
             <strong>CPF:</strong> 
-            @let document = data?.passenger?.patient?.document || data?.passenger?.escort?.document;
-            {{ document ? (document | mask: '000.000.000-00') : 'Não informado' }}
+            {{ passengerDocument ? (passengerDocument | mask: '000.000.000-00') : 'Não informado' }}
           </div>
           <div>
-            <strong>Sexo:</strong> 
-            {{ getGenderLabel(data?.passenger?.gender) }}
+            <strong>Sexo:</strong> {{ getGenderLabel(data?.passenger?.gender) }}
           </div>
         </div>
       </mat-card-content>
@@ -53,26 +49,24 @@
         <div class="line cols-1-1-1">
           <div>
             <strong>Tarifa:</strong> 
-            {{ data?.passenger?.tariff !== null && data?.passenger?.tariff !== undefined ? (data.passenger.tariff | currency: 'BRL' : 'symbol' : '1.2-2') : 'R$ 0,00' }}
+            {{ data?.passenger?.tariff !== null && data?.passenger?.tariff !== undefined ? (data?.passenger?.tariff | currency: 'BRL' : 'symbol' : '1.2-2') : 'R$ 0,00' }}
           </div>
           <div>
             <strong>Taxa:</strong> 
-            {{ data?.passenger?.tax !== null && data?.passenger?.tax !== undefined ? (data.passenger.tax | currency: 'BRL' : 'symbol' : '1.2-2') : 'R$ 0,00' }}
+            {{ data?.passenger?.tax !== null && data?.passenger?.tax !== undefined ? (data?.passenger?.tax | currency: 'BRL' : 'symbol' : '1.2-2') : 'R$ 0,00' }}
           </div>
           <div>
             <strong>Desconto:</strong> 
-            {{ data?.passenger?.discount ? (data.passenger.discount + '%') : '0%' }}
+            {{ data?.passenger?.discount ? (data?.passenger?.discount + '%') : '0%' }}
           </div>
         </div>
 
         <div class="line cols-1-1">
           <div>
-            <strong>Assento:</strong> 
-            {{ data?.passenger?.seat ?? 'Não informado' }}
+            <strong>Assento:</strong> {{ data?.passenger?.seat ?? 'Não informado' }}
           </div>
           <div>
-            <strong>Bilhete:</strong> 
-            {{ data?.passenger?.ticket ?? 'Não informado' }}
+            <strong>Bilhete:</strong> {{ data?.passenger?.ticket ?? 'Não informado' }}
           </div>
         </div>
       </mat-card-content>

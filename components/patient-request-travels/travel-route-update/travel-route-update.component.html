@@ -1,7 +1,7 @@
 <h2 mat-dialog-title>Atualizar rota</h2>
 
-<form [formGroup]="updateRouteForm">
-  <mat-dialog-content>
+<mat-dialog-content>
+  <form [formGroup]="updateRouteForm">
     <div class="stepper">
 
       <!-- Linha 1: Vôo e Aeronave -->
@@ -155,26 +155,23 @@
       </div>
 
     </div>
-  </mat-dialog-content>
+  </form>
+</mat-dialog-content>
 
-  <mat-dialog-actions align="end">
-    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
-      Cancelar
-    </button>
-    
-    <button 
-      mat-flat-button 
-      color="primary" 
-      type="button" 
-      [disabled]="updateRouteForm.invalid || updateRouteForm.pending || isSubmitting()"
-      (click)="onSubmit()"
-    >
-      <div class="waiting">
-        @if (isSubmitting()) {
-          <mat-spinner [diameter]="20"></mat-spinner>
-        }
-        <span>{{ isSubmitting() ? 'Atualizando...' : 'Atualizar' }}</span>
-      </div>
-    </button>
-  </mat-dialog-actions>
-</form>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
+  <button 
+    mat-flat-button 
+    color="primary" 
+    type="button" 
+    [disabled]="updateRouteForm.invalid || isSubmitting()"
+    (click)="onSubmit()"
+  >
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      Atualizar
+    </div>
+  </button>
+</mat-dialog-actions>

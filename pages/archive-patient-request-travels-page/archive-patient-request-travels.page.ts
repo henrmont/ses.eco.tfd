@@ -1,25 +1,24 @@
-import { CommonModule } from '@angular/common';
-import { 
-  ChangeDetectionStrategy, 
-  Component, 
-  DestroyRef, 
-  Injector, 
-  OnDestroy, 
-  OnInit, 
-  effect, 
-  inject, 
-  viewChild 
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  OnDestroy,
+  OnInit,
+  effect,
+  inject,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NgxMaskPipe } from 'ngx-mask';
+import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
-import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType, Overlay } from '@angular/cdk/overlay';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -28,30 +27,37 @@ import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core, Models e Serviços
+// Core & Models
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
 import { PatientRequest } from '../../models/patient-request.model';
 import { Permission } from '../../models/permission.model';
 import { Role } from '../../models/role.model';
+import { User } from '../../models/user.model';
 import { PatientRequestTravelService } from '../../services/patient-request-travel.service';
 
 // Dialog Components
 import { PatientRequestDetailComponent } from '../../components/patient-requests/patient-request-detail/patient-request-detail.component';
 import { PatientRequestMoveFromArchiveComponent } from '../../components/patient-request-travels/patient-request-move-from-archive/patient-request-move-from-archive.component';
+import { PatientRequestRequirementComponent } from '../../components/patient-request-travels/patient-request-requirement/patient-request-requirement.component';
 
-// Define o tipo aceito para as propriedades dos Modais
-type PatientRequestDialogData =
-  | { patient_request: PatientRequest }
-  | { patient_request: PatientRequest; permissions: Role[] };
+// Interfaces/Tipos estruturados para Dialogs e Tabelas
+type PatientRequestDialogData = {
+  patient_request?: PatientRequest;
+};
+
+interface ArchivePatientRequestTravelTableRow extends PatientRequest {
+  name: string;
+  cns: string;
+  type: string;
+  responsible: string;
+}
 
 @Component({
   selector: 'app-archive-patient-request-travels-page',
   standalone: true,
   imports: [
-    CommonModule,
     MatBadgeModule,
     MatButtonModule,
-    MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -61,6 +67,7 @@ type PatientRequestDialogData =
     MatTooltipModule,
     NgxMaskPipe,
   ],
+  providers: [provideNgxMask()],
   templateUrl: './archive-patient-request-travels.page.html',
   styleUrl: './archive-patient-request-travels.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -91,11 +98,10 @@ export class ArchivePatientRequestTravelsPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser = this.route.parent?.parent?.snapshot.data['user'];
+  private readonly currentUser: User | undefined = this.route.parent?.parent?.snapshot.data['user'];
 
-  protected readonly displayedColumns: string[] = ['name', 'cns', 'type', 'responsible', 'actions'];
-
-  protected readonly archivedDataSource = new MatTableDataSource<any>([]);
+  protected readonly displayedColumns: string[] = ['name', 'cns', 'type', 'responsible', 'status', 'actions'];
+  protected readonly archivedDataSource = new MatTableDataSource<ArchivePatientRequestTravelTableRow>([]);
 
   // ==========================================
   // Ciclo de Vida (Hooks)
@@ -133,35 +139,35 @@ export class ArchivePatientRequestTravelsPage implements OnInit, OnDestroy {
   }
 
   // Ações disparadas pelos botões da tabela
-  protected showPatientRequest(patientRequest: PatientRequest): void {
-    this.openDialog(PatientRequestDetailComponent, { patient_request: patientRequest }, '1000px', 'auto', false);
+  protected patientRequestDetail(patientRequest: PatientRequest): void {
+    this.openDialog(PatientRequestDetailComponent, { patient_request: patientRequest }, '1200px', '700px', false);
   }
 
-  protected movePatientRequestFromArchive(patientRequest: PatientRequest): void {
+  protected patientRequestMoveFromArchive(patientRequest: PatientRequest): void {
     this.openDialog(PatientRequestMoveFromArchiveComponent, { patient_request: patientRequest }, '400px');
+  }
+
+  protected patientRequestRequirement(patientRequest: PatientRequest): void {
+    this.openDialog(PatientRequestRequirementComponent, { patient_request: patientRequest }, '500px');
   }
 
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
   private setupTableBindings(): void {
-    effect(
-      () => {
-        const sortRef = this.archiveSort();
-        const paginatorRef = this.archivePaginator();
+    effect(() => {
+      const archiveSort = this.archiveSort();
+      const archivePaginator = this.archivePaginator();
 
-        if (sortRef) this.archivedDataSource.sort = sortRef;
-        if (paginatorRef) this.archivedDataSource.paginator = paginatorRef;
-      },
-      { injector: this.injector }
-    );
+      if (archiveSort) this.archivedDataSource.sort = archiveSort;
+      if (archivePaginator) this.archivedDataSource.paginator = archivePaginator;
+    }, { injector: this.injector });
   }
 
   private fetchArchivePatientRequests(showLoading = false): void {
     if (showLoading) this.openLoading();
 
-    this.travelService
-      .getArchivePatientRequests()
+    this.travelService.getArchivePatientRequests()
       .pipe(
         finalize(() => {
           if (showLoading && this.loadingDialog) {
@@ -171,16 +177,14 @@ export class ArchivePatientRequestTravelsPage implements OnInit, OnDestroy {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
-          const rawData: any[] = response || [];
-
+        next: (response: PatientRequest[]) => {
+          const rawData = response || [];
           const archivedRequests = rawData.map((item) => this.mapPatientRequestRow(item));
-
           this.archivedDataSource.data = archivedRequests;
         },
         error: () => {
           this.archivedDataSource.data = [];
-        },
+        }
       });
   }
 
@@ -192,13 +196,13 @@ export class ArchivePatientRequestTravelsPage implements OnInit, OnDestroy {
     };
   }
 
-  private mapPatientRequestRow(item: any) {
+  private mapPatientRequestRow(item: PatientRequest): ArchivePatientRequestTravelTableRow {
     return {
       ...item,
-      name: item.report?.patient_care?.patient?.name || 'Não informado',
-      cns: item.report?.patient_care?.patient?.cns || '',
-      type: item.type,
-      responsible: item.travel_professional?.name || '-',
+      name: item.report?.patient_care?.patient?.name || '-',
+      cns: item.report?.patient_care?.patient?.cns || '-',
+      type: item.type || '-',
+      responsible: item.travel_professional?.name || '-'
     };
   }
 
@@ -211,21 +215,20 @@ export class ArchivePatientRequestTravelsPage implements OnInit, OnDestroy {
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PatientRequestDialogData,
-    width = '400px',
+    width = '1200px',
     height = 'auto',
     requiresRefresh = true
   ): void {
-    this.dialog
-      .open(component, {
-        width,
-        height,
-        disableClose: true,
-        autoFocus: false,
-        scrollStrategy: this.overlay.scrollStrategies.noop(),
-        data,
-      })
+    this.dialog.open(component, {
+      width,
+      height,
+      disableClose: true,
+      autoFocus: false,
+      scrollStrategy: this.overlay.scrollStrategies.noop(),
+      data
+    })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {

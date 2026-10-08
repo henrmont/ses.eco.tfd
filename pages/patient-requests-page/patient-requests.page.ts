@@ -246,6 +246,7 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (response: PatientRequest[]) => {
+          console.log(response)
           const rawData = response || [];
 
           const owners = rawData

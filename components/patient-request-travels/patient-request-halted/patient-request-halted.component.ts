@@ -8,9 +8,15 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Services e Models
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestTravelService } from '../../../services/patient-request-travel.service';
+
+type PatientRequestHaltedDialogData = {
+  patient_request?: PatientRequest;
+};
 
 @Component({
   selector: 'app-patient-request-halted',
@@ -29,7 +35,7 @@ export class PatientRequestHaltedComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestHaltedDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly travelService = inject(PatientRequestTravelService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestHaltedComponent>);
@@ -42,15 +48,15 @@ export class PatientRequestHaltedComponent {
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // Submissão / Sobrestamento
+  // Métodos de Ação
   // ==========================================
   /**
    * Dispara a requisição para paralisar/sobrestar a solicitação de viagem do paciente
    */
   protected onSubmit(): void {
-    const requestId = this.data?.patient_request?.id;
+    const patientRequestId = this.data?.patient_request?.id;
 
-    if (!requestId) {
+    if (!patientRequestId) {
       this.messageService.showMessage('Identificador da solicitação inválido.');
       return;
     }
@@ -58,7 +64,7 @@ export class PatientRequestHaltedComponent {
     this.isSubmitting.set(true);
     this.cdr.markForCheck();
 
-    this.travelService.haltedPatientRequest(requestId)
+    this.travelService.haltedPatientRequest(patientRequestId)
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);
@@ -67,7 +73,7 @@ export class PatientRequestHaltedComponent {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Status de sobrestamento atualizado!');
           this.dialogRef.close(true);
         },

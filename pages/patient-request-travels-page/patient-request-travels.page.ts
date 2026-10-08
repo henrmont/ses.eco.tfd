@@ -1,12 +1,22 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnDestroy, OnInit, effect, inject, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  OnDestroy,
+  OnInit,
+  effect,
+  inject,
+  viewChild
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NgxMaskPipe } from 'ngx-mask';
+import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
-import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType, Overlay } from '@angular/cdk/overlay';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,6 +34,7 @@ import { PatientRequest } from '../../models/patient-request.model';
 import { Permission } from '../../models/permission.model';
 import { PatientCare } from '../../models/patient-care.model';
 import { Role } from '../../models/role.model';
+import { User } from '../../models/user.model';
 import { PatientRequestTravelService } from '../../services/patient-request-travel.service';
 
 // Dialog Components
@@ -36,13 +47,25 @@ import { PatientRequestHaltedComponent } from '../../components/patient-request-
 import { PatientRequestTravelsComponent } from '../../components/patient-request-travels/patient-request-travels/patient-request-travels.component';
 import { PatientRequestUndoComponent } from '../../components/patient-request-travels/patient-request-undo/patient-request-undo.component';
 import { PatientRequestMoveFromOthersComponent } from '../../components/patient-request-travels/patient-request-move-from-others/patient-request-move-from-others.component';
+import { PatientRequestRequirementComponent } from '../../components/patient-request-travels/patient-request-requirement/patient-request-requirement.component';
 
-// Define os formatos de dados aceitos pelos modais da página de viagens
-type PatientRequestDialogData =
-  | { patient_request: PatientRequest }
-  | { patient_care: PatientCare | undefined }
-  | { patient_request: PatientRequest, permissions: Role[] };
+// Interfaces/Tipos estruturados para Dialogs e Tabelas
+type PatientRequestDialogData = {
+  patient_request?: PatientRequest;
+  patient_care?: PatientCare;
+  roles?: Role[];
+};
 
+interface OwnerPatientRequestTableRow extends PatientRequest {
+  name: string;
+  cns: string;
+}
+
+interface OthersPatientRequestTableRow extends PatientRequest {
+  name: string;
+  cns: string;
+  responsible: string;
+}
 
 @Component({
   selector: 'app-patient-request-travels-page',
@@ -61,13 +84,14 @@ type PatientRequestDialogData =
     MatTooltipModule,
     NgxMaskPipe
   ],
+  providers: [provideNgxMask()],
   templateUrl: './patient-request-travels.page.html',
   styleUrl: './patient-request-travels.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PatientRequestTravelsPage implements OnInit, OnDestroy {
   // ==========================================
-  // Instância própria do canal
+  // Instância do Canal Broadcast
   // ==========================================
   private readonly travelsChannel = new BroadcastChannel('tfd-travels-channel');
 
@@ -86,24 +110,23 @@ export class PatientRequestTravelsPage implements OnInit, OnDestroy {
   // ==========================================
   private readonly ownerSort = viewChild<MatSort>('ownerSort');
   private readonly othersSort = viewChild<MatSort>('othersSort');
-
   private readonly ownerPaginator = viewChild<MatPaginator>('ownerPaginator');
   private readonly othersPaginator = viewChild<MatPaginator>('othersPaginator');
 
   // ==========================================
-  // Propriedades e Estado Reativo
+  // Propriedades e Estado
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser = this.route.parent?.parent?.snapshot.data['user'];
+  private readonly currentUser: User | undefined = this.route.parent?.parent?.snapshot.data['user'];
 
   protected readonly displayedOwnerColumns: string[] = ['bookmark', 'patient', 'cns', 'type', 'consultation_date', 'status', 'actions'];
-  protected readonly displayedOthersColumns: string[] = ['patient', 'cns', 'type', 'consultation_date', 'responsible', 'actions'];
+  protected readonly displayedOthersColumns: string[] = ['patient', 'cns', 'type', 'consultation_date', 'responsible', 'status', 'actions'];
 
-  protected readonly ownerDataSource = new MatTableDataSource<any>([]);
-  protected readonly othersDataSource = new MatTableDataSource<any>([]);
+  protected readonly ownerDataSource = new MatTableDataSource<OwnerPatientRequestTableRow>([]);
+  protected readonly othersDataSource = new MatTableDataSource<OthersPatientRequestTableRow>([]);
 
   // ==========================================
-  // Ciclo de Vida (Hooks)
+  // Ciclo de Vida
   // ==========================================
   ngOnInit(): void {
     this.setupTableBindings();
@@ -116,7 +139,7 @@ export class PatientRequestTravelsPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Filtros e Permissões
   // ==========================================
   protected applyOwnerFilter(event: Event): void {
     const filterValue = (event.target as HTMLInputElement).value;
@@ -139,7 +162,7 @@ export class PatientRequestTravelsPage implements OnInit, OnDestroy {
   protected checkPermissions(permissionName: string): boolean {
     if (!this.currentUser?.roles) return true;
 
-    const hasPermission = this.currentUser.roles.some((role: any) =>
+    const hasPermission = this.currentUser.roles.some((role: Role) =>
       role.permissions?.some((perm: Permission) => perm.name === permissionName)
     );
 
@@ -150,7 +173,9 @@ export class PatientRequestTravelsPage implements OnInit, OnDestroy {
     return !!(patientRequest.medical_status && patientRequest.social_status);
   }
 
-  // Ações disparadas pelos botões da tabela
+  // ==========================================
+  // Ações Disparadas pela Tabela
+  // ==========================================
   protected patientRequestHalted(patientRequest: PatientRequest): void {
     this.openDialog(PatientRequestHaltedComponent, { patient_request: patientRequest }, '400px');
   }
@@ -168,7 +193,7 @@ export class PatientRequestTravelsPage implements OnInit, OnDestroy {
   }
 
   protected patientRequestTravels(patientRequest: PatientRequest): void {
-    this.openDialog(PatientRequestTravelsComponent, { patient_request: patientRequest, permissions: this.currentUser?.roles }, '1200px');
+    this.openDialog(PatientRequestTravelsComponent, { patient_request: patientRequest, roles: this.currentUser?.roles }, '1200px');
   }
 
   protected patientRequestDetail(patientRequest: PatientRequest): void {
@@ -187,8 +212,12 @@ export class PatientRequestTravelsPage implements OnInit, OnDestroy {
     this.openDialog(PatientRequestFinishBackComponent, { patient_request: patientRequest }, '400px');
   }
 
+  protected patientRequestRequirement(patientRequest: PatientRequest): void {
+    this.openDialog(PatientRequestRequirementComponent, { patient_request: patientRequest }, '500px');
+  }
+
   // ==========================================
-  // Métodos Privados / Auxiliares
+  // Métodos Privados Auxiliares
   // ==========================================
   private setupTableBindings(): void {
     effect(() => {
@@ -219,16 +248,16 @@ export class PatientRequestTravelsPage implements OnInit, OnDestroy {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
-          const rawData: any[] = response || [];
+        next: (response: PatientRequest[]) => {
+          const rawData = response || [];
 
           const owners = rawData
-            .filter((req) => req.travel_professional && !req.is_travel_finished && req.travel)
-            .map((item) => this.mapPatientRequestRow(item));
+            .filter((req) => req.travel)
+            .map((item) => this.mapOwnerPatientRequestRow(item));
 
           const others = rawData
-            .filter((req) => req.travel_professional && !req.is_travel_finished && !req.travel)
-            .map((item) => this.mapPatientRequestRow(item));
+            .filter((req) => !req.travel)
+            .map((item) => this.mapOthersPatientRequestRow(item));
 
           this.ownerDataSource.data = owners;
           this.othersDataSource.data = others;
@@ -248,14 +277,20 @@ export class PatientRequestTravelsPage implements OnInit, OnDestroy {
     };
   }
 
-  private mapPatientRequestRow(item: any) {
+  private mapOwnerPatientRequestRow(item: PatientRequest): OwnerPatientRequestTableRow {
     return {
       ...item,
-      name: item.report?.patient_care?.patient?.name || '',
-      cns: item.report?.patient_care?.patient?.cns || '',
-      type: item.type,
-      consultation_date: item.consultation_date,
-      status: item.status
+      name: item.report?.patient_care?.patient?.name || '-',
+      cns: item.report?.patient_care?.patient?.cns || '-'
+    };
+  }
+
+  private mapOthersPatientRequestRow(item: PatientRequest): OthersPatientRequestTableRow {
+    return {
+      ...item,
+      name: item.report?.patient_care?.patient?.name || '-',
+      cns: item.report?.patient_care?.patient?.cns || '-',
+      responsible: item.owner_professional?.name || '-'
     };
   }
 
@@ -263,12 +298,12 @@ export class PatientRequestTravelsPage implements OnInit, OnDestroy {
     this.loadingDialog = this.dialog.open(LoadingComponent, {
       height: '200px',
       disableClose: true,
-      autoFocus: false,
+      autoFocus: false
     });
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PatientRequestDialogData,
     width = '400px',
     height = 'auto',

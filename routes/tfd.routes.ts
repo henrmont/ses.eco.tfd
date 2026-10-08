@@ -80,21 +80,21 @@ export const tfdRoutes: Routes = [
     }
   },
   {
-    path: 'pareceres-sociais',
-    loadComponent: () => import('./../pages/patient-request-social-opinions-page/patient-request-social-opinions.page').then(m => m.PatientRequestSocialOpinionsPage),
-    canActivate: [professionalGuard],
-    data: { 
-      permission: 'tfd/parecer listar', 
-      types: [Professionals.ASSISTENTE_SOCIAL] // Acesso exclusivo para Assistente Social
-    }
-  },
-  {
     path: 'arquivo-pareceres-medico',
     loadComponent: () => import('./../pages/archive-patient-request-medical-opinions-page/archive-patient-request-medical-opinions.page').then(m => m.ArchivePatientRequestMedicalOpinionsPage),
     canActivate: [professionalGuard],
     data: { 
       permission: 'tfd/parecer listar', 
       types: [Professionals.MEDICO, Professionals.ASSISTENTE_SOCIAL] 
+    }
+  },
+  {
+    path: 'pareceres-sociais',
+    loadComponent: () => import('./../pages/patient-request-social-opinions-page/patient-request-social-opinions.page').then(m => m.PatientRequestSocialOpinionsPage),
+    canActivate: [professionalGuard],
+    data: { 
+      permission: 'tfd/parecer listar', 
+      types: [Professionals.ASSISTENTE_SOCIAL] // Acesso exclusivo para Assistente Social
     }
   },
   {
@@ -109,6 +109,15 @@ export const tfdRoutes: Routes = [
   {
     path: 'passagens',
     loadComponent: () => import('./../pages/patient-request-travels-page/patient-request-travels.page').then(m => m.PatientRequestTravelsPage),
+    canActivate: [professionalGuard],
+    data: { 
+      permission: 'tfd/passagem listar', 
+      types: [Professionals.PASSAGEM] 
+    }
+  },
+  {
+    path: 'arquivo-passagens',
+    loadComponent: () => import('./../pages/archive-patient-request-travels-page/archive-patient-request-travels.page').then(m => m.ArchivePatientRequestTravelsPage),
     canActivate: [professionalGuard],
     data: { 
       permission: 'tfd/passagem listar', 

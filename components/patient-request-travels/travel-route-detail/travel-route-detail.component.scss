@@ -10,40 +10,49 @@ mat-dialog-content {
 }
 
 .details-container {
+  padding: $spacing-lg 0 0;
   display: flex;
   flex-direction: column;
-  gap: $spacing-xxl;
-  padding: $spacing-lg 0 0;
+  gap: $spacing-xxl; 
 }
 
-// Estilização dos Cards de detalhamento da rota
 mat-card {
   background: $color-card-bg;
-  border-radius: $radius-md;
-  box-shadow: $shadow-soft;
+  border-radius: $radius-md; 
+  box-shadow: $shadow-soft; 
 }
 
-// Estrutura de Linha/Grid para exibição dos dados
+.empty-message {
+  padding: $spacing-md;
+  color: $color-text-muted;
+  font-style: italic;
+  font-size: $font-size-md;
+}
+
 .line {
   display: grid;
-  align-items: center;
-  gap: $spacing-md;
-  min-height: $line-height-min-item;
-  padding: 0 $spacing-md;
+  gap: $spacing-md; 
+  padding: 0 $spacing-md; 
+  align-items: center; 
   color: $color-text-main;
+  min-height: $line-height-min-item; 
 
   strong {
     color: $color-text-variant;
     font-weight: $font-weight-semibold;
   }
 
-  .highlight {
-    color: $color-primary;
-    font-weight: $font-weight-medium;
+  .action-cell {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    height: 100%; 
   }
 
   // --- Definições Semânticas das Colunas da Grid ---
-  &.cols-1-col { grid-template-columns: 1fr; }
-  &.cols-1-1   { grid-template-columns: 1fr 1fr; }
-  &.cols-1-1-1 { grid-template-columns: 1fr 1fr 1fr; }
+  &.cols-1-col       { grid-template-columns: 1fr; }
+  &.cols-1-1         { grid-template-columns: 1fr 1fr; }
+  &.cols-1-1-1       { grid-template-columns: 1fr 1fr 1fr; }
+  &.cols-2-1-1       { grid-template-columns: 2fr 1fr 1fr; }
+  &.cols-travel-grid { grid-template-columns: 2fr 1fr 1fr 1fr; }
 }

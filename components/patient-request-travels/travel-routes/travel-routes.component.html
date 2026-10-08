@@ -8,13 +8,15 @@
         <mat-spinner [diameter]="40"></mat-spinner>
       </div>
     } @else {
-      <div class="table-responsive">
+      <div class="table">
         <table mat-table [dataSource]="dataSource">
           
           <!-- Coluna Trecho -->
           <ng-container matColumnDef="route">
             <th mat-header-cell *matHeaderCellDef> Trecho </th>
-            <td mat-cell *matCellDef="let element"> {{ element.origin ?? 'Não informado' }} - {{ element.destination ?? 'Não informado' }} </td>
+            <td mat-cell *matCellDef="let element"> 
+              {{ element.origin ?? 'Não informado' }} - {{ element.destination ?? 'Não informado' }} 
+            </td>
             <td mat-footer-cell *matFooterCellDef></td>
           </ng-container>
 
@@ -39,55 +41,55 @@
           <!-- Coluna Distância -->
           <ng-container matColumnDef="distance">
             <th mat-header-cell *matHeaderCellDef> Distância </th>
-            <td mat-cell *matCellDef="let element"> {{ element.distance ? (element.distance | number:'1.2-2') : 0 }} km </td>
+            <td mat-cell *matCellDef="let element"> 
+              {{ element.distance ? (element.distance | number:'1.2-2') : '0,00' }} km 
+            </td>
             <td mat-footer-cell *matFooterCellDef><strong>{{ totalDistance() | number:'1.2-2' }} km</strong></td>
           </ng-container>
 
           <!-- Coluna Ações -->
           <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef class="center actions-column-header"> Ações </th>
+            <th mat-header-cell *matHeaderCellDef class="center"> Ações </th>
             <td mat-cell *matCellDef="let element" class="center actions-cell">
-              <div class="actions-wrapper">
-                <button 
-                  mat-icon-button 
-                  type="button" 
-                  matTooltip="Detalhes da rota" 
-                  (click)="travelRouteDetail(element)"
-                >
-                  <mat-icon>visibility</mat-icon>
-                </button>
+              <button 
+                mat-icon-button 
+                type="button" 
+                matTooltip="Detalhes da rota" 
+                (click)="travelRouteDetail(element)"
+              >
+                <mat-icon>visibility</mat-icon>
+              </button>
 
-                <button 
-                  mat-icon-button 
-                  type="button" 
-                  matTooltip="Atualizar rota" 
-                  (click)="travelRouteUpdate(element)"
-                >
-                  <mat-icon class="icon-edit">drive_file_rename_outline</mat-icon>
-                </button>
+              <button 
+                mat-icon-button 
+                type="button" 
+                matTooltip="Atualizar rota" 
+                (click)="travelRouteUpdate(element)"
+              >
+                <mat-icon>drive_file_rename_outline</mat-icon>
+              </button>
 
-                <button 
-                  mat-icon-button 
-                  type="button" 
-                  matTooltip="Deletar rota" 
-                  (click)="travelRouteDelete(element)"
-                >
-                  <mat-icon color="warn">delete</mat-icon>
-                </button>
-              </div>
+              <button 
+                mat-icon-button 
+                type="button" 
+                matTooltip="Deletar rota" 
+                (click)="travelRouteDelete(element)"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
             </td>
             <td mat-footer-cell *matFooterCellDef></td>
           </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
           
-          @if (totalDistance() > 0) {
-            <tr mat-footer-row *matFooterRowDef="displayedColumns"></tr>
-          }
+          <!-- Exibe a linha do rodapé baseando-se no sinal computado footerColumns -->
+          <tr mat-footer-row *matFooterRowDef="footerColumns()"></tr>
 
+          <!-- Estado Vazio -->
           <tr class="mat-row" *matNoDataRow>
-            <td class="mat-cell" [attr.colspan]="displayedColumns.length">
+            <td class="mat-cell center" [attr.colspan]="displayedColumns.length">
               <div class="empty-state">
                 <p>Nenhuma rota cadastrada.</p>
               </div>
@@ -101,7 +103,7 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" [mat-dialog-close]="false">Cancelar</button>
+  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
   <button 
     mat-flat-button 
     color="primary" 

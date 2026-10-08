@@ -1,11 +1,11 @@
-import { ComponentType } from '@angular/cdk/portal';
-import { Overlay } from '@angular/cdk/overlay';
-import { CommonModule, DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { CommonModule, DatePipe } from '@angular/common';
 import { finalize } from 'rxjs';
 
-// Angular Material
+// Angular Material & CDK
+import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,6 +19,7 @@ import { TravelCompany } from '../../../enums/travel-company';
 import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestTravel } from '../../../models/patient-request-travel.model';
 import { PatientRequestTravelService } from '../../../services/patient-request-travel.service';
+import { Role } from '../../../models/role.model';
 
 // Dialog Components
 import { PatientRequestTravelCreateComponent } from '../patient-request-travel-create/patient-request-travel-create.component';
@@ -27,14 +28,13 @@ import { PatientRequestTravelDetailComponent } from '../patient-request-travel-d
 import { PatientRequestTravelUpdateComponent } from '../patient-request-travel-update/patient-request-travel-update.component';
 import { TravelPassengersComponent } from '../travel-passengers/travel-passengers.component';
 import { TravelRoutesComponent } from '../travel-routes/travel-routes.component';
+import { PatientRequestTravelRequirementComponent } from '../patient-request-travel-requirement/patient-request-travel-requirement.component';
 
-// Define o tipo aceito para as propriedades dos Modais de Viagens
-type PatientRequestTravelDialogData =
-  | { travel: PatientRequestTravel }
-  | { patient_request: PatientRequest | undefined };
-
-// Constantes Locais
-const TFD_TRAVELS_CHANNEL = new BroadcastChannel('tfd-travels-channel');
+export type PatientRequestTravelDialogData = {
+  travel?: PatientRequestTravel;
+  patient_request?: PatientRequest;
+  roles?: Role[];
+};
 
 @Component({
   selector: 'app-patient-request-travels',
@@ -53,11 +53,16 @@ const TFD_TRAVELS_CHANNEL = new BroadcastChannel('tfd-travels-channel');
   styleUrl: './patient-request-travels.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PatientRequestTravelsComponent implements OnInit, OnDestroy {
+export class PatientRequestTravelsComponent implements OnInit {
+  // ==========================================
+  // Instância do Broadcast Channel
+  // ==========================================
+  private readonly travelsChannel = new BroadcastChannel('tfd-travels-channel');
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestTravelDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly travelService = inject(PatientRequestTravelService);
@@ -80,24 +85,22 @@ export class PatientRequestTravelsComponent implements OnInit, OnDestroy {
   protected readonly dataSource = new MatTableDataSource<PatientRequestTravel>([]);
   protected readonly isLoading = signal<boolean>(true);
 
+  private readonly patientRequestId = computed(() => this.data?.patient_request?.id ?? null);
+
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
+    this.setupBroadcastChannel();
     this.fetchTravels(true);
-    this.listenToBroadcastChannel();
-  }
-
-  ngOnDestroy(): void {
-    TFD_TRAVELS_CHANNEL.close();
   }
 
   // ==========================================
   // Avaliação de Permissões
   // ==========================================
   protected checkPermissions(permissionName: string): boolean {
-    const roles = this.data?.permissions || [];
-    return !roles.some((role: { permissions?: { name: string }[] }) =>
+    const roles = this.data?.roles || [];
+    return !roles.some((role) =>
       role?.permissions?.some((p) => p?.name === permissionName)
     );
   }
@@ -117,34 +120,50 @@ export class PatientRequestTravelsComponent implements OnInit, OnDestroy {
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected patientRequestTravelCreate(): void {
-    this.openDialog(PatientRequestTravelCreateComponent, { patient_request: this.data?.patient_request }, '800px');
+    this.openDialog(PatientRequestTravelCreateComponent, { 
+      patient_request: this.data?.patient_request 
+    }, '800px');
   }
 
   protected patientRequestTravelDetail(travel: PatientRequestTravel): void {
-    this.openDialog(PatientRequestTravelDetailComponent, { travel }, '1000px', 'auto', false, false);
+    this.openDialog(PatientRequestTravelDetailComponent, { 
+      travel 
+    }, '1000px', 'auto', false);
   }
 
   protected patientRequestTravelUpdate(travel: PatientRequestTravel): void {
-    this.openDialog(PatientRequestTravelUpdateComponent, { travel }, '800px');
+    this.openDialog(PatientRequestTravelUpdateComponent, { 
+      travel 
+    }, '800px');
   }
 
   protected patientRequestTravelDelete(travel: PatientRequestTravel): void {
-    this.openDialog(PatientRequestTravelDeleteComponent, { travel }, '400px', 'auto', true);
+    this.openDialog(PatientRequestTravelDeleteComponent, { 
+      travel 
+    }, '400px', 'auto', true);
   }
 
   protected travelPassengers(travel: PatientRequestTravel): void {
-    this.openDialog(TravelPassengersComponent, { travel }, '1200px', 'auto', false, false);
+    this.openDialog(TravelPassengersComponent, { 
+      travel 
+    }, '1200px', 'auto', false);
   }
 
   protected travelRoutes(travel: PatientRequestTravel): void {
-    this.openDialog(TravelRoutesComponent, { travel }, '1000px', 'auto', false, false);
+    this.openDialog(TravelRoutesComponent, { 
+      travel 
+    }, '1000px', 'auto', false);
+  }
+
+  protected patientRequestTravelRequirement(travel: PatientRequestTravel): void {
+    this.openDialog(PatientRequestTravelRequirementComponent, { travel }, '500px', 'auto', true);
   }
 
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
   private fetchTravels(showLoading = false): void {
-    const requestId = this.data?.patient_request?.id;
+    const requestId = this.patientRequestId();
 
     if (!requestId) {
       this.isLoading.set(false);
@@ -172,12 +191,16 @@ export class PatientRequestTravelsComponent implements OnInit, OnDestroy {
       });
   }
 
-  private listenToBroadcastChannel(): void {
-    TFD_TRAVELS_CHANNEL.onmessage = (message: MessageEvent<string>) => {
+  private setupBroadcastChannel(): void {
+    this.travelsChannel.onmessage = (message: MessageEvent<string>) => {
       if (message.data === 'update') {
         this.fetchTravels(false);
       }
     };
+
+    this.destroyRef.onDestroy(() => {
+      this.travelsChannel.close();
+    });
   }
 
   private openDialog<T>(
@@ -185,8 +208,7 @@ export class PatientRequestTravelsComponent implements OnInit, OnDestroy {
     data: PatientRequestTravelDialogData,
     width = '800px',
     height = 'auto',
-    requiresRefresh = true,
-    emitGlobalBroadcast = true
+    requiresRefresh = true
   ): void {
     this.dialog.open(component, {
       width,
@@ -199,13 +221,14 @@ export class PatientRequestTravelsComponent implements OnInit, OnDestroy {
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
-        if (result) {
-          this.fetchTravels(requiresRefresh);
-
-          if (emitGlobalBroadcast) {
-            TFD_TRAVELS_CHANNEL.postMessage('update');
-          }
+        if (result && requiresRefresh) {
+          this.handleTravelChange();
         }
       });
+  }
+
+  private handleTravelChange(): void {
+    this.fetchTravels(false);
+    this.travelsChannel.postMessage('update');
   }
 }

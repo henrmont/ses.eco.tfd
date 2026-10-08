@@ -1,15 +1,14 @@
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { 
   ChangeDetectionStrategy, 
-  ChangeDetectorRef, 
   Component, 
   DestroyRef, 
-  Injector, 
   OnInit, 
+  effect, 
   inject, 
   signal 
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs/operators';
 
@@ -26,7 +25,21 @@ import { MatSelectModule } from '@angular/material/select';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { TravelGender } from '../../../enums/travel-gender';
+import { TravelPassenger } from '../../../models/travel-passenger.model';
 import { PatientRequestTravelService } from '../../../services/patient-request-travel.service';
+
+// ============================================================================
+// Tipos e Interfaces
+// ============================================================================
+
+export type TravelPassengerUpdateDialogData = {
+  passenger?: TravelPassenger;
+};
+
+interface ErrorMessage {
+  type: string;
+  message: string;
+}
 
 @Component({
   selector: 'app-travel-passenger-update',
@@ -52,24 +65,26 @@ export class TravelPassengerUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<TravelPassengerUpdateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  private readonly dialogRef = inject(MatDialogRef<TravelPassengerUpdateComponent>);
   private readonly fb = inject(FormBuilder);
   private readonly travelService = inject(PatientRequestTravelService);
   private readonly messageService = inject(MessageService);
-  private readonly dialogRef = inject(MatDialogRef<TravelPassengerUpdateComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
-  // Propriedades de Domínio e Suporte
+  // Propriedades e Estado Reativo
   // ==========================================
+  protected passengerForm!: FormGroup;
+
+  protected readonly passengerDisplayName = signal<string>('');
+  protected readonly isSubmitting = signal<boolean>(false);
+
+  // Listagens Estáticas (Enums)
   protected readonly genders = Object.entries(TravelGender).map(([key, value]) => ({ key, value }));
 
-  // ==========================================
-  // Mensagens de Erro por Controle
-  // ==========================================
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  // Mapeamento de Mensagens de Erro Tipado
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     tariff: [
       { type: 'required', message: 'O valor da tarifa é obrigatório.' },
       { type: 'min', message: 'O valor da tarifa não pode ser negativo.' }
@@ -88,79 +103,32 @@ export class TravelPassengerUpdateComponent implements OnInit {
   };
 
   // ==========================================
-  // Estados Reativos via Signals
+  // Construtor com Lógica Reativa (Effect)
   // ==========================================
-  protected readonly passengerDisplayName = signal<string>('');
-  protected readonly isSubmitting = signal<boolean>(false);
+  constructor() {
+    effect(() => {
+      const submitting = this.isSubmitting();
 
-  // ==========================================
-  // Formulário Principal
-  // ==========================================
-  protected passengerForm!: FormGroup;
+      if (!this.passengerForm) return;
+
+      if (submitting) {
+        this.passengerForm.disable({ emitEvent: false });
+      } else {
+        this.passengerForm.enable({ emitEvent: false });
+      }
+    });
+  }
 
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
     this.initForm();
-    this.setupFormSubmittingHandler();
     this.setPassengerDisplayName();
   }
 
   // ==========================================
-  // Inicialização de Formulário
-  // ==========================================
-  private initForm(): void {
-    const passenger = this.data?.passenger;
-
-    this.passengerForm = this.fb.group({
-      tariff: [passenger?.tariff ?? null, [Validators.required, Validators.min(0)]],
-      tax: [passenger?.tax ?? null, [Validators.required, Validators.min(0)]],
-      discount: [passenger?.discount ?? null, [Validators.min(0), Validators.max(100)]],
-      gender: [passenger?.gender ?? null],
-      seat: [passenger?.seat ?? null],
-      ticket: [passenger?.ticket ?? null]
-    });
-  }
-
-  // ==========================================
-  // Handlers Reativos
-  // ==========================================
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.passengerForm.disable({ emitEvent: false });
-        } else {
-          this.passengerForm.enable({ emitEvent: false });
-        }
-        this.cdr.markForCheck();
-      });
-  }
-
-  // ==========================================
-  // Helpers e Métodos Auxiliares
-  // ==========================================
-  /**
-   * Formata o nome do passageiro (Paciente ou Acompanhante) para exibição read-only.
-   */
-  private setPassengerDisplayName(): void {
-    const passenger = this.data?.passenger;
-
-    if (!passenger) {
-      this.passengerDisplayName.set('Não informado');
-      return;
-    }
-
-    const name = passenger?.patient?.name || passenger?.escort?.name || 'Passageiro Desconhecido';
-    const typeLabel = passenger?.is_patient ? 'Paciente' : 'Acompanhante';
-
-    this.passengerDisplayName.set(`${name} (${typeLabel})`);
-  }
-
-  // ==========================================
-  // Submissão do Formulário
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected onSubmit(): void {
     const passengerId = this.data?.passenger?.id;
@@ -192,5 +160,39 @@ export class TravelPassengerUpdateComponent implements OnInit {
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
       });
+  }
+
+  // ==========================================
+  // Métodos Privados / Auxiliares
+  // ==========================================
+  private initForm(): void {
+    const passenger = this.data?.passenger;
+
+    this.passengerForm = this.fb.group({
+      tariff: [passenger?.tariff ?? null, [Validators.required, Validators.min(0)]],
+      tax: [passenger?.tax ?? null, [Validators.required, Validators.min(0)]],
+      discount: [passenger?.discount ?? null, [Validators.min(0), Validators.max(100)]],
+      gender: [passenger?.gender ?? null],
+      seat: [passenger?.seat ?? null],
+      ticket: [passenger?.ticket ?? null]
+    });
+  }
+
+  /**
+   * Formata o nome do passageiro (Paciente ou Acompanhante) para exibição read-only.
+   */
+  private setPassengerDisplayName(): void {
+    const passenger = this.data?.passenger as any;
+
+    if (!passenger) {
+      this.passengerDisplayName.set('Não informado');
+      return;
+    }
+
+    const name = passenger?.patient?.name ?? passenger?.escort?.name ?? passenger?.name ?? 'Passageiro Desconhecido';
+    const isPatient = passenger?.is_patient ?? passenger?.isPatient ?? false;
+    const typeLabel = isPatient ? 'Paciente' : 'Acompanhante';
+
+    this.passengerDisplayName.set(`${name} (${typeLabel})`);
   }
 }

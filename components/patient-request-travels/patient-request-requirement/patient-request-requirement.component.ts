@@ -46,43 +46,21 @@ export class PatientRequestRequirementComponent {
     const request = this.rawData();
     if (!request) return [];
 
-    const isEntranceType = request.type?.toLowerCase() === 'entrada';
-
     const items: RequirementItem[] = [
       {
-        label: 'Avaliação Médica',
+        label: 'Parecer médico favorável',
         fulfilled: request.medical_status
       },
       {
-        label: 'Avaliação Social',
+        label: 'Parecer social favorável',
         fulfilled: request.social_status
-      }
+      },
+      {
+        label: 'Passagem válida cadastrada',
+        fulfilled: request.travel_status
+      },
     ];
-
-    // Exibe Viagem e Ajuda de Custo apenas se NÃO for solicitação do tipo Entrada
-    if (!isEntranceType) {
-      items.push(
-        {
-          label: 'TFD / Viagem',
-          fulfilled: request.travel_status
-        },
-        {
-          label: 'Ajuda de Custo',
-          fulfilled: request.cost_assistance_status
-        }
-      );
-    }
 
     return items;
   });
-
-  // ==========================================
-  // Métodos Auxiliares Privados
-  // ==========================================
-  private hasValue(value?: unknown): boolean {
-    if (value == null) return false;
-    if (typeof value === 'string') return value.trim() !== '';
-    if (typeof value === 'number') return !isNaN(value);
-    return true;
-  }
 }

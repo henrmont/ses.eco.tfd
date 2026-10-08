@@ -1,22 +1,26 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ChangeDetectorRef, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { finalize } from 'rxjs/operators';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
 
 // Material Modules
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Serviços & Domínio
-import { PatientRequestTravelService } from '../../../services/patient-request-travel.service';
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientRequestTravel } from '../../../models/patient-request-travel.model';
+import { PatientRequestTravelService } from '../../../services/patient-request-travel.service';
+
+export type PatientRequestTravelDeleteDialogData = {
+  travel?: PatientRequestTravel;
+};
 
 @Component({
   selector: 'app-patient-request-travel-delete',
   standalone: true,
   imports: [
-    CommonModule, 
     MatDialogModule, 
     MatButtonModule, 
     MatProgressSpinnerModule
@@ -29,7 +33,7 @@ export class PatientRequestTravelDeleteComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  protected readonly data = inject<PatientRequestTravelDeleteDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly travelService = inject(PatientRequestTravelService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestTravelDeleteComponent>);
@@ -42,7 +46,7 @@ export class PatientRequestTravelDeleteComponent {
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // Submissão / Exclusão
+  // Métodos de Ação
   // ==========================================
   protected onSubmit(): void {
     const travelId = this.data?.travel?.id;
@@ -64,13 +68,13 @@ export class PatientRequestTravelDeleteComponent {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Viagem removida com sucesso!');
           this.dialogRef.close(true);
         },
         error: (err) => {
-          const fallbackError = 'Ocorreu um erro ao tentar remover a viagem.';
-          this.messageService.showMessage(err?.error?.message || fallbackError);
+          const fallbackError = err?.error?.message || 'Ocorreu um erro ao tentar remover a viagem.';
+          this.messageService.showMessage(fallbackError);
         }
       });
   }

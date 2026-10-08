@@ -4,109 +4,95 @@
   display: flex;
   justify-content: center;
   width: 100%;
-  min-height: calc(100vh - 100px);
+  min-height: calc(100vh - $layout-header-height);
 }
 
-section {
-  margin-top: $spacing-xxl; 
-  width: 85%;
+.requests-container {
+  margin-top: $spacing-xxl;
+  width: $page-content-width;
   display: flex;
   flex-direction: column;
-  gap: $spacing-xl; 
+  gap: $spacing-xl;
 
-  // Div container interna da tabela
-  div.table {
+  .tab-icon {
+    margin-right: $spacing-sm;
+  }
+
+  // Container interno da tabela
+  .table-container {
     display: flex;
     flex-direction: column;
+    align-self: center;
     gap: $spacing-xl;
     width: 100%;
     padding: $spacing-lg;
     box-sizing: border-box;
   }
 
-  // Container de busca
-  div.search {
-    display: flex; 
-    justify-content: center; 
+  // Container da caixa de busca
+  .search-bar {
+    display: flex;
+    justify-content: center;
     width: 100%;
 
     mat-form-field {
       width: 100%;
-      max-width: 500px; 
+      max-width: $search-input-max-width;
     }
   }
 
-  // Estilização da Tabela
+  // Estilização da Tabela Angular Material
   table.mat-mdc-table {
     margin: 0 auto $spacing-sm auto;
-
-    background: $color-surface;
-    border-radius: $radius-md; 
+    background: white;
+    border-radius: $radius-md;
     overflow: hidden;
-    box-shadow: $shadow-card; 
+    box-shadow: $shadow-card;
     border-collapse: separate;
 
-    th.mat-mdc-header-cell, 
-    td.mat-mdc-cell {
-      padding: $spacing-md $spacing-lg; 
+    th,
+    td {
+      padding: $spacing-md $spacing-lg;
       vertical-align: middle;
     }
 
-    th.mat-mdc-header-cell {
-      font-weight: 600;
-      background-color: $color-table-header-bg;
-      color: $color-table-header-text;
+    th {
+      font-weight: $font-weight-semibold;
+      background-color: var(--md-sys-color-background);
+      color: var(--md-sys-color-inverse-surface);
     }
 
-    .center {
+    .col-center {
       text-align: center;
+
       div {
-        display: flex; 
-        justify-content: center;
-        gap: $spacing-xs;
+        @include flex-center($spacing-xs);
       }
     }
 
-    // Estados e Cores
-    .valid { color: $color-success; }
-    .invalid { color: $color-danger; }
-    .bookmark, .warning { color: $color-warning; }
-
-    // Larguras de Colunas Específicas para Solicitações Arquivadas
-    th.mat-column-name {
-      width: 32%;
+    // Estados Semânticos de Cores
+    .valid {
+      color: $color-success;
     }
 
-    th.mat-column-cns {
-      width: 16%;
+    .invalid {
+      color: $color-danger;
     }
 
-    th.mat-column-type {
-      width: 14%;
+    .bookmark,
+    .warning {
+      color: $color-warning;
     }
 
-    th.mat-column-medical_responsible {
-      width: 13%;
-    }
-
-    th.mat-column-social_responsible {
-      width: 13%;
-    }
-
-    th.mat-column-actions {
-      width: 8%;
-    }
+    // --- Larguras das Colunas: Passagens Arquivadas ---
+    th.mat-column-name        { width: 30%; }
+    th.mat-column-cns         { width: 20%; }
+    th.mat-column-type        { width: 18%; }
+    th.mat-column-responsible { width: 22%; }
+    th.mat-column-actions     { width: 10%; }
 
     td.actions-cell {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: $spacing-xs;
+      @include flex-center($spacing-xs);
     }
   }
-}
-
-// Oculta o contador incremental de páginas conforme o padrão adotado no Paginator
-::ng-deep .mat-mdc-paginator-range-label {
-  display: none !important;
 }
