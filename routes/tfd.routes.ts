@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
-import { professionalGuard } from '../guards/professional-guard';
 import { Professionals } from '../enums/professionals';
+import { professionalGuard } from '../../core/guards/professional-guard';
 
 export const tfdRoutes: Routes = [
   {
