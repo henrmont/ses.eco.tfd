@@ -1,21 +1,19 @@
 import { CommonModule } from '@angular/common';
-import { 
-  ChangeDetectionStrategy, 
-  ChangeDetectorRef, 
-  Component, 
-  DestroyRef, 
-  Injector, 
-  OnInit, 
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
   computed,
   effect,
-  inject, 
-  signal 
+  inject,
+  signal
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { finalize } from 'rxjs';
 
-// Material Modules
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,15 +22,30 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 
-// Services e Models
+// Services, Models & Enums
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestCostAssistanceService } from '../../../services/patient-request-cost-assistance.service';
+
+// ============================================================================
+// Tipos e Interfaces
+// ============================================================================
 
 export interface UnifiedPassengerOption {
   id: number;
   name: string;
   isPatient: boolean;
   typeLabel: string;
+}
+
+export type PatientRequestCostAssistanceCreateDialogData = {
+  patient_request?: PatientRequest;
+};
+
+interface ErrorMessage {
+  type: string;
+  message: string;
 }
 
 @Component({
@@ -58,30 +71,18 @@ export class PatientRequestCostAssistanceCreateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestCostAssistanceCreateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  private readonly dialogRef = inject(MatDialogRef<PatientRequestCostAssistanceCreateComponent>);
   private readonly fb = inject(FormBuilder);
   private readonly costAssistanceService = inject(PatientRequestCostAssistanceService);
   private readonly messageService = inject(MessageService);
-  private readonly dialogRef = inject(MatDialogRef<PatientRequestCostAssistanceCreateComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
-  // Mensagens de Erro por Controle
+  // Propriedades e Estado Reativo
   // ==========================================
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
-    name: [
-      { type: 'required', message: 'O nome da ajuda de custo é obrigatório.' }
-    ],
-    type: [
-      { type: 'required', message: 'O tipo da ajuda de custo é obrigatório.' }
-    ]
-  };
+  protected createCostAssistanceForm!: FormGroup;
 
-  // ==========================================
-  // Estados Reativos via Signals
-  // ==========================================
   // Signal para guardar o estado de has_initial_cost_assistance vindo da requisição
   protected readonly hasInitialCostAssistance = signal<boolean>(
     !!this.data?.patient_request?.has_initial_cost_assistance
@@ -98,101 +99,51 @@ export class PatientRequestCostAssistanceCreateComponent implements OnInit {
   protected readonly passengersOptions = signal<UnifiedPassengerOption[]>([]);
   protected readonly isSubmitting = signal<boolean>(false);
 
+  // Mapeamento de Mensagens de Erro Tipado
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
+    name: [
+      { type: 'required', message: 'O nome da ajuda de custo é obrigatório.' }
+    ],
+    type: [
+      { type: 'required', message: 'O tipo da ajuda de custo é obrigatório.' }
+    ],
+    passenger_id: [],
+    bank: [],
+    agency: [],
+    account: []
+  };
+
   // ==========================================
-  // FormGroups
+  // Construtor com Lógica Reativa (Effect)
   // ==========================================
-  protected createCostAssistanceForm!: FormGroup;
+  constructor() {
+    effect(() => {
+      const submitting = this.isSubmitting();
+      const currentType = this.costAssistanceType();
+
+      if (!this.createCostAssistanceForm) return;
+
+      if (submitting) {
+        this.createCostAssistanceForm.disable({ emitEvent: false });
+      } else {
+        this.createCostAssistanceForm.enable({ emitEvent: false });
+        // Mantém o campo de tipo sempre sincronizado e desabilitado
+        this.createCostAssistanceForm.get('type')?.setValue(currentType, { emitEvent: false });
+        this.createCostAssistanceForm.get('type')?.disable({ emitEvent: false });
+      }
+    });
+  }
 
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
-    this.extractPassengers();
     this.initForm();
-    this.setupFormSubmittingHandler();
-    this.setupTypeSyncEffect();
+    this.extractPassengers();
   }
 
   // ==========================================
-  // Inicialização de Formulário
-  // ==========================================
-  private initForm(): void {
-    this.createCostAssistanceForm = this.fb.group({
-      name: [null, [Validators.required]],
-      type: [{ value: this.costAssistanceType(), disabled: true }, [Validators.required]],
-      passenger_id: [null],
-      bank: [null],
-      agency: [null],
-      account: [null]
-    });
-  }
-
-  // ==========================================
-  // Handlers e Effects Reativos
-  // ==========================================
-
-  /**
-   * Sincroniza o valor do `computed` com o campo `type` do formulário
-   * sempre que o estado reativo sofrer alteração.
-   */
-  private setupTypeSyncEffect(): void {
-    effect(() => {
-      const currentType = this.costAssistanceType();
-      if (this.createCostAssistanceForm) {
-        this.createCostAssistanceForm.get('type')?.setValue(currentType, { emitEvent: false });
-      }
-    }, { injector: this.injector });
-  }
-
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.createCostAssistanceForm.disable({ emitEvent: false });
-        } else {
-          this.createCostAssistanceForm.enable({ emitEvent: false });
-          // Mantém o campo de tipo desabilitado
-          this.createCostAssistanceForm.get('type')?.disable({ emitEvent: false });
-        }
-        this.cdr.markForCheck();
-      });
-  }
-
-  // ==========================================
-  // Helpers e Métodos Auxiliares
-  // ==========================================
-  private extractPassengers(): void {
-    const travels = this.data?.patient_request?.travels || [];
-    const mapPassengers = new Map<string, UnifiedPassengerOption>();
-
-    for (const travel of travels) {
-      const passengers = travel?.passengers || [];
-
-      for (const item of passengers) {
-        const isPatient = !!item?.is_patient;
-        const entity = isPatient ? (item?.patient || item) : item?.escort;
-
-        if (entity?.id) {
-          const mapKey = `${isPatient ? 'patient' : 'escort'}-${entity.id}`;
-
-          if (!mapPassengers.has(mapKey)) {
-            mapPassengers.set(mapKey, {
-              id: item.id,
-              name: entity.name || entity.full_name || `Passageiro ${entity.id}`,
-              isPatient,
-              typeLabel: isPatient ? 'Paciente' : 'Acompanhante'
-            });
-          }
-        }
-      }
-    }
-
-    this.passengersOptions.set(Array.from(mapPassengers.values()));
-  }
-
-  // ==========================================
-  // Submissão
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected onSubmit(): void {
     const requestId = this.data?.patient_request?.id;
@@ -216,7 +167,7 @@ export class PatientRequestCostAssistanceCreateComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Ajuda de custo criada com sucesso!');
           // Atualiza a flag reativa local para 'true' caso precise refletir a criação de uma Inicial
           this.hasInitialCostAssistance.set(true);
@@ -227,5 +178,52 @@ export class PatientRequestCostAssistanceCreateComponent implements OnInit {
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
       });
+  }
+
+  // ==========================================
+  // Métodos Privados / Auxiliares
+  // ==========================================
+  private initForm(): void {
+    this.createCostAssistanceForm = this.fb.group({
+      name: [null, [Validators.required]],
+      type: [{ value: this.costAssistanceType(), disabled: true }, [Validators.required]],
+      passenger_id: [null],
+      bank: [null],
+      agency: [null],
+      account: [null]
+    });
+  }
+
+  /**
+   * Extrai e desduplica a lista de passageiros vinculados às viagens
+   * da solicitação do paciente.
+   */
+  private extractPassengers(): void {
+    const travels = this.data?.patient_request?.travels || [];
+    const mapPassengers = new Map<string, UnifiedPassengerOption>();
+
+    for (const travel of travels) {
+      const passengers = travel?.passengers || [];
+
+      for (const item of passengers) {
+        const isPatient = !!item?.is_patient;
+        const entity = isPatient ? (item?.patient || item) : item?.escort;
+
+        if (entity?.id) {
+          const mapKey = `${isPatient ? 'patient' : 'escort'}-${entity.id}`;
+
+          if (!mapPassengers.has(mapKey)) {
+            mapPassengers.set(mapKey, {
+              id: item.id,
+              name: entity.name || (entity as any).full_name || `Passageiro ${entity.id}`,
+              isPatient,
+              typeLabel: isPatient ? 'Paciente' : 'Acompanhante'
+            });
+          }
+        }
+      }
+    }
+
+    this.passengersOptions.set(Array.from(mapPassengers.values()));
   }
 }

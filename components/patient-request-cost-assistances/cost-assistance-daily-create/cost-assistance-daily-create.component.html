@@ -1,7 +1,7 @@
 <h2 mat-dialog-title>Nova diária</h2>
 
-<form [formGroup]="createCostAssistanceDailyForm">
-  <mat-dialog-content>
+<mat-dialog-content>
+  <form [formGroup]="createCostAssistanceDailyForm">
     <div class="stepper">
 
       <!-- Linha 1: Tipo de diária -->
@@ -50,26 +50,30 @@
       </div>
 
     </div>
-  </mat-dialog-content>
+  </form>
+</mat-dialog-content>
 
-  <mat-dialog-actions align="end">
-    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
-      Cancelar
-    </button>
-    
-    <button 
-      mat-flat-button 
-      color="primary" 
-      type="button" 
-      [disabled]="createCostAssistanceDailyForm.invalid || createCostAssistanceDailyForm.pending || isSubmitting()"
-      (click)="onSubmit()"
-    >
-      <div class="waiting">
-        @if (isSubmitting()) {
-          <mat-spinner [diameter]="20"></mat-spinner>
-        }
-        <span>{{ isSubmitting() ? 'Criando...' : 'Criar' }}</span>
-      </div>
-    </button>
-  </mat-dialog-actions>
-</form>
+<mat-dialog-actions align="end">
+  <button 
+    mat-button 
+    type="button" 
+    [mat-dialog-close]="false" 
+    [disabled]="isSubmitting()"
+  >
+    Fechar
+  </button>
+  <button 
+    mat-flat-button 
+    color="primary" 
+    type="button" 
+    [disabled]="createCostAssistanceDailyForm.invalid || isSubmitting()"
+    (click)="onSubmit()"
+  >
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      Criar
+    </div>
+  </button>
+</mat-dialog-actions>

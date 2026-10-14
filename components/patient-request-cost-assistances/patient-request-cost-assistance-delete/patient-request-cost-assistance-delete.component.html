@@ -1,19 +1,30 @@
-<h2 mat-dialog-title>Deletar ajuda de custo</h2>
+<h2 mat-dialog-title>Confirmar exclusão</h2>
 
 <mat-dialog-content>
   <p>
     Você tem certeza que deseja remover a ajuda de custo 
-    <strong>{{ data?.cost_assistance?.name ?? 'Não informado' }}</strong>? 
-    <br><span>Esta ação não poderá ser desfeita.</span>
+    <strong>{{ costAssistanceName }}</strong>?
   </p>
+  <p class="warning-text">Esta ação não poderá ser desfeita.</p>
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+  <button 
+    mat-button 
+    type="button" 
+    [disabled]="isSubmitting()" 
+    [mat-dialog-close]="false"
+  >
     Cancelar
   </button>
 
-  <button mat-flat-button color="warn" type="button" [disabled]="isSubmitting()" (click)="onSubmit()">
+  <button 
+    mat-flat-button 
+    color="warn" 
+    type="button" 
+    [disabled]="isSubmitting()" 
+    (click)="onSubmit()"
+  >
     <div class="waiting">
       @if (isSubmitting()) {
         <mat-spinner [diameter]="20"></mat-spinner>

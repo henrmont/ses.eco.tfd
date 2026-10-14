@@ -85,10 +85,11 @@
     }
 
     // --- Larguras das Colunas: Passagens Arquivadas ---
-    th.mat-column-name        { width: 30%; }
+    th.mat-column-name        { width: 24%; }
     th.mat-column-cns         { width: 20%; }
     th.mat-column-type        { width: 18%; }
     th.mat-column-responsible { width: 22%; }
+    th.mat-column-status      { width: 6%; }
     th.mat-column-actions     { width: 10%; }
 
     td.actions-cell {

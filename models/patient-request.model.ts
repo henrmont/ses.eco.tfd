@@ -38,6 +38,7 @@ export interface PatientRequest {
     has_travel?: boolean,
     cost_assistance_status?: boolean,
     has_cost_assistance?: boolean,
+    has_initial_cost_assistance?: boolean,
     has_cost_assistance_with_payment?: boolean,
     accountability_status?: boolean,
     back_to_owner?: string | null,
@@ -64,6 +65,7 @@ export interface PatientRequest {
     created_at?: any,
     attachments?: any,
     opinions?: any,
+    travels?: any,
     cost_assistances?: any,
     accountabilities?: any,
 }

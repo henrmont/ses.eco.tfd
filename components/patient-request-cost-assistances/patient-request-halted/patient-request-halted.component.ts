@@ -8,9 +8,15 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Services e Models
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestCostAssistanceService } from '../../../services/patient-request-cost-assistance.service';
+
+type PatientRequestHaltedDialogData = {
+  patient_request?: PatientRequest;
+};
 
 @Component({
   selector: 'app-patient-request-halted',
@@ -29,7 +35,7 @@ export class PatientRequestHaltedComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestHaltedDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly costAssistanceService = inject(PatientRequestCostAssistanceService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestHaltedComponent>);
@@ -42,27 +48,23 @@ export class PatientRequestHaltedComponent {
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // Submissão / Sobrestamento
+  // Métodos de Ação
   // ==========================================
   /**
-   * Dispara a requisição para paralisar/sobrestar a solicitação
+   * Dispara a requisição para paralisar/sobrestar a solicitação de ajuda de custo do paciente
    */
   protected onSubmit(): void {
-    const requestId = this.data?.patient_request?.id;
+    const patientRequestId = this.data?.patient_request?.id;
 
-    if (!requestId) {
-      this.messageService.showMessage('Erro: Identificador da solicitação não encontrado.');
-      return;
-    }
-
-    if (this.isSubmitting()) {
+    if (!patientRequestId) {
+      this.messageService.showMessage('Identificador da solicitação inválido.');
       return;
     }
 
     this.isSubmitting.set(true);
     this.cdr.markForCheck();
 
-    this.costAssistanceService.haltedPatientRequest(requestId)
+    this.costAssistanceService.haltedPatientRequest(patientRequestId)
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);
@@ -71,13 +73,13 @@ export class PatientRequestHaltedComponent {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Status de sobrestamento atualizado!');
           this.dialogRef.close(true);
         },
         error: (err) => {
-          const errorMessage = err?.error?.message || 'Ocorreu um erro operacional ao atualizar o sobrestamento.';
-          this.messageService.showMessage(errorMessage);
+          const fallbackError = 'Ocorreu um erro operacional ao atualizar o sobrestamento.';
+          this.messageService.showMessage(err?.error?.message || fallbackError);
         }
       });
   }

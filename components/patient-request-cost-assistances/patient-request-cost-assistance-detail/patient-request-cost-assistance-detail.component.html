@@ -3,7 +3,7 @@
 <mat-dialog-content>
   <div class="details-container">
 
-    <!-- Card: Dados da Ajuda de Custo -->
+    <!-- Card 1: Dados da Ajuda de Custo -->
     <mat-card appearance="outlined" class="detail-card">
       <mat-card-header>
         <mat-card-subtitle>DADOS DA AJUDA DE CUSTO</mat-card-subtitle>
@@ -15,7 +15,7 @@
             <strong>Nome:</strong> {{ data?.cost_assistance?.name ?? 'Não informado' }}
           </div>
           <div>
-            <strong>Total:</strong> {{ (data?.cost_assistance?.total_dailies | currency: 'BRL') ?? 'R$ 0,00' }}
+            <strong>Total:</strong> {{ (data?.cost_assistance?.total_dailies | currency: 'BRL' : 'symbol' : '1.2-2') ?? 'R$ 0,00' }}
           </div>
         </div>
 
@@ -25,16 +25,16 @@
           </div>
           <div>
             <strong>Data de criação:</strong> 
-            {{ data?.cost_assistance?.created_at ? (data.cost_assistance.created_at | date: 'dd/MM/yyyy') : 'Não informado' }}
+            {{ (data?.cost_assistance?.created_at | date: 'dd/MM/yyyy') ?? 'Não informado' }}
           </div>
         </div>
 
         <div class="line cols-1-col">
           <div>
             <strong>Passageiro:</strong> 
-            {{ passengerName() }} 
-            @if (passengerTypeLabel()) {
-              ({{ passengerTypeLabel() }})
+            {{ passengerName }}
+            @if (passengerTypeLabel) {
+              ({{ passengerTypeLabel }})
             }
           </div>
         </div>
@@ -53,7 +53,7 @@
       </mat-card-content>
     </mat-card>
 
-    <!-- Card: Diárias Vinculadas -->
+    <!-- Card 2: Diárias Vinculadas -->
     <mat-card appearance="outlined" class="detail-card">
       <mat-card-header>
         <mat-card-subtitle>DIÁRIAS VINCULADAS</mat-card-subtitle>
@@ -75,10 +75,10 @@
                 @for (item of data?.cost_assistance?.cost_assistance_dailies; track item.id || $index) {
                   <tr class="mat-mdc-row">
                     <td class="mat-mdc-cell">{{ item?.daily_cost?.name ?? 'Não informado' }}</td>
-                    <td class="mat-mdc-cell">{{ item?.daily_cost?.value | currency: 'BRL' }}</td>
+                    <td class="mat-mdc-cell">{{ item?.daily_cost?.value | currency: 'BRL' : 'symbol' : '1.2-2' }}</td>
                     <td class="mat-mdc-cell center">{{ item?.amount ?? 0 }}</td>
                     <td class="mat-mdc-cell">
-                      {{ ((item?.amount ?? 0) * (item?.daily_cost?.value ?? 0)) | currency: 'BRL' }}
+                      {{ ((item?.amount ?? 0) * (item?.daily_cost?.value ?? 0)) | currency: 'BRL' : 'symbol' : '1.2-2' }}
                     </td>
                   </tr>
                 }

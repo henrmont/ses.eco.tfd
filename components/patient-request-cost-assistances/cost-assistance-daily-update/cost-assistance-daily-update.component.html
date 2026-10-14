@@ -1,4 +1,4 @@
-<h2 mat-dialog-title>Atualizar diária</h2>
+<h2 mat-dialog-title>Editar diária</h2>
 
 <form [formGroup]="updateCostAssistanceDailyForm">
   <mat-dialog-content>
@@ -53,7 +53,12 @@
   </mat-dialog-content>
 
   <mat-dialog-actions align="end">
-    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
+    <button 
+      mat-button 
+      type="button" 
+      [disabled]="isSubmitting()" 
+      [mat-dialog-close]="false"
+    >
       Cancelar
     </button>
     
@@ -61,14 +66,14 @@
       mat-flat-button 
       color="primary" 
       type="button" 
-      [disabled]="updateCostAssistanceDailyForm.invalid || updateCostAssistanceDailyForm.pending  || updateCostAssistanceDailyForm.pristine || isSubmitting()"
+      [disabled]="updateCostAssistanceDailyForm.invalid || updateCostAssistanceDailyForm.pending || updateCostAssistanceDailyForm.pristine || isSubmitting()"
       (click)="onSubmit()"
     >
       <div class="waiting">
         @if (isSubmitting()) {
           <mat-spinner [diameter]="20"></mat-spinner>
         }
-        <span>{{ isSubmitting() ? 'Atualizando...' : 'Atualizar' }}</span>
+        <span>{{ isSubmitting() ? 'Salvando...' : 'Salvar' }}</span>
       </div>
     </button>
   </mat-dialog-actions>

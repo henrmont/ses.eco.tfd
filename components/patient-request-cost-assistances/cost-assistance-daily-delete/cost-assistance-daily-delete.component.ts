@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
@@ -8,17 +7,26 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Core e Serviços
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { CostAssistanceDaily } from '../../../models/cost-assistance-daily.model';
 import { PatientRequestCostAssistanceService } from '../../../services/patient-request-cost-assistance.service';
+
+// ============================================================================
+// Tipos e Interfaces
+// ============================================================================
+
+export type CostAssistanceDailyDeleteDialogData = {
+  cost_assistance_daily?: CostAssistanceDaily;
+};
 
 @Component({
   selector: 'app-cost-assistance-daily-delete',
   standalone: true,
   imports: [
-    CommonModule,
-    MatDialogModule,
-    MatButtonModule,
+    MatDialogModule, 
+    MatButtonModule, 
     MatProgressSpinnerModule
   ],
   templateUrl: './cost-assistance-daily-delete.component.html',
@@ -29,7 +37,7 @@ export class CostAssistanceDailyDeleteComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<CostAssistanceDailyDeleteDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly costAssistanceService = inject(PatientRequestCostAssistanceService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<CostAssistanceDailyDeleteComponent>);
@@ -42,11 +50,15 @@ export class CostAssistanceDailyDeleteComponent {
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // Métodos de Ação do Template (Protected)
+  // Getters / Helpers de Exibição
   // ==========================================
-  /**
-   * Dispara a requisição para remover a diária da ajuda de custo.
-   */
+  protected get dailyName(): string {
+    return this.data?.cost_assistance_daily?.daily_cost?.name ?? 'Não informado';
+  }
+
+  // ==========================================
+  // Métodos de Ação
+  // ==========================================
   protected onSubmit(): void {
     const dailyId = this.data?.cost_assistance_daily?.id;
 
@@ -71,13 +83,13 @@ export class CostAssistanceDailyDeleteComponent {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Diária removida com sucesso!');
           this.dialogRef.close(true);
         },
         error: (err) => {
-          const fallbackError = 'Ocorreu um erro ao tentar remover a diária.';
-          this.messageService.showMessage(err?.error?.message || fallbackError);
+          const fallbackError = err?.error?.message || 'Ocorreu um erro ao tentar remover a diária.';
+          this.messageService.showMessage(fallbackError);
         }
       });
   }

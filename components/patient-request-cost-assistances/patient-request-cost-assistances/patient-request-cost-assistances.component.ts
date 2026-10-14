@@ -1,11 +1,11 @@
-import { ComponentType } from '@angular/cdk/portal';
-import { Overlay } from '@angular/cdk/overlay';
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { finalize } from 'rxjs';
 
-// Angular Material
+// Angular Material & CDK
+import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,7 +16,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 // Core, Models e Serviços
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequestCostAssistance } from '../../../models/patient-request-cost-assistance.model';
-import { Permission } from '../../../models/permission.model';
+import { PatientRequest } from '../../../models/patient-request.model';
 import { Role } from '../../../models/role.model';
 import { PatientRequestCostAssistanceService } from '../../../services/patient-request-cost-assistance.service';
 
@@ -26,20 +26,17 @@ import { PatientRequestCostAssistanceCreateComponent } from '../patient-request-
 import { PatientRequestCostAssistanceDeleteComponent } from '../patient-request-cost-assistance-delete/patient-request-cost-assistance-delete.component';
 import { PatientRequestCostAssistanceDetailComponent } from '../patient-request-cost-assistance-detail/patient-request-cost-assistance-detail.component';
 import { PatientRequestCostAssistanceUpdateComponent } from '../patient-request-cost-assistance-update/patient-request-cost-assistance-update.component';
-import { PatientRequest } from '../../../models/patient-request.model';
+import { PatientRequestCostAssistanceRequirementComponent } from '../patient-request-cost-assistance-requirement/patient-request-cost-assistance-requirement.component';
 
-// Define o tipo aceito para os dados do modal de ajudas de custo
-type CostAssistanceDialogData =
-  | { patient_request: PatientRequest }
-  | { cost_assistance: PatientRequestCostAssistance; permissions?: Role[] };
+export type PatientRequestCostAssistancesDialogData = {
+  patient_request?: PatientRequest;
+  cost_assistance?: PatientRequestCostAssistance;
+  roles?: Role[];
+};
 
-// Interface estendida para cálculos ou propriedades mapeadas da lista
-interface MappedCostAssistance extends PatientRequestCostAssistance {
+export interface MappedCostAssistance extends PatientRequestCostAssistance {
   totalDailiesNum: number;
 }
-
-// Constantes Locais
-const TFD_COST_ASSISTANCES_CHANNEL = new BroadcastChannel('tfd-cost-assistances-channel');
 
 @Component({
   selector: 'app-patient-request-cost-assistances',
@@ -61,15 +58,19 @@ const TFD_COST_ASSISTANCES_CHANNEL = new BroadcastChannel('tfd-cost-assistances-
 })
 export class PatientRequestCostAssistancesComponent implements OnInit {
   // ==========================================
+  // Instância do Broadcast Channel
+  // ==========================================
+  private readonly costAssistancesChannel = new BroadcastChannel('tfd-cost-assistances-channel');
+
+  // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestCostAssistancesDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly costAssistanceService = inject(PatientRequestCostAssistanceService);
   private readonly messageService = inject(MessageService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -78,8 +79,6 @@ export class PatientRequestCostAssistancesComponent implements OnInit {
   protected readonly costAssistancesList = signal<PatientRequestCostAssistance[]>([]);
   protected readonly isLoading = signal<boolean>(true);
   protected readonly totalValue = signal<number>(0);
-
-  // Instância ÚNICA/ESTÁTICA do MatTableDataSource
   protected readonly dataSource = new MatTableDataSource<PatientRequestCostAssistance>([]);
 
   // Somatório do total de diárias das ajudas de custo
@@ -99,35 +98,50 @@ export class PatientRequestCostAssistancesComponent implements OnInit {
     });
   });
 
-  // Define dinamicamente as colunas do rodapé. 
-  // Retorna as colunas normais se houver itens, ou um array vazio para ocultá-lo sem quebrar o layout.
+  // Define dinamicamente as colunas do rodapé
   protected readonly footerColumns = computed(() =>
     this.costAssistancesList().length > 0 ? this.displayedColumns : []
   );
 
-  // Adicione essa propriedade computada no componente pai:
+  // Verifica se existe ajuda de custo do tipo "Inicial"
   protected readonly hasInitialCostAssistance = computed(() =>
     this.costAssistancesList().some(item => item.type === 'Inicial')
   );
+
+  private readonly requestId = computed(() => this.data?.patient_request?.id ?? null);
 
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
-    this.setupTableBindings();
+    this.setupBroadcastChannel();
     this.fetchCostAssistances(true);
-    this.listenToBroadcastChannel();
+  }
+
+  // ==========================================
+  // Avaliação de Permissões
+  // ==========================================
+  protected checkPermissions(permissionName: string): boolean {
+    const roles = this.data?.roles || [];
+    return !roles.some((role) =>
+      role?.permissions?.some((p) => p?.name === permissionName)
+    );
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected patientRequestCostAssistanceCreate(): void {
-    this.openDialog(PatientRequestCostAssistanceCreateComponent, { patient_request: {...this.data?.patient_request, has_initial_cost_assistance: this.hasInitialCostAssistance()} }, '800px');
+    this.openDialog(PatientRequestCostAssistanceCreateComponent, {
+      patient_request: {
+        ...this.data?.patient_request,
+        has_initial_cost_assistance: this.hasInitialCostAssistance()
+      }
+    }, '800px');
   }
 
   protected patientRequestCostAssistanceDetail(costAssistance: PatientRequestCostAssistance): void {
-    this.openDialog(PatientRequestCostAssistanceDetailComponent, { cost_assistance: costAssistance }, '800px', 'auto', false, false);
+    this.openDialog(PatientRequestCostAssistanceDetailComponent, { cost_assistance: costAssistance }, '800px', 'auto', false);
   }
 
   protected patientRequestCostAssistanceUpdate(costAssistance: PatientRequestCostAssistance): void {
@@ -139,36 +153,20 @@ export class PatientRequestCostAssistancesComponent implements OnInit {
   }
 
   protected costAssistanceDailies(costAssistance: PatientRequestCostAssistance): void {
-    this.openDialog(CostAssistanceDailiesComponent, { cost_assistance: costAssistance, permissions: this.data?.permissions }, '1000px', 'auto', true);
+    this.openDialog(CostAssistanceDailiesComponent, { cost_assistance: costAssistance, roles: this.data?.roles }, '1000px', 'auto', true);
   }
 
-  /**
-   * Verifica se a permissão informada NÃO existe nos papéis recebidos.
-   */
-  protected checkPermissions(name: string): boolean {
-    const roles = this.data?.permissions || [];
-    for (const item of roles) {
-      const hasPermission = item.permissions?.some((p: Permission) => p.name === name);
-      if (hasPermission) {
-        return false;
-      }
-    }
-    return true;
+  protected patientRequestCostAssistanceRequirement(costAssistance: PatientRequestCostAssistance): void {
+    this.openDialog(PatientRequestCostAssistanceRequirementComponent, { cost_assistance: costAssistance }, '500px', 'auto', true);
   }
 
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
-  private setupTableBindings(): void {
-    effect(() => {
-      this.dataSource.data = this.costAssistancesList();
-    }, { injector: this.injector });
-  }
-
   private fetchCostAssistances(showLoading = false): void {
-    const requestId = this.data?.patient_request?.id;
+    const currentRequestId = this.requestId();
 
-    if (!requestId) {
+    if (!currentRequestId) {
       this.isLoading.set(false);
       return;
     }
@@ -179,7 +177,7 @@ export class PatientRequestCostAssistancesComponent implements OnInit {
 
     this.fetchBalance();
 
-    this.costAssistanceService.getCostAssistances(requestId)
+    this.costAssistanceService.getCostAssistances(currentRequestId)
       .pipe(
         finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
@@ -188,9 +186,11 @@ export class PatientRequestCostAssistancesComponent implements OnInit {
         next: (response: any) => {
           const items = Array.isArray(response) ? response : (response?.data || []);
           this.costAssistancesList.set(items);
+          this.dataSource.data = items;
         },
         error: (err) => {
           this.costAssistancesList.set([]);
+          this.dataSource.data = [];
           const fallbackError = 'Não foi possível carregar as ajudas de custo.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
@@ -218,21 +218,24 @@ export class PatientRequestCostAssistancesComponent implements OnInit {
       });
   }
 
-  private listenToBroadcastChannel(): void {
-    TFD_COST_ASSISTANCES_CHANNEL.onmessage = (message: MessageEvent<string>) => {
+  private setupBroadcastChannel(): void {
+    this.costAssistancesChannel.onmessage = (message: MessageEvent<string>) => {
       if (message.data === 'update') {
         this.fetchCostAssistances(false);
       }
     };
+
+    this.destroyRef.onDestroy(() => {
+      this.costAssistancesChannel.close();
+    });
   }
 
   private openDialog<T>(
     component: ComponentType<T>,
-    data: CostAssistanceDialogData,
+    data: PatientRequestCostAssistancesDialogData,
     width = '800px',
     height = 'auto',
-    requiresRefresh = true,
-    emitGlobalBroadcast = true
+    requiresRefresh = true
   ): void {
     this.dialog.open(component, {
       width,
@@ -245,15 +248,14 @@ export class PatientRequestCostAssistancesComponent implements OnInit {
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
-        if (result) {
-          if (requiresRefresh) {
-            this.fetchCostAssistances(false);
-          }
-
-          if (emitGlobalBroadcast) {
-            TFD_COST_ASSISTANCES_CHANNEL.postMessage('update');
-          }
+        if (result && requiresRefresh) {
+          this.handleCostAssistanceChange();
         }
       });
+  }
+
+  private handleCostAssistanceChange(): void {
+    this.fetchCostAssistances(false);
+    this.costAssistancesChannel.postMessage('update');
   }
 }

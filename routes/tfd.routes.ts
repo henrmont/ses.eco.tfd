@@ -134,6 +134,15 @@ export const tfdRoutes: Routes = [
     }
   },
   {
+    path: 'arquivo-ajudas-de-custo',
+    loadComponent: () => import('./../pages/archive-patient-request-cost-assistances-page/archive-patient-request-cost-assistances.page').then(m => m.ArchivePatientRequestCostAssistancesPage),
+    canActivate: [professionalGuard],
+    data: { 
+      permission: 'tfd/ajuda de custo listar', 
+      types: [Professionals.AJUDA_DE_CUSTO] 
+    }
+  },
+  {
     path: 'pagamentos',
     loadComponent: () => import('./../pages/payments-page/payments.page').then(m => m.PaymentsPage),
     canActivate: [professionalGuard],
