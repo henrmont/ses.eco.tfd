@@ -10,5 +10,6 @@ export interface PatientRequestAccountability {
     accountability_dailies?: AccountabilityDaily[],
     total_dailies?: number,
     total_amount?: number,
-    dailies?: any
+    dailies?: any,
+    created_at?: any
 }

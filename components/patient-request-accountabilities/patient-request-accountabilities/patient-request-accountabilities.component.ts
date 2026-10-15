@@ -1,11 +1,11 @@
-import { ComponentType } from '@angular/cdk/portal';
-import { Overlay } from '@angular/cdk/overlay';
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { finalize } from 'rxjs';
 
-// Angular Material
+// Angular Material & CDK
+import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -17,7 +17,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequestAccountability } from '../../../models/patient-request-accountability.model';
 import { PatientRequest } from '../../../models/patient-request.model';
-import { Permission } from '../../../models/permission.model';
 import { Role } from '../../../models/role.model';
 import { PatientRequestAccountabilityService } from '../../../services/patient-request-accountability.service';
 
@@ -27,14 +26,17 @@ import { PatientRequestAccountabilityCreateComponent } from '../patient-request-
 import { PatientRequestAccountabilityDeleteComponent } from '../patient-request-accountability-delete/patient-request-accountability-delete.component';
 import { PatientRequestAccountabilityDetailComponent } from '../patient-request-accountability-detail/patient-request-accountability-detail.component';
 import { PatientRequestAccountabilityUpdateComponent } from '../patient-request-accountability-update/patient-request-accountability-update.component';
+import { PatientRequestAccountabilityRequirementComponent } from '../patient-request-accountability-requirement/patient-request-accountability-requirement.component';
 
-// Define o tipo aceito para os dados dos modais de prestação de contas
-type AccountabilityDialogData =
-  | { patient_request: PatientRequest }
-  | { accountability: PatientRequestAccountability; permissions?: Role[] };
+export type PatientRequestAccountabilitiesDialogData = {
+  patient_request?: PatientRequest;
+  accountability?: PatientRequestAccountability;
+  roles?: Role[];
+};
 
-// Constantes Locais
-const TFD_ACCOUNTABILITIES_CHANNEL = new BroadcastChannel('tfd-accountabilities-channel');
+export interface MappedAccountability extends PatientRequestAccountability {
+  totalDailiesNum: number;
+}
 
 @Component({
   selector: 'app-patient-request-accountabilities',
@@ -56,15 +58,19 @@ const TFD_ACCOUNTABILITIES_CHANNEL = new BroadcastChannel('tfd-accountabilities-
 })
 export class PatientRequestAccountabilitiesComponent implements OnInit {
   // ==========================================
+  // Instância do Broadcast Channel
+  // ==========================================
+  private readonly accountabilitiesChannel = new BroadcastChannel('tfd-accountabilities-channel');
+
+  // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestAccountabilitiesDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly accountabilityService = inject(PatientRequestAccountabilityService);
   private readonly messageService = inject(MessageService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -73,11 +79,9 @@ export class PatientRequestAccountabilitiesComponent implements OnInit {
   protected readonly accountabilitiesList = signal<PatientRequestAccountability[]>([]);
   protected readonly isLoading = signal<boolean>(true);
   protected readonly totalValue = signal<number>(0);
-
-  // Instância ÚNICA/ESTÁTICA do MatTableDataSource
   protected readonly dataSource = new MatTableDataSource<PatientRequestAccountability>([]);
 
-  // Somatório do montante total de diárias das prestações de contas
+  // Somatório do total de diárias das prestações de contas
   protected readonly totalAccountabilities = computed(() =>
     this.accountabilitiesList().reduce((acc, item) => acc + (Number(item.total_dailies) || 0), 0)
   );
@@ -94,33 +98,46 @@ export class PatientRequestAccountabilitiesComponent implements OnInit {
     });
   });
 
-  // Define dinamicamente as colunas do rodapé (oculta quando vazio)
+  // Define dinamicamente as colunas do rodapé
   protected readonly footerColumns = computed(() =>
     this.accountabilitiesList().length > 0 ? this.displayedColumns : []
   );
+
+  private readonly requestId = computed(() => this.data?.patient_request?.id ?? null);
 
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
-    this.setupTableBindings();
+    this.setupBroadcastChannel();
     this.fetchAccountabilities(true);
-    this.listenToBroadcastChannel();
+  }
+
+  // ==========================================
+  // Avaliação de Permissões
+  // ==========================================
+  protected checkPermissions(permissionName: string): boolean {
+    const roles = this.data?.roles || [];
+    return !roles.some((role) =>
+      role?.permissions?.some((p) => p?.name === permissionName)
+    );
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected patientRequestAccountabilityCreate(): void {
-    this.openDialog(PatientRequestAccountabilityCreateComponent, { patient_request: this.data?.patient_request }, '500px');
+    this.openDialog(PatientRequestAccountabilityCreateComponent, {
+      patient_request: this.data?.patient_request
+    }, '500px');
   }
 
   protected patientRequestAccountabilityDetail(accountability: PatientRequestAccountability): void {
-    this.openDialog(PatientRequestAccountabilityDetailComponent, { accountability }, '800px', 'auto', false, false);
+    this.openDialog(PatientRequestAccountabilityDetailComponent, { accountability }, '800px', 'auto', false);
   }
 
   protected patientRequestAccountabilityUpdate(accountability: PatientRequestAccountability): void {
-    this.openDialog(PatientRequestAccountabilityUpdateComponent, { accountability }, '400px');
+    this.openDialog(PatientRequestAccountabilityUpdateComponent, { accountability }, '500px');
   }
 
   protected patientRequestAccountabilityDelete(accountability: PatientRequestAccountability): void {
@@ -128,36 +145,20 @@ export class PatientRequestAccountabilitiesComponent implements OnInit {
   }
 
   protected accountabilityDailies(accountability: PatientRequestAccountability): void {
-    this.openDialog(AccountabilityDailiesComponent, { accountability, permissions: this.data?.permissions }, '1000px', 'auto', true);
+    this.openDialog(AccountabilityDailiesComponent, { accountability, roles: this.data?.roles }, '1000px', 'auto', true);
   }
 
-  /**
-   * Verifica se a permissão informada NÃO existe nos papéis recebidos.
-   */
-  protected checkPermissions(name: string): boolean {
-    const roles = this.data?.permissions || [];
-    for (const item of roles) {
-      const hasPermission = item.permissions?.some((p: Permission) => p.name === name);
-      if (hasPermission) {
-        return false;
-      }
-    }
-    return true;
+  protected patientRequestAccountabilityRequirement(accountability: PatientRequestAccountability): void {
+    this.openDialog(PatientRequestAccountabilityRequirementComponent, { accountability }, '500px', 'auto', true);
   }
 
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
-  private setupTableBindings(): void {
-    effect(() => {
-      this.dataSource.data = this.accountabilitiesList();
-    }, { injector: this.injector });
-  }
-
   private fetchAccountabilities(showLoading = false): void {
-    const requestId = this.data?.patient_request?.id;
+    const currentRequestId = this.requestId();
 
-    if (!requestId) {
+    if (!currentRequestId) {
       this.isLoading.set(false);
       return;
     }
@@ -168,7 +169,7 @@ export class PatientRequestAccountabilitiesComponent implements OnInit {
 
     this.fetchBalance();
 
-    this.accountabilityService.getAccountabilities(requestId)
+    this.accountabilityService.getAccountabilities(currentRequestId)
       .pipe(
         finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
@@ -177,9 +178,11 @@ export class PatientRequestAccountabilitiesComponent implements OnInit {
         next: (response: any) => {
           const items = Array.isArray(response) ? response : (response?.data || []);
           this.accountabilitiesList.set(items);
+          this.dataSource.data = items;
         },
         error: (err) => {
           this.accountabilitiesList.set([]);
+          this.dataSource.data = [];
           const fallbackError = 'Não foi possível carregar as prestações de contas.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
@@ -207,21 +210,24 @@ export class PatientRequestAccountabilitiesComponent implements OnInit {
       });
   }
 
-  private listenToBroadcastChannel(): void {
-    TFD_ACCOUNTABILITIES_CHANNEL.onmessage = (message: MessageEvent<string>) => {
+  private setupBroadcastChannel(): void {
+    this.accountabilitiesChannel.onmessage = (message: MessageEvent<string>) => {
       if (message.data === 'update') {
         this.fetchAccountabilities(false);
       }
     };
+
+    this.destroyRef.onDestroy(() => {
+      this.accountabilitiesChannel.close();
+    });
   }
 
   private openDialog<T>(
     component: ComponentType<T>,
-    data: AccountabilityDialogData,
+    data: PatientRequestAccountabilitiesDialogData,
     width = '800px',
     height = 'auto',
-    requiresRefresh = true,
-    emitGlobalBroadcast = true
+    requiresRefresh = true
   ): void {
     this.dialog.open(component, {
       width,
@@ -234,15 +240,14 @@ export class PatientRequestAccountabilitiesComponent implements OnInit {
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
-        if (result) {
-          if (requiresRefresh) {
-            this.fetchAccountabilities(false);
-          }
-
-          if (emitGlobalBroadcast) {
-            TFD_ACCOUNTABILITIES_CHANNEL.postMessage('update');
-          }
+        if (result && requiresRefresh) {
+          this.handleAccountabilityChange();
         }
       });
+  }
+
+  private handleAccountabilityChange(): void {
+    this.fetchAccountabilities(false);
+    this.accountabilitiesChannel.postMessage('update');
   }
 }

@@ -3,7 +3,7 @@
 <mat-dialog-content>
   <div class="details-container">
 
-    <!-- Card: Dados da Prestação de Contas -->
+    <!-- Card 1: Dados da Prestação de Contas -->
     <mat-card appearance="outlined" class="detail-card">
       <mat-card-header>
         <mat-card-subtitle>DADOS DA PRESTAÇÃO DE CONTAS</mat-card-subtitle>
@@ -15,20 +15,20 @@
             <strong>Nome:</strong> {{ data?.accountability?.name ?? 'Não informado' }}
           </div>
           <div>
-            <strong>Total:</strong> {{ (data?.accountability?.total_dailies | currency: 'BRL') ?? 'R$ 0,00' }}
+            <strong>Total:</strong> {{ (data?.accountability?.total_dailies | currency: 'BRL' : 'symbol' : '1.2-2') ?? 'R$ 0,00' }}
           </div>
         </div>
 
         <div class="line cols-1-1">
           <div>
             <strong>Data de criação:</strong> 
-            {{ data?.accountability?.created_at ? (data.accountability.created_at | date: 'dd/MM/yyyy') : 'Não informado' }}
+            {{ (data?.accountability?.created_at | date: 'dd/MM/yyyy') ?? 'Não informado' }}
           </div>
         </div>
       </mat-card-content>
     </mat-card>
 
-    <!-- Card: Diárias Vinculadas -->
+    <!-- Card 2: Diárias Vinculadas -->
     <mat-card appearance="outlined" class="detail-card">
       <mat-card-header>
         <mat-card-subtitle>DIÁRIAS VINCULADAS</mat-card-subtitle>
@@ -50,10 +50,10 @@
                 @for (item of data?.accountability?.accountability_dailies; track item.id || $index) {
                   <tr class="mat-mdc-row">
                     <td class="mat-mdc-cell">{{ item?.daily_cost?.name ?? 'Não informado' }}</td>
-                    <td class="mat-mdc-cell">{{ item?.daily_cost?.value | currency: 'BRL' }}</td>
+                    <td class="mat-mdc-cell">{{ item?.daily_cost?.value | currency: 'BRL' : 'symbol' : '1.2-2' }}</td>
                     <td class="mat-mdc-cell center">{{ item?.amount ?? 0 }}</td>
                     <td class="mat-mdc-cell">
-                      {{ ((item?.amount ?? 0) * (item?.daily_cost?.value ?? 0)) | currency: 'BRL' }}
+                      {{ ((item?.amount ?? 0) * (item?.daily_cost?.value ?? 0)) | currency: 'BRL' : 'symbol' : '1.2-2' }}
                     </td>
                   </tr>
                 }

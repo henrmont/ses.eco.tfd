@@ -143,6 +143,24 @@ export const tfdRoutes: Routes = [
     }
   },
   {
+    path: 'prestacao-de-contas',
+    loadComponent: () => import('./../pages/patient-request-accountabilities-page/patient-request-accountabilities.page').then(m => m.PatientRequestAccountabilitiesPage),
+    canActivate: [professionalGuard],
+    data: { 
+      permission: 'tfd/ajuda de custo listar', 
+      types: [Professionals.AJUDA_DE_CUSTO] 
+    }
+  },
+  {
+    path: 'arquivo-prestacao-de-contas',
+    loadComponent: () => import('./../pages/archive-patient-request-accountabilities-page/archive-patient-request-accountabilities.page').then(m => m.ArchivePatientRequestAccountabilitiesPage),
+    canActivate: [professionalGuard],
+    data: { 
+      permission: 'tfd/ajuda de custo listar', 
+      types: [Professionals.AJUDA_DE_CUSTO] 
+    }
+  },
+  {
     path: 'pagamentos',
     loadComponent: () => import('./../pages/payments-page/payments.page').then(m => m.PaymentsPage),
     canActivate: [professionalGuard],

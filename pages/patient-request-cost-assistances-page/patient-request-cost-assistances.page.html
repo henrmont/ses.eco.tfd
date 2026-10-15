@@ -117,7 +117,7 @@
                       type="button"
                       matTooltip="Voltar solicitação"
                       (click)="patientRequestUndo(element)"
-                      [disabled]="element.is_cost_assistance_bookmark || element.back_to_cost_assistance || !element.medical_status || !element.social_status || checkPermissions('tfd/ajuda de custo atualizar')">
+                      [disabled]="element.is_cost_assistance_bookmark || element.back_to_cost_assistance || !element.medical_status || !element.social_status || !element.has_cost_assistance_without_payment || checkPermissions('tfd/ajuda de custo atualizar')">
                 <mat-icon>undo</mat-icon>
               </button>
 
@@ -125,7 +125,7 @@
                       type="button"
                       matTooltip="Encaminhar para Pagamento"
                       (click)="patientRequestProcessToPayment(element)"
-                      [disabled]="element.is_cost_assistance_bookmark || element.back_to_cost_assistance || !element.cost_assistance_status || !element.medical_status || !element.social_status || checkPermissions('tfd/ajuda de custo atualizar')">
+                      [disabled]="element.is_cost_assistance_bookmark || element.back_to_cost_assistance || !element.cost_assistance_status || !element.medical_status || !element.social_status || !element.has_cost_assistance_without_payment || checkPermissions('tfd/ajuda de custo atualizar')">
                 <mat-icon>payments</mat-icon>
               </button>
 

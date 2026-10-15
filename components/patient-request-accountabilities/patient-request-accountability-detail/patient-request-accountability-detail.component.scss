@@ -16,25 +16,12 @@ mat-dialog-content {
   gap: $spacing-xxl; 
 }
 
-// Estilização dos Cards de detalhamento
 mat-card {
-  &.detail-card {
-    background: $color-card-bg;
-    border-radius: $radius-md; 
-    box-shadow: $shadow-soft; 
-
-    mat-card-header {
-      margin-bottom: $spacing-sm;
-      
-      mat-card-subtitle {
-        letter-spacing: 0.5px;
-        color: $color-text-variant;
-      }
-    }
-  }
+  background: $color-card-bg;
+  border-radius: $radius-md; 
+  box-shadow: $shadow-soft; 
 }
 
-// Mensagem amigável para listas vazias nos cards
 .empty-message {
   padding: $spacing-md;
   color: $color-text-muted;
@@ -42,7 +29,6 @@ mat-card {
   font-size: $font-size-md;
 }
 
-// Estrutura de Linha/Grid para exibição dos dados
 .line {
   display: grid;
   gap: $spacing-md; 
@@ -56,11 +42,6 @@ mat-card {
     font-weight: $font-weight-semibold;
   }
 
-  .highlight {
-    font-weight: $font-weight-medium;
-    color: $color-primary;
-  }
-
   .action-cell {
     display: flex;
     align-items: center;
@@ -69,9 +50,11 @@ mat-card {
   }
 
   // --- Definições Semânticas das Colunas da Grid ---
-  &.cols-1-col   { grid-template-columns: 1fr; }
-  &.cols-1-1     { grid-template-columns: 1fr 1fr; }
-  &.cols-1-1-1   { grid-template-columns: repeat(3, 1fr); }
+  &.cols-1-col       { grid-template-columns: 1fr; }
+  &.cols-1-1         { grid-template-columns: 1fr 1fr; }
+  &.cols-1-1-1       { grid-template-columns: 1fr 1fr 1fr; }
+  &.cols-2-1-1       { grid-template-columns: 2fr 1fr 1fr; }
+  &.cols-travel-grid { grid-template-columns: 2fr 1fr 1fr 1fr; }
 }
 
 // --- Tabela Customizada para Detalhes de Diárias ---

@@ -1,7 +1,7 @@
-import { ComponentType } from '@angular/cdk/portal';
 import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { CommonModule, CurrencyPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -13,27 +13,34 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Models e Serviços
+// Core, Models e Serviços
+import { MessageService } from '../../../../core/services/message-service';
 import { AccountabilityDaily } from '../../../models/accountability-daily.model';
 import { PatientRequestAccountability } from '../../../models/patient-request-accountability.model';
+import { Role } from '../../../models/role.model';
 import { PatientRequestAccountabilityService } from '../../../services/patient-request-accountability.service';
-import { MessageService } from '../../../../core/services/message-service';
 
 // Modais do Contexto de Diárias da Prestação de Contas
 import { AccountabilityDailyCreateComponent } from '../accountability-daily-create/accountability-daily-create.component';
 import { AccountabilityDailyDeleteComponent } from '../accountability-daily-delete/accountability-daily-delete.component';
 import { AccountabilityDailyUpdateComponent } from '../accountability-daily-update/accountability-daily-update.component';
 
-// Define o tipo aceito para os dados dos modais do contexto
-type AccountabilityDailiesDialogData =
-  | { accountability: PatientRequestAccountability }
-  | { accountability_daily: AccountabilityDaily };
+// ============================================================================
+// Tipos e Interfaces
+// ============================================================================
 
-// Constantes Locais
-const TFD_ACCOUNTABILITIES_CHANNEL = new BroadcastChannel('tfd-accountabilities-channel');
+export type AccountabilityDailiesDialogData = {
+  accountability?: PatientRequestAccountability;
+  accountability_daily?: AccountabilityDaily;
+  roles?: Role[];
+};
+
+export interface MappedAccountabilityDaily extends AccountabilityDaily {
+  partial: number;
+}
 
 @Component({
-  selector: 'app-accountability-dailies-component',
+  selector: 'app-accountability-dailies',
   standalone: true,
   imports: [
     CommonModule,
@@ -51,15 +58,19 @@ const TFD_ACCOUNTABILITIES_CHANNEL = new BroadcastChannel('tfd-accountabilities-
 })
 export class AccountabilityDailiesComponent implements OnInit {
   // ==========================================
+  // Instância do Broadcast Channel
+  // ==========================================
+  private readonly accountabilitiesChannel = new BroadcastChannel('tfd-accountabilities-channel');
+
+  // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<AccountabilityDailiesDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly accountabilityService = inject(PatientRequestAccountabilityService);
   private readonly messageService = inject(MessageService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
@@ -67,35 +78,44 @@ export class AccountabilityDailiesComponent implements OnInit {
   protected readonly displayedColumns: string[] = ['name', 'value', 'amount', 'partial', 'actions'];
   protected readonly dailiesList = signal<AccountabilityDaily[]>([]);
   protected readonly isLoading = signal<boolean>(true);
+  protected readonly dataSource = new MatTableDataSource<MappedAccountabilityDaily>([]);
 
-  // Instância ÚNICA/ESTÁTICA do MatTableDataSource
-  protected readonly dataSource = new MatTableDataSource<AccountabilityDaily>([]);
-
-  // Mapeia a lista adicionando o valor computado 'partial' (subtotal) individual de forma reativa
-  protected readonly mappedDailies = computed(() =>
+  // Mapeia a lista adicionando o valor computado 'partial' (subtotal) individual
+  protected readonly mappedDailies = computed<MappedAccountabilityDaily[]>(() =>
     this.dailiesList().map(item => ({
       ...item,
       partial: (Number(item.amount) || 0) * (Number(item.daily_cost?.value) || 0)
     }))
   );
 
-  // Computado que define se o rodapé deve exibir as colunas ou ficar escondido quando a lista estiver vazia
+  // Define dinamicamente as colunas do rodapé
   protected readonly footerColumns = computed(() =>
     this.dailiesList().length > 0 ? this.displayedColumns : []
   );
 
-  // Calcula o valor total global somando todos os parciais de maneira limpa e reativa
+  // Calcula o valor total global somando todos os parciais
   protected readonly totalValue = computed(() =>
     this.mappedDailies().reduce((acc, item) => acc + item.partial, 0)
   );
+
+  private readonly accountabilityId = computed(() => this.data?.accountability?.id ?? null);
 
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
-    this.setupTableBindings();
+    this.setupBroadcastChannel();
     this.fetchAccountabilityDailies(true);
-    this.listenToBroadcastChannel();
+  }
+
+  // ==========================================
+  // Avaliação de Permissões
+  // ==========================================
+  protected checkPermissions(permissionName: string): boolean {
+    const roles = this.data?.roles || [];
+    return !roles.some((role) =>
+      role?.permissions?.some((p) => p?.name === permissionName)
+    );
   }
 
   // ==========================================
@@ -116,16 +136,10 @@ export class AccountabilityDailiesComponent implements OnInit {
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
-  private setupTableBindings(): void {
-    effect(() => {
-      this.dataSource.data = this.mappedDailies();
-    }, { injector: this.injector });
-  }
-
   private fetchAccountabilityDailies(showLoading = false): void {
-    const accountabilityId = this.data?.accountability?.id;
+    const currentAccountabilityId = this.accountabilityId();
 
-    if (!accountabilityId) {
+    if (!currentAccountabilityId) {
       this.isLoading.set(false);
       return;
     }
@@ -134,7 +148,7 @@ export class AccountabilityDailiesComponent implements OnInit {
       this.isLoading.set(true);
     }
 
-    this.accountabilityService.getAccountabilityDailies(accountabilityId)
+    this.accountabilityService.getAccountabilityDailies(currentAccountabilityId)
       .pipe(
         finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
@@ -143,21 +157,27 @@ export class AccountabilityDailiesComponent implements OnInit {
         next: (response: any) => {
           const items = Array.isArray(response) ? response : (response?.data || []);
           this.dailiesList.set(items);
+          this.dataSource.data = this.mappedDailies();
         },
         error: (err) => {
           this.dailiesList.set([]);
+          this.dataSource.data = [];
           const fallbackError = 'Não foi possível carregar as diárias da prestação de contas.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
       });
   }
 
-  private listenToBroadcastChannel(): void {
-    TFD_ACCOUNTABILITIES_CHANNEL.onmessage = (message: MessageEvent<string>) => {
+  private setupBroadcastChannel(): void {
+    this.accountabilitiesChannel.onmessage = (message: MessageEvent<string>) => {
       if (message.data === 'update') {
         this.fetchAccountabilityDailies(false);
       }
     };
+
+    this.destroyRef.onDestroy(() => {
+      this.accountabilitiesChannel.close();
+    });
   }
 
   private openDialog<T>(
@@ -165,8 +185,7 @@ export class AccountabilityDailiesComponent implements OnInit {
     data: AccountabilityDailiesDialogData,
     width = '500px',
     height = 'auto',
-    requiresRefresh = true,
-    emitGlobalBroadcast = true
+    requiresRefresh = true
   ): void {
     this.dialog.open(component, {
       width,
@@ -179,15 +198,14 @@ export class AccountabilityDailiesComponent implements OnInit {
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
-        if (result) {
-          if (requiresRefresh) {
-            this.fetchAccountabilityDailies(false);
-          }
-
-          if (emitGlobalBroadcast) {
-            TFD_ACCOUNTABILITIES_CHANNEL.postMessage('update');
-          }
+        if (result && requiresRefresh) {
+          this.handleDailyChange();
         }
       });
+  }
+
+  private handleDailyChange(): void {
+    this.fetchAccountabilityDailies(false);
+    this.accountabilitiesChannel.postMessage('update');
   }
 }

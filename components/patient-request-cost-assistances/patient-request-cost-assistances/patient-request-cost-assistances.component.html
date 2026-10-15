@@ -75,7 +75,7 @@
                 mat-icon-button 
                 type="button" 
                 matTooltip="Diárias" 
-                [disabled]="checkPermissions('tfd/ajuda de custo atualizar')"
+                [disabled]="element.payment || checkPermissions('tfd/ajuda de custo atualizar')"
                 (click)="costAssistanceDailies(element)"
               >
                 <mat-icon>hotel</mat-icon>
@@ -86,7 +86,7 @@
                 mat-icon-button 
                 type="button" 
                 matTooltip="Atualizar ajuda de custo" 
-                [disabled]="checkPermissions('tfd/ajuda de custo atualizar')"
+                [disabled]="element.payment || checkPermissions('tfd/ajuda de custo atualizar')"
                 (click)="patientRequestCostAssistanceUpdate(element)"
               >
                 <mat-icon>drive_file_rename_outline</mat-icon>

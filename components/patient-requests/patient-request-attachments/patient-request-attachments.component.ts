@@ -47,9 +47,15 @@ type PatientRequestAttachmentDialogData = {
 })
 export class PatientRequestAttachmentsComponent implements OnInit {
   // ==========================================
-  // Instância do Broadcast Channel
+  // Instâncias dos Broadcast Channels
   // ==========================================
-  private readonly patientRequestsChannel = new BroadcastChannel('tfd-patient-requests-channel');
+  private readonly channels: BroadcastChannel[] = [
+    new BroadcastChannel('tfd-patient-requests-channel'),
+    new BroadcastChannel('tfd-opinions-channel'),
+    new BroadcastChannel('tfd-travels-channel'),
+    new BroadcastChannel('tfd-cost-assistances-channel'),
+    new BroadcastChannel('tfd-accountabilities-channel')
+  ];
 
   // ==========================================
   // Injeção de Dependências
@@ -75,7 +81,7 @@ export class PatientRequestAttachmentsComponent implements OnInit {
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
-    this.setupBroadcastChannel();
+    this.setupBroadcastChannels();
     this.fetchPatientRequestAttachments(true);
   }
 
@@ -148,15 +154,17 @@ export class PatientRequestAttachmentsComponent implements OnInit {
       });
   }
 
-  private setupBroadcastChannel(): void {
-    this.patientRequestsChannel.onmessage = (message: MessageEvent<string>) => {
-      if (message.data === 'update') {
-        this.fetchPatientRequestAttachments(false);
-      }
-    };
+  private setupBroadcastChannels(): void {
+    this.channels.forEach(channel => {
+      channel.onmessage = (message: MessageEvent<string>) => {
+        if (message.data === 'update') {
+          this.fetchPatientRequestAttachments(false);
+        }
+      };
+    });
 
     this.destroyRef.onDestroy(() => {
-      this.patientRequestsChannel.close();
+      this.channels.forEach(channel => channel.close());
     });
   }
 
@@ -186,6 +194,10 @@ export class PatientRequestAttachmentsComponent implements OnInit {
 
   private handleAttachmentChange(): void {
     this.fetchPatientRequestAttachments(false);
-    this.patientRequestsChannel.postMessage('update');
+    this.notifyAllChannels('update');
+  }
+
+  private notifyAllChannels(message: string): void {
+    this.channels.forEach(channel => channel.postMessage(message));
   }
 }

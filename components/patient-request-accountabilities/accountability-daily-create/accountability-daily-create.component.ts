@@ -1,44 +1,60 @@
 import { CommonModule } from '@angular/common';
-import { 
-  ChangeDetectionStrategy, 
-  ChangeDetectorRef, 
-  Component, 
-  DestroyRef, 
-  Injector, 
-  OnInit, 
-  inject, 
-  signal 
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  effect,
+  inject,
+  signal
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 
-// Angular Material e Módulos Externos
+// Angular Material & Bibliotecas Externas
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { NgxMaskDirective } from 'ngx-mask';
 
-// Core, Models e Serviços
+// Core, Models & Serviços
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { DailyCost } from '../../../models/daily-cost.model';
+import { PatientRequestAccountability } from '../../../models/patient-request-accountability.model';
 import { PatientRequestAccountabilityService } from '../../../services/patient-request-accountability.service';
+
+// ============================================================================
+// Tipos e Interfaces
+// ============================================================================
+
+export type AccountabilityDailyCreateDialogData = {
+  accountability?: PatientRequestAccountability;
+};
+
+interface ErrorMessage {
+  type: string;
+  message: string;
+}
 
 @Component({
   selector: 'app-accountability-daily-create',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule, 
-    ReactiveFormsModule, 
-    MatDialogModule, 
-    MatButtonModule, 
-    MatFormFieldModule, 
-    MatInputModule, 
-    MatSelectModule, 
+    FormsModule,
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatIconModule,
     MatProgressSpinnerModule,
     NgxMaskDirective
   ],
@@ -50,19 +66,24 @@ export class AccountabilityDailyCreateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<AccountabilityDailyCreateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  private readonly dialogRef = inject(MatDialogRef<AccountabilityDailyCreateComponent>);
   private readonly fb = inject(FormBuilder);
   private readonly accountabilityService = inject(PatientRequestAccountabilityService);
   private readonly messageService = inject(MessageService);
-  private readonly dialogRef = inject(MatDialogRef<AccountabilityDailyCreateComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
-  // Mensagens de Erro por Controle
+  // Propriedades e Estado Reativo
   // ==========================================
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  protected createAccountabilityDailyForm!: FormGroup;
+
+  protected readonly dailyCostsOptions = signal<DailyCost[]>([]);
+  protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly isLoadingOptions = signal<boolean>(true);
+
+  // Mapeamento de Mensagens de Erro Tipado
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     daily_cost_id: [
       { type: 'required', message: 'O tipo de diária é obrigatório.' }
     ],
@@ -73,90 +94,37 @@ export class AccountabilityDailyCreateComponent implements OnInit {
   };
 
   // ==========================================
-  // Estados Reativos via Signals
+  // Construtor com Lógica Reativa (Effect)
   // ==========================================
-  protected readonly dailyCostsOptions = signal<DailyCost[]>([]);
-  protected readonly isSubmitting = signal<boolean>(false);
-  protected readonly isLoadingOptions = signal<boolean>(true);
+  constructor() {
+    effect(() => {
+      const submitting = this.isSubmitting();
 
-  // ==========================================
-  // FormGroups
-  // ==========================================
-  protected createAccountabilityDailyForm!: FormGroup;
+      if (!this.createAccountabilityDailyForm) return;
+
+      if (submitting) {
+        this.createAccountabilityDailyForm.disable({ emitEvent: false });
+      } else {
+        this.createAccountabilityDailyForm.enable({ emitEvent: false });
+      }
+    });
+  }
 
   // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnInit(): void {
     this.initForm();
-    this.setupFormSubmittingHandler();
     this.fetchDailyCosts();
   }
 
   // ==========================================
-  // Inicialização do Formulário
-  // ==========================================
-  private initForm(): void {
-    this.createAccountabilityDailyForm = this.fb.group({
-      daily_cost_id: [null, [Validators.required]],
-      amount: [null, [Validators.required, Validators.min(1)]]
-    });
-  }
-
-  // ==========================================
-  // Handlers Reativos
-  // ==========================================
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.createAccountabilityDailyForm.disable({ emitEvent: false });
-        } else {
-          this.createAccountabilityDailyForm.enable({ emitEvent: false });
-        }
-        this.cdr.markForCheck();
-      });
-  }
-
-  // ==========================================
-  // Helpers e Métodos Auxiliares
-  // ==========================================
-  /**
-   * Busca as opções de tipos de diária disponíveis no sistema.
-   */
-  private fetchDailyCosts(): void {
-    this.accountabilityService.getDailyCosts()
-      .pipe(
-        finalize(() => {
-          this.isLoadingOptions.set(false);
-          this.cdr.markForCheck();
-        }),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: (response: any) => {
-          const items = Array.isArray(response) ? response : (response?.data || []);
-          this.dailyCostsOptions.set(items);
-        },
-        error: () => {
-          this.messageService.showMessage('Falha ao carregar as opções de diária.');
-        }
-      });
-  }
-
-  // ==========================================
-  // Submissão
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected onSubmit(): void {
     const accountabilityId = this.data?.accountability?.id;
 
-    if (!accountabilityId) {
-      this.messageService.showMessage('Identificador da prestação de contas não encontrado.');
-      return;
-    }
-
-    if (this.createAccountabilityDailyForm.invalid) {
+    if (this.createAccountabilityDailyForm.invalid || !accountabilityId) {
       this.createAccountabilityDailyForm.markAllAsTouched();
       return;
     }
@@ -175,13 +143,43 @@ export class AccountabilityDailyCreateComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Diária adicionada com sucesso!');
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Ocorreu um erro ao vincular a diária.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
+        }
+      });
+  }
+
+  // ==========================================
+  // Métodos Privados / Auxiliares
+  // ==========================================
+  private initForm(): void {
+    this.createAccountabilityDailyForm = this.fb.group({
+      daily_cost_id: [null, [Validators.required]],
+      amount: [null, [Validators.required, Validators.min(1)]]
+    });
+  }
+
+  /**
+   * Busca as opções de tipos de diária disponíveis no sistema.
+   */
+  private fetchDailyCosts(): void {
+    this.accountabilityService.getDailyCosts()
+      .pipe(
+        finalize(() => this.isLoadingOptions.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (response: any) => {
+          const items = Array.isArray(response) ? response : (response?.data || []);
+          this.dailyCostsOptions.set(items);
+        },
+        error: () => {
+          this.messageService.showMessage('Falha ao carregar as opções de diária.');
         }
       });
   }

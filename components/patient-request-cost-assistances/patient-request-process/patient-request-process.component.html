@@ -17,27 +17,29 @@
               <input 
                 type="text" 
                 matInput 
-                formControlName="payment_professional_search" 
+                [formControl]="paymentProfessionalControl" 
                 [matAutocomplete]="autoProf" 
-                [readonly]="paymentProfessionalReadOnly() || isSubmitting()"
+                [readonly]="isReadOnly()"
                 placeholder="Selecione o profissional"
               />
               
-              @if (paymentProfessionalLoading()) {
+              @if (isLoadingProfessionals()) {
                 <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
               }
 
               <mat-autocomplete #autoProf="matAutocomplete" [displayWith]="displayPaymentProfessional">
-                @for (option of filteredPaymentProfessionalOptions | async; track option.id) {
+                @for (option of (filteredPaymentProfessionalOptions | async) ?? []; track option.id) {
                   <mat-option [value]="option" (onSelectionChange)="setPaymentProfessional(option)">
-                    <mat-chip style="margin-right: 12px;">{{ option?.patient_payment_requests_count || 0 }}</mat-chip>
+                    @if (option?.requests_count !== undefined && option?.requests_count !== null) {
+                      <mat-chip class="margin-right-20">{{ option?.requests_count }}</mat-chip>
+                    }
                     <span>{{ option?.name }}</span>
                   </mat-option>
                 }
               </mat-autocomplete>
 
-              @for (item of errorMessages['payment_professional_id']; track $index) {
-                <mat-error [hidden]="!step1FormGroup.get('payment_professional_search')?.hasError(item.type) && !step1FormGroup.get('payment_professional_id')?.hasError(item.type)">
+              @for (item of errorMessages['payment_professional_id']; track item.type) {
+                <mat-error [hidden]="!step1FormGroup.get('payment_professional_id')?.hasError(item.type)">
                   {{ item.message }}
                 </mat-error>
               }
@@ -51,22 +53,22 @@
               <input 
                 type="text" 
                 matInput 
-                formControlName="cost_assistance_search" 
+                [formControl]="costAssistanceControl" 
                 [matAutocomplete]="autoCost" 
-                [readonly]="isSubmitting()"
+                [readonly]="isReadOnly()"
                 placeholder="Selecione a ajuda de custo"
               />
 
               <mat-autocomplete #autoCost="matAutocomplete" [displayWith]="displayCostAssistance">
-                @for (option of filteredCostAssistanceOptions | async; track option.id) {
+                @for (option of (filteredCostAssistanceOptions | async) ?? []; track option.id) {
                   <mat-option [value]="option" (onSelectionChange)="setCostAssistance(option)">
                     <span>{{ displayCostAssistance(option) }}</span>
                   </mat-option>
                 }
               </mat-autocomplete>
 
-              @for (item of errorMessages['cost_assistance_id']; track $index) {
-                <mat-error [hidden]="!step1FormGroup.get('cost_assistance_search')?.hasError(item.type) && !step1FormGroup.get('cost_assistance_id')?.hasError(item.type)">
+              @for (item of errorMessages['cost_assistance_id']; track item.type) {
+                <mat-error [hidden]="!step1FormGroup.get('cost_assistance_id')?.hasError(item.type)">
                   {{ item.message }}
                 </mat-error>
               }
@@ -80,22 +82,22 @@
               <input 
                 type="text" 
                 matInput 
-                formControlName="travel_search" 
+                [formControl]="travelControl" 
                 [matAutocomplete]="autoTravel" 
-                [readonly]="isSubmitting()"
+                [readonly]="isReadOnly()"
                 placeholder="Selecione a viagem"
               />
 
               <mat-autocomplete #autoTravel="matAutocomplete" [displayWith]="displayTravel">
-                @for (option of filteredTravelOptions | async; track option.id) {
+                @for (option of (filteredTravelOptions | async) ?? []; track option.id) {
                   <mat-option [value]="option" (onSelectionChange)="setTravel(option)">
                     <span>{{ displayTravel(option) }}</span>
                   </mat-option>
                 }
               </mat-autocomplete>
 
-              @for (item of errorMessages['travel_id']; track $index) {
-                <mat-error [hidden]="!step1FormGroup.get('travel_search')?.hasError(item.type) && !step1FormGroup.get('travel_id')?.hasError(item.type)">
+              @for (item of errorMessages['travel_id']; track item.type) {
+                <mat-error [hidden]="!step1FormGroup.get('travel_id')?.hasError(item.type)">
                   {{ item.message }}
                 </mat-error>
               }
@@ -195,15 +197,19 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
-    Fechar
+  <button 
+    mat-button 
+    type="button" 
+    [mat-dialog-close]="false" 
+    [disabled]="isSubmitting()">
+    Cancelar
   </button>
   
   <button 
     mat-flat-button 
     color="primary" 
     type="button" 
-    [disabled]="tramitPatientRequestForm.invalid || !areSlotsValid() || isSubmitting() || paymentProfessionalLoading()"
+    [disabled]="isFormInvalid()"
     (click)="onSubmit()">
     <div class="waiting">
       @if (isSubmitting()) {

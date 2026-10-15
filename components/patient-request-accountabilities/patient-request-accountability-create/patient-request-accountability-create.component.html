@@ -1,7 +1,7 @@
 <h2 mat-dialog-title>Nova prestação de contas</h2>
 
-<form [formGroup]="createAccountabilityForm">
-  <mat-dialog-content>
+<mat-dialog-content>
+  <form [formGroup]="createAccountabilityForm">
     <div class="stepper">
 
       <!-- Linha 1: Nome -->
@@ -24,26 +24,31 @@
       </div>
 
     </div>
-  </mat-dialog-content>
+  </form>
+</mat-dialog-content>
 
-  <mat-dialog-actions align="end">
-    <button mat-button type="button" [disabled]="isSubmitting()" [mat-dialog-close]="false">
-      Cancelar
-    </button>
-    
-    <button 
-      mat-flat-button 
-      color="primary" 
-      type="button" 
-      [disabled]="createAccountabilityForm.invalid || createAccountabilityForm.pending || isSubmitting()"
-      (click)="onSubmit()"
-    >
-      <div class="waiting">
-        @if (isSubmitting()) {
-          <mat-spinner [diameter]="20"></mat-spinner>
-        }
-        <span>{{ isSubmitting() ? 'Criando...' : 'Criar' }}</span>
-      </div>
-    </button>
-  </mat-dialog-actions>
-</form>
+<mat-dialog-actions align="end">
+  <button 
+    mat-button 
+    type="button" 
+    [mat-dialog-close]="false" 
+    [disabled]="isSubmitting()"
+  >
+    Fechar
+  </button>
+
+  <button 
+    mat-flat-button 
+    color="primary" 
+    type="button" 
+    [disabled]="createAccountabilityForm.invalid || isSubmitting()"
+    (click)="onSubmit()"
+  >
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      Criar
+    </div>
+  </button>
+</mat-dialog-actions>

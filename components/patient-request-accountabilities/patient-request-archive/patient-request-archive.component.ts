@@ -1,52 +1,85 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
+
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
+// Core & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { PatientRequest } from '../../../models/patient-request.model';
+
+// Services
 import { PatientRequestAccountabilityService } from '../../../services/patient-request-accountability.service';
+
+export type PatientRequestArchiveDialogData = {
+  patient_request?: PatientRequest;
+};
 
 @Component({
   selector: 'app-patient-request-archive',
   standalone: true,
-  imports: [MatDialogModule, MatButtonModule, MatProgressSpinnerModule],
+  imports: [
+    MatButtonModule,
+    MatDialogModule,
+    MatProgressSpinnerModule
+  ],
   templateUrl: './patient-request-archive.component.html',
   styleUrl: './patient-request-archive.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush // ⚡ Performance máxima com OnPush + Signals
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PatientRequestArchiveComponent {
-  // Injeções de Dependência modernas via inject()
-  protected readonly data = inject(MAT_DIALOG_DATA);
+  // ==========================================
+  // Injeção de Dependências
+  // ==========================================
+  protected readonly data = inject<PatientRequestArchiveDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly accountabilityService = inject(PatientRequestAccountabilityService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestArchiveComponent>);
+  private readonly destroyRef = inject(DestroyRef);
 
-  // Estado de submissão reativo
+  // ==========================================
+  // Propriedades e Estado Reativo
+  // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
 
-  /**
-   * Dispara a requisição para arquivar a solicitação
-   */
+  // ==========================================
+  // Getters para Facilitação do Template
+  // ==========================================
+  protected get patientName(): string {
+    return this.data?.patient_request?.report?.patient_care?.patient?.name || 'Não informado';
+  }
+
+  // ==========================================
+  // Métodos Acessíveis pelo Template (Protected)
+  // ==========================================
   protected onSubmit(): void {
     const patientRequestId = this.data?.patient_request?.id;
 
     if (!patientRequestId) {
-      this.messageService.showMessage('Erro: Identificador da solicitação não encontrado.');
+      this.messageService.showMessage('Identificador da solicitação inválido.');
       return;
     }
 
     this.isSubmitting.set(true);
 
-    this.accountabilityService.archivePatientRequest(patientRequestId).subscribe({
-      next: (response: any) => {
-        this.messageService.showMessage(response.message || 'Solicitação arquivada com sucesso!');
-        this.dialogRef.close(true); // Retorna true para atualizar a grid/listagem pai
-      },
-      error: (err) => {
-        const errorMessage = err?.error?.message || 'Ocorreu um erro ao tentar arquivar a solicitação.';
-        this.messageService.showMessage(errorMessage);
-        this.isSubmitting.set(false); // Reseta o estado em caso de erro para nova tentativa
-      },
-    });
+    this.accountabilityService.archivePatientRequest(patientRequestId)
+      .pipe(
+        finalize(() => this.isSubmitting.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (response: ApiResponse) => {
+          this.messageService.showMessage(response?.message || 'Solicitação arquivada com sucesso!');
+          this.dialogRef.close(true);
+        },
+        error: (err) => {
+          const fallbackError = 'Erro ao tentar arquivar a solicitação.';
+          this.messageService.showMessage(err?.error?.message || fallbackError);
+        }
+      });
   }
 }

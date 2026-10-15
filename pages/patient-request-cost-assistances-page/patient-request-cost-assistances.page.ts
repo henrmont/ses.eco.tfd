@@ -46,7 +46,7 @@ import { PatientRequestHistoryComponent } from '../../components/patient-request
 import { PatientRequestCostAssistancesComponent } from '../../components/patient-request-cost-assistances/patient-request-cost-assistances/patient-request-cost-assistances.component';
 import { PatientRequestMoveFromOthersComponent } from '../../components/patient-request-cost-assistances/patient-request-move-from-others/patient-request-move-from-others.component';
 import { PatientRequestUndoComponent } from '../../components/patient-request-cost-assistances/patient-request-undo/patient-request-undo.component';
-import { PatientRequestProcessToPaymentComponent } from '../../components/patient-request-cost-assistances/patient-request-process-to-payment/patient-request-process-to-payment.component';
+import { PatientRequestProcessComponent } from '../../components/patient-request-cost-assistances/patient-request-process/patient-request-process.component';
 import { PatientRequestArchiveComponent } from '../../components/patient-request-cost-assistances/patient-request-archive/patient-request-archive.component';
 import { PatientRequestRequirementComponent } from '../../components/patient-request-cost-assistances/patient-request-requirement/patient-request-requirement.component';
 
@@ -210,7 +210,7 @@ export class PatientRequestCostAssistancesPage implements OnInit, OnDestroy {
   }
 
   protected patientRequestProcessToPayment(patientRequest: PatientRequest): void {
-    this.openDialog(PatientRequestProcessToPaymentComponent, { patient_request: patientRequest }, '800px');
+    this.openDialog(PatientRequestProcessComponent, { patient_request: patientRequest }, '800px');
   }
 
   protected patientRequestArchive(patientRequest: PatientRequest): void {

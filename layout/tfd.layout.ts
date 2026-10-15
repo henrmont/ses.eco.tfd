@@ -408,14 +408,14 @@ export class TfdLayout implements OnInit, OnDestroy {
           icon: 'receipt_long', 
           types: [Professionals.AJUDA_DE_CUSTO], 
           permissions: ['ajuda de custo listar'], 
-          routerLink: ['prestacoes-de-conta'] 
+          routerLink: ['prestacao-de-contas'] 
         },
         { 
           label: 'Arquivo', 
           icon: 'inventory_2', 
           types: [Professionals.AJUDA_DE_CUSTO], 
           permissions: ['ajuda de custo listar'], 
-          routerLink: ['arquivo-prestacoes-de-conta'] 
+          routerLink: ['arquivo-prestacao-de-contas'] 
         }
       ]
     },
