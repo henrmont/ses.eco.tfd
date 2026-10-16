@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, ElementRef, inject, viewChild, DestroyRef, signal, OnInit, OnDestroy } from '@angular/core';
+import { 
+  ChangeDetectionStrategy, 
+  Component, 
+  ElementRef, 
+  inject, 
+  viewChild, 
+  DestroyRef, 
+  computed, // ➔ Importado para a reatividade via Signals
+  OnInit, 
+  OnDestroy 
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -8,10 +18,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatDialog, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
-
-// Serviços e Componentes
-import { LoadingComponent } from '../../core/components/loading-component/loading-component';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 
 // Modais (Dialogs)
 import { PatientCreateComponent } from '../components/patients/patient-create/patient-create.component';
@@ -20,8 +27,10 @@ import { PatientRequestTravelsImportComponent } from '../components/patient-requ
 import { UserCreateComponent } from '../components/users/user-create/user-create.component';
 import { RoleCreateComponent } from '../components/roles/role-create/role-create.component';
 
-// Enums Locais
+// Enums Locais e Serviços
 import { Professionals } from '../enums/professionals';
+import { TfdUser } from '../models/user.model';
+import { AuthService } from '../services/auth.service';
 
 // Nomes dos canais do módulo TFD
 type TfdChannelKey = 'ROLES' | 'USERS' | 'PATIENTS' | 'REQUESTS' | 'TRAVELS';
@@ -68,6 +77,7 @@ interface MenuGroup {
 })
 export class TfdLayout implements OnInit, OnDestroy {
   // 🔒 Injeções de dependência
+  private readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly dialog = inject(MatDialog);
   private readonly destroyRef = inject(DestroyRef);
@@ -75,24 +85,52 @@ export class TfdLayout implements OnInit, OnDestroy {
   // Captura do input HTML
   protected readonly competence = viewChild.required<ElementRef>('competence');
   
-  private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly selectedFile = signal<File | null>(null);
-
   // 📡 Mapa de instâncias dos BroadcastChannels do TFD
   private readonly channels = new Map<TfdChannelKey, BroadcastChannel>();
 
   // ==========================================
+  // REATIVIDADE VIA SIGNALS (Resolve o atraso com OnPush)
+  // ==========================================
+
+  /**
+   * 1. Reage dinamicamente a alterações no usuário logado dentro do AuthService
+   */
+  protected readonly currentUser = computed(() => this.authService.currentUser() as TfdUser | null);
+
+  /**
+   * 2. Extrai a lista de tipos de profissional atrelados ao usuário de forma resiliente
+   */
+  protected readonly userProfessionalTypes = computed<string[]>(() => {
+    const user = this.currentUser();
+    const professional = user?.professional;
+
+    if (!professional) return [];
+
+    const rawTypes = (professional as any)?.types || (professional as any)?.type || [];
+    const typesList = Array.isArray(rawTypes) ? rawTypes : [rawTypes];
+
+    return typesList
+      .map((item: any) => {
+        if (typeof item === 'string') return item;
+        return item?.type || item?.name || item?.description || '';
+      })
+      .filter((type): type is string => Boolean(type))
+      .map((type) => type.trim());
+  });
+
+  // ==========================================
   // Ciclo de Vida (Inicialização e Finalização dos Canais)
   // ==========================================
+  // No tfd.layout.ts
+
+  // 1. Atualize o ngOnInit para logar no console assim que o layout carregar
   ngOnInit(): void {
-    // Instancia todos os canais quando o layout é carregado
     (Object.keys(TFD_CHANNEL_NAMES) as TfdChannelKey[]).forEach(key => {
       this.channels.set(key, new BroadcastChannel(TFD_CHANNEL_NAMES[key]));
     });
   }
 
   ngOnDestroy(): void {
-    // Finaliza TODOS os canais de uma vez quando o usuário SAI do TfdLayout
     this.channels.forEach(channel => channel.close());
     this.channels.clear();
   }
@@ -108,29 +146,8 @@ export class TfdLayout implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos de Verificação de Acesso por Professional Types
+  // Métodos de Verificação de Acesso (Reativos)
   // ==========================================
-
-  /**
-   * Obtém o objeto `user` da rota atual ou da rota pai.
-   */
-  private get currentUser(): any {
-    return this.route.snapshot.data['user'] || this.route.parent?.snapshot.data['user'];
-  }
-
-  /**
-   * Extrai a lista de tipos de profissional atrelados ao usuário logado.
-   */
-  private get userProfessionalTypes(): string[] {
-    const user = this.currentUser;
-    const professional = user?.professional;
-
-    if (!professional?.types || !Array.isArray(professional.types)) {
-      return [];
-    }
-
-    return professional.types.map((item: any) => typeof item === 'string' ? item : item.type);
-  }
 
   /**
    * Verifica se o usuário possui ao menos um dos tipos de profissional informados.
@@ -138,8 +155,10 @@ export class TfdLayout implements OnInit, OnDestroy {
   protected checkProfessionalType(allowedTypes?: string[]): boolean {
     if (!allowedTypes || allowedTypes.length === 0) return true;
 
-    const currentTypes = this.userProfessionalTypes;
-    return allowedTypes.some(type => currentTypes.includes(type));
+    const currentTypes = this.userProfessionalTypes(); // Chamada do Signal
+    return allowedTypes.some(type => 
+      currentTypes.some(uType => uType.toLowerCase() === type.toLowerCase())
+    );
   }
 
   /**
@@ -148,21 +167,17 @@ export class TfdLayout implements OnInit, OnDestroy {
   protected checkPermission(names?: string[]): boolean {
     if (!names || names.length === 0) return true;
 
-    const user = this.currentUser;
+    const user = this.currentUser(); // Chamada do Signal
     const roles: any[] = user?.roles || [];
 
-    // Se o usuário não tem roles atreladas, não possui a permissão
     if (!roles.length) return false;
 
-    // Obtém o nome do módulo ativo na rota
     const module = this.route.snapshot.routeConfig?.path || this.route.parent?.snapshot.routeConfig?.path || '';
 
-    // Consolida todas as permissões das roles do usuário
     const userPermissions = roles.flatMap((role: any) => 
-      (role.permissions || []).map((p: any) => p.name)
+      (role.permissions || []).map((p: any) => p.name?.trim())
     );
 
-    // Retorna true se houver correspondência com ou sem o prefixo do módulo
     return names.some(name => {
       const fullPermissionName = module ? `${module}/${name}` : name;
       return userPermissions.includes(fullPermissionName) || userPermissions.includes(name);
@@ -170,7 +185,7 @@ export class TfdLayout implements OnInit, OnDestroy {
   }
 
   /**
-   * Combina a verificação de Tipo de Profissional E Permissões (E Lógica).
+   * Combina a verificação de Tipo de Profissional E Permissões.
    */
   protected hasAccess(types?: string[], permissions?: string[]): boolean {
     return this.checkProfessionalType(types) && this.checkPermission(permissions);
@@ -192,7 +207,7 @@ export class TfdLayout implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // MENU DO TEMPLATE HTML (Baseado em Types)
+  // MENU DO TEMPLATE HTML
   // ==========================================
   protected readonly menuGroups: MenuGroup[] = [
     {

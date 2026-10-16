@@ -16,7 +16,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 // Core, Models e Serviços
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequestTravel } from '../../../models/patient-request-travel.model';
-import { Role } from '../../../models/role.model';
+import { Role } from '../../../../core/models/role.model';
 import { TravelPassenger } from '../../../models/travel-passenger.model';
 import { PatientRequestTravelService } from '../../../services/patient-request-travel.service';
 

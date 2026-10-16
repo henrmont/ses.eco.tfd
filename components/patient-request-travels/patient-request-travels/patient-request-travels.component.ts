@@ -19,7 +19,7 @@ import { TravelCompany } from '../../../enums/travel-company';
 import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestTravel } from '../../../models/patient-request-travel.model';
 import { PatientRequestTravelService } from '../../../services/patient-request-travel.service';
-import { Role } from '../../../models/role.model';
+import { Role } from '../../../../core/models/role.model';
 
 // Dialog Components
 import { PatientRequestTravelCreateComponent } from '../patient-request-travel-create/patient-request-travel-create.component';

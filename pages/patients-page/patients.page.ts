@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnDestroy, OnInit, effect, inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
@@ -23,9 +22,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
 import { PatientCare } from '../../models/patient-care.model';
 import { Patient } from '../../models/patient.model';
-import { Permission } from '../../models/permission.model';
-import { Role } from '../../models/role.model';
-import { User } from '../../models/user.model';
+import { Permission } from '../../../core/models/permission.model';
+import { Role } from '../../../core/models/role.model';
+import { TfdUser } from '../../models/user.model';
 import { PatientService } from '../../services/patient.service';
 
 // Dialog Components
@@ -38,6 +37,7 @@ import { PatientReportsComponent } from '../../components/patients/patient-repor
 import { PatientUpdateComponent } from '../../components/patients/patient-update/patient-update.component';
 import { PatientValidateComponent } from '../../components/patients/patient-validate/patient-validate.component';
 import { PatientRequirementComponent } from '../../components/patients/patient-requirement/patient-requirement.component';
+import { AuthService } from '../../services/auth.service';
 
 // Estrutura dos dados para exibição das tabelas
 interface OwnerPatientTableRow extends PatientCare {
@@ -91,9 +91,9 @@ export class PatientsPage implements OnInit, OnDestroy {
   // Injeção de Dependências
   // ==========================================
   private readonly patientService = inject(PatientService);
+  private readonly authService = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
-  private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
 
@@ -109,7 +109,7 @@ export class PatientsPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
+  private readonly currentUser: TfdUser | null = this.authService.getCurrentUser();
 
   protected readonly displayedOwnerColumns: string[] = ['name', 'cns', 'document', 'status', 'actions'];
   protected readonly displayedOthersColumns: string[] = ['name', 'cns', 'document', 'responsible', 'status', 'actions'];

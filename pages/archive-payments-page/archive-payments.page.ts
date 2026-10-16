@@ -11,7 +11,6 @@ import {
   viewChild 
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NgxMaskPipe } from 'ngx-mask';
 
@@ -32,13 +31,14 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
 import { PatientRequest } from '../../models/patient-request.model';
 import { Payment } from '../../models/payment.model';
-import { Permission } from '../../models/permission.model';
-import { Role } from '../../models/role.model';
+import { Permission } from '../../../core/models/permission.model';
+import { Role } from '../../../core/models/role.model';
 import { PaymentService } from '../../services/payment.service';
 
 // Dialog Components
 import { PatientRequestDetailComponent } from '../../components/patient-requests/patient-request-detail/patient-request-detail.component';
 import { PaymentMoveFromArchiveComponent } from '../../components/payments/payment-move-from-archive/payment-move-from-archive.component';
+import { AuthService } from '../../services/auth.service';
 
 // Define os formatos de dados aceitos pelos modais da página de pagamentos arquivados
 type PaymentDialogData =
@@ -76,9 +76,9 @@ export class ArchivePaymentsPage implements OnInit, OnDestroy {
   // Injeção de Dependências
   // ==========================================
   private readonly paymentService = inject(PaymentService);
+  private readonly authService = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
-  private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
 
@@ -92,7 +92,7 @@ export class ArchivePaymentsPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser = this.route.parent?.parent?.snapshot.data['user'];
+  private readonly currentUser = this.authService.getCurrentUser();
 
   protected readonly displayedColumns: string[] = ['name', 'cns', 'type', 'responsible', 'actions'];
 

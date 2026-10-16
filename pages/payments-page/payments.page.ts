@@ -22,8 +22,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
 import { PatientRequest } from '../../models/patient-request.model';
 import { Payment } from '../../models/payment.model';
-import { Permission } from '../../models/permission.model';
-import { Role } from '../../models/role.model';
+import { Permission } from '../../../core/models/permission.model';
+import { Role } from '../../../core/models/role.model';
 import { PaymentService } from '../../services/payment.service';
 
 // Dialog Components
@@ -33,6 +33,7 @@ import { PaymentHaltedComponent } from '../../components/payments/payment-halted
 import { PaymentMemoComponent } from '../../components/payments/payment-memo/payment-memo.component';
 import { PaymentUpdateComponent } from '../../components/payments/payment-update/payment-update.component';
 import { PatientRequestUndoComponent } from '../../components/payments/patient-request-undo/patient-request-undo.component';
+import { AuthService } from '../../services/auth.service';
 
 // Types locais para entrada de dados nos modais
 type PaymentDialogData =
@@ -71,9 +72,9 @@ export class PaymentsPage implements OnInit, OnDestroy {
   // Injeção de Dependências
   // ==========================================
   private readonly paymentService = inject(PaymentService);
+  private readonly authService = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
-  private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
 
@@ -90,7 +91,7 @@ export class PaymentsPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser = this.route.parent?.parent?.snapshot.data['user'];
+  private readonly currentUser = this.authService.getCurrentUser();
 
   protected readonly displayedOwnerColumns: string[] = ['bookmark', 'patient', 'cns', 'type', 'consultation_date', 'status', 'actions'];
   protected readonly displayedOthersColumns: string[] = ['patient', 'cns', 'type', 'consultation_date', 'responsible', 'actions'];

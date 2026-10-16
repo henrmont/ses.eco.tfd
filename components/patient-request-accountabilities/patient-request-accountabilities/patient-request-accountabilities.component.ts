@@ -17,7 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequestAccountability } from '../../../models/patient-request-accountability.model';
 import { PatientRequest } from '../../../models/patient-request.model';
-import { Role } from '../../../models/role.model';
+import { Role } from '../../../../core/models/role.model';
 import { PatientRequestAccountabilityService } from '../../../services/patient-request-accountability.service';
 
 // Modais do Contexto de Prestações de Contas

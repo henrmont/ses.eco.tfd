@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnDestroy, OnInit, effect, inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
 import { ComponentType } from '@angular/cdk/portal';
 import { Overlay } from '@angular/cdk/overlay';
 import { finalize } from 'rxjs';
@@ -19,9 +18,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Core & Models
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
-import { Permission } from '../../models/permission.model';
-import { Role } from '../../models/role.model';
-import { User } from '../../models/user.model';
+import { Permission } from '../../../core/models/permission.model';
+import { Role } from '../../../core/models/role.model';
+import { TfdUser } from '../../models/user.model';
 import { UserService } from '../../services/user.service';
 
 // Dialog Components
@@ -31,14 +30,15 @@ import { UserLockComponent } from '../../components/users/user-lock/user-lock.co
 import { UserRolesComponent } from '../../components/users/user-roles/user-roles.component';
 import { UserUpdateComponent } from '../../components/users/user-update/user-update.component';
 import { UserValidateComponent } from '../../components/users/user-validate/user-validate.component';
+import { AuthService } from '../../services/auth.service';
 
-interface UserTableRow extends User {
+interface UserTableRow extends TfdUser {
   is_editable: boolean;
   cns: string;
 }
 
 interface UsersDialogData {
-  user: User;
+  user: TfdUser;
 }
 
 @Component({
@@ -66,9 +66,9 @@ export class UsersPage implements OnInit, OnDestroy {
 
   // Injeção de Dependências
   private readonly userService = inject(UserService);
+  private readonly authService = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
-  private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
 
@@ -78,7 +78,7 @@ export class UsersPage implements OnInit, OnDestroy {
 
   // Estado e Controle
   private loadingDialog?: MatDialogRef<LoadingComponent>;
-  private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
+  private readonly currentUser: TfdUser | null = this.authService.getCurrentUser();
 
   protected readonly displayedColumns: string[] = [
     'is_editable',
@@ -124,27 +124,27 @@ export class UsersPage implements OnInit, OnDestroy {
   }
 
   // Ações da Tabela
-  protected userLock(user: User): void {
+  protected userLock(user: TfdUser): void {
     this.openDialog(UserLockComponent, { user });
   }
 
-  protected userValidate(user: User): void {
+  protected userValidate(user: TfdUser): void {
     this.openDialog(UserValidateComponent, { user });
   }
 
-  protected userRoles(user: User): void {
+  protected userRoles(user: TfdUser): void {
     this.openDialog(UserRolesComponent, { user }, '700px');
   }
 
-  protected userDelete(user: User): void {
+  protected userDelete(user: TfdUser): void {
     this.openDialog(UserDeleteComponent, { user });
   }
 
-  protected userUpdate(user: User): void {
+  protected userUpdate(user: TfdUser): void {
     this.openDialog(UserUpdateComponent, { user }, '700px');
   }
 
-  protected userDetail(user: User): void {
+  protected userDetail(user: TfdUser): void {
     this.openDialog(UserDetailComponent, { user }, '700px');
   }
 
@@ -193,8 +193,8 @@ export class UsersPage implements OnInit, OnDestroy {
     };
   }
 
-  private mapUserToRow(item: Partial<User> & { professional?: { name?: string; cns?: string } }): UserTableRow {
-    const userObj: User = {
+  private mapUserToRow(item: Partial<TfdUser> & { professional?: { name?: string; cns?: string } }): UserTableRow {
+    const userObj: TfdUser = {
       id: item.id!,
       email: item.email || '',
       name: item.professional?.name || item.name || '',
@@ -210,7 +210,7 @@ export class UsersPage implements OnInit, OnDestroy {
     };
   }
 
-  private calculateEditable(user: User): boolean {
+  private calculateEditable(user: TfdUser): boolean {
     if (!this.currentUser || this.currentUser.id === user.id) return false;
     return !user.module?.pivot?.is_editable;
   }

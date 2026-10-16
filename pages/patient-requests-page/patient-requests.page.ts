@@ -31,9 +31,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 // Core & Models
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
 import { PatientRequest } from '../../models/patient-request.model';
-import { Permission } from '../../models/permission.model';
-import { Role } from '../../models/role.model';
-import { User } from '../../models/user.model';
+import { Permission } from '../../../core/models/permission.model';
+import { Role } from '../../../core/models/role.model';
+import { TfdUser } from '../../models/user.model';
 import { PatientRequestService } from '../../services/patient-request.service';
 
 // Dialog Components
@@ -48,6 +48,7 @@ import { PatientRequestMoveFromProcessesComponent } from '../../components/patie
 import { PatientRequestProcessComponent } from '../../components/patient-requests/patient-request-process/patient-request-process.component';
 import { PatientRequestRequirementComponent } from '../../components/patient-requests/patient-request-requirement/patient-request-requirement.component';
 import { PatientRequestUpdateComponent } from '../../components/patient-requests/patient-request-update/patient-request-update.component';
+import { AuthService } from '../../services/auth.service';
 
 // Interfaces/Tipos estruturados para Dialogs e Tabelas
 type PatientRequestDialogData = {
@@ -96,9 +97,9 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
   // Injeção de Dependências
   // ==========================================
   private readonly patientRequestService = inject(PatientRequestService);
+  private readonly authService = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
-  private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
 
@@ -114,7 +115,7 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
   // Propriedades e Estado
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
+  private readonly currentUser: TfdUser | null = this.authService.getCurrentUser();
 
   protected readonly displayedOwnerColumns: string[] = ['bookmark', 'name', 'cns', 'type', 'consultation_date', 'status', 'actions'];
   protected readonly displayedOthersColumns: string[] = ['name', 'cns', 'type', 'consultation_date', 'responsible', 'status', 'actions'];
@@ -246,7 +247,6 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (response: PatientRequest[]) => {
-          console.log(response)
           const rawData = response || [];
 
           const owners = rawData

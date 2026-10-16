@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, Injector, inject, OnDestroy, OnInit, viewChild, effect } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
 
 // Angular CDK & Material
@@ -18,14 +17,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Core & Models
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
-import { Permission } from '../../models/permission.model';
-import { Role } from '../../models/role.model';
-import { User } from '../../models/user.model';
+import { Permission } from '../../../core/models/permission.model';
+import { Role } from '../../../core/models/role.model';
+import { TfdUser } from '../../models/user.model';
 import { RoleService } from '../../services/role.service';
 
 // Dialog Components
 import { RoleDeleteComponent } from '../../components/roles/role-delete/role-delete.component';
 import { RoleUpdateComponent } from '../../components/roles/role-update/role-update.component';
+import { AuthService } from '../../services/auth.service';
 
 type RolesDialogData = {
   role: Role;
@@ -56,9 +56,9 @@ export class RolesPage implements OnInit, OnDestroy {
   // Injeção de Dependências
   // ==========================================
   private readonly roleService = inject(RoleService);
+  private readonly authService = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
-  private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
 
@@ -72,7 +72,7 @@ export class RolesPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser: User | undefined = this.route.parent?.snapshot.data['user'];
+  private readonly currentUser: TfdUser | null = this.authService.getCurrentUser();
 
   protected readonly displayedColumns: string[] = ['name', 'actions'];
   protected readonly dataSource = new MatTableDataSource<Role>([]);

@@ -23,7 +23,7 @@ import { PatientRequestOpinionCreateComponent } from '../patient-request-opinion
 import { PatientRequestOpinionDeleteComponent } from '../patient-request-opinion-delete/patient-request-opinion-delete.component';
 import { PatientRequestOpinionDetailComponent } from '../patient-request-opinion-detail/patient-request-opinion-detail.component';
 import { PatientRequestOpinionUpdateComponent } from '../patient-request-opinion-update/patient-request-opinion-update.component';
-import { Role } from '../../../models/role.model';
+import { Role } from '../../../../core/models/role.model';
 
 export type PatientRequestOpinionDialogData = {
   opinion?: PatientRequestOpinion;

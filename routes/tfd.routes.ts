@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { Professionals } from '../enums/professionals';
-import { professionalGuard } from '../../core/guards/professional-guard';
+import { tfdGuard } from '../guards/tfd.guard';
 
 export const tfdRoutes: Routes = [
   {
@@ -10,7 +10,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'usuarios',
     loadComponent: () => import('./../pages/users-page/users.page').then(m => m.UsersPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/usuário listar', 
       types: [Professionals.ADMINISTRADOR] 
@@ -19,7 +19,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'regras',
     loadComponent: () => import('./../pages/roles-page/roles.page').then(m => m.RolesPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/regra listar', 
       types: [Professionals.ADMINISTRADOR] 
@@ -28,7 +28,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'configuracoes',
     loadComponent: () => import('./../pages/settings-page/settings.page').then(m => m.SettingsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/configuração listar', 
       types: [Professionals.ADMINISTRADOR] 
@@ -37,7 +37,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'pacientes',
     loadComponent: () => import('./../pages/patients-page/patients.page').then(m => m.PatientsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/paciente listar', 
       types: [Professionals.CADASTRO] 
@@ -46,7 +46,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'arquivo-pacientes',
     loadComponent: () => import('./../pages/archive-patients-page/archive-patients.page').then(m => m.ArchivePatientsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/paciente listar', 
       types: [Professionals.CADASTRO] 
@@ -55,7 +55,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'solicitacoes',
     loadComponent: () => import('./../pages/patient-requests-page/patient-requests.page').then(m => m.PatientRequestsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/solicitação listar', 
       types: [Professionals.ADMINISTRATIVO, Professionals.CADASTRO] 
@@ -64,7 +64,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'arquivo-solicitacoes',
     loadComponent: () => import('./../pages/archive-patient-requests-page/archive-patient-requests.page').then(m => m.ArchivePatientRequestsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/solicitação listar', 
       types: [Professionals.CADASTRO] 
@@ -73,7 +73,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'pareceres-medicos',
     loadComponent: () => import('./../pages/patient-request-medical-opinions-page/patient-request-medical-opinions.page').then(m => m.PatientRequestMedicalOpinionsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/parecer listar', 
       types: [Professionals.MEDICO] // Acesso exclusivo para o tipo Médico
@@ -82,7 +82,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'arquivo-pareceres-medico',
     loadComponent: () => import('./../pages/archive-patient-request-medical-opinions-page/archive-patient-request-medical-opinions.page').then(m => m.ArchivePatientRequestMedicalOpinionsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/parecer listar', 
       types: [Professionals.MEDICO, Professionals.ASSISTENTE_SOCIAL] 
@@ -91,7 +91,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'pareceres-sociais',
     loadComponent: () => import('./../pages/patient-request-social-opinions-page/patient-request-social-opinions.page').then(m => m.PatientRequestSocialOpinionsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/parecer listar', 
       types: [Professionals.ASSISTENTE_SOCIAL] // Acesso exclusivo para Assistente Social
@@ -100,7 +100,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'arquivo-pareceres-social',
     loadComponent: () => import('./../pages/archive-patient-request-social-opinions-page/archive-patient-request-social-opinions.page').then(m => m.ArchivePatientRequestSocialOpinionsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/parecer listar', 
       types: [Professionals.MEDICO, Professionals.ASSISTENTE_SOCIAL] 
@@ -109,7 +109,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'passagens',
     loadComponent: () => import('./../pages/patient-request-travels-page/patient-request-travels.page').then(m => m.PatientRequestTravelsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/passagem listar', 
       types: [Professionals.PASSAGEM] 
@@ -118,7 +118,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'arquivo-passagens',
     loadComponent: () => import('./../pages/archive-patient-request-travels-page/archive-patient-request-travels.page').then(m => m.ArchivePatientRequestTravelsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/passagem listar', 
       types: [Professionals.PASSAGEM] 
@@ -127,7 +127,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'ajudas-de-custo',
     loadComponent: () => import('./../pages/patient-request-cost-assistances-page/patient-request-cost-assistances.page').then(m => m.PatientRequestCostAssistancesPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/ajuda de custo listar', 
       types: [Professionals.AJUDA_DE_CUSTO] 
@@ -136,7 +136,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'arquivo-ajudas-de-custo',
     loadComponent: () => import('./../pages/archive-patient-request-cost-assistances-page/archive-patient-request-cost-assistances.page').then(m => m.ArchivePatientRequestCostAssistancesPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/ajuda de custo listar', 
       types: [Professionals.AJUDA_DE_CUSTO] 
@@ -145,7 +145,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'prestacao-de-contas',
     loadComponent: () => import('./../pages/patient-request-accountabilities-page/patient-request-accountabilities.page').then(m => m.PatientRequestAccountabilitiesPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/ajuda de custo listar', 
       types: [Professionals.AJUDA_DE_CUSTO] 
@@ -154,7 +154,7 @@ export const tfdRoutes: Routes = [
   {
     path: 'arquivo-prestacao-de-contas',
     loadComponent: () => import('./../pages/archive-patient-request-accountabilities-page/archive-patient-request-accountabilities.page').then(m => m.ArchivePatientRequestAccountabilitiesPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/ajuda de custo listar', 
       types: [Professionals.AJUDA_DE_CUSTO] 
@@ -163,10 +163,15 @@ export const tfdRoutes: Routes = [
   {
     path: 'pagamentos',
     loadComponent: () => import('./../pages/payments-page/payments.page').then(m => m.PaymentsPage),
-    canActivate: [professionalGuard],
+    canActivate: [tfdGuard],
     data: { 
       permission: 'tfd/pagamento listar', 
       types: [Professionals.PAGAMENTO] 
     }
+  },
+  {
+    path: '**',
+    redirectTo: '',
+    pathMatch: 'full'
   }
 ];

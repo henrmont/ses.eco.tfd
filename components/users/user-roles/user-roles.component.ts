@@ -14,7 +14,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
-import { Role } from '../../../models/role.model';
+import { Role } from '../../../../core/models/role.model';
 import { UserService } from '../../../services/user.service';
 
 type UserRolesDialogData = {

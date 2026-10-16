@@ -5,8 +5,8 @@ import { catchError, map, Observable, of, switchMap, timer } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../core/models/api-response.model';
-import { Role } from '../models/role.model';
-import { User } from '../models/user.model';
+import { Role } from '../../core/models/role.model';
+import { TfdUser } from '../models/user.model';
 
 @Injectable({
   providedIn: 'root',
@@ -15,15 +15,15 @@ export class UserService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = `${environment.apiTfdUrl}/users`;
 
-  getMe(): Observable<User> {
-    return this.http.get<User>(`${this.apiUrl}/me`);
+  getMe(): Observable<TfdUser> {
+    return this.http.get<TfdUser>(`${this.apiUrl}/me`);
   }
 
   // ==========================================
   // Consultas (GET)
   // ==========================================
-  getUsers(): Observable<User[]> {
-    return this.http.get<User[]>(`${this.apiUrl}/`);
+  getUsers(): Observable<TfdUser[]> {
+    return this.http.get<TfdUser[]>(`${this.apiUrl}/`);
   }
 
   getRoles(): Observable<Role[]> {
@@ -33,11 +33,11 @@ export class UserService {
   // ==========================================
   // Operações de Escrita / CRUD
   // ==========================================
-  createUser(data: User): Observable<ApiResponse> {
+  createUser(data: TfdUser): Observable<ApiResponse> {
     return this.http.post<ApiResponse>(`${this.apiUrl}/`, data);
   }
 
-  updateUser(userId: number, data: User): Observable<ApiResponse> {
+  updateUser(userId: number, data: TfdUser): Observable<ApiResponse> {
     return this.http.put<ApiResponse>(`${this.apiUrl}/${userId}`, data);
   }
 

@@ -3,7 +3,7 @@
     <mat-action-list>
       
       @for (group of menuGroups; track group.subHeader) {
-        @if (checkProfessionalType(group.requiredTypes)) {
+        @if (hasAccess(group.requiredTypes, group.requiredPermissions)) {
           
           <div mat-subheader>{{ group.subHeader }}</div>
           

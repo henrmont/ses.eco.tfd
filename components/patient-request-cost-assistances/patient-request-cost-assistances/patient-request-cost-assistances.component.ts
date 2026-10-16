@@ -17,7 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequestCostAssistance } from '../../../models/patient-request-cost-assistance.model';
 import { PatientRequest } from '../../../models/patient-request.model';
-import { Role } from '../../../models/role.model';
+import { Role } from '../../../../core/models/role.model';
 import { PatientRequestCostAssistanceService } from '../../../services/patient-request-cost-assistance.service';
 
 // Modais do Contexto de Ajudas de Custo

@@ -9,7 +9,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 // Core & Models
 import { MessageService } from '../../../../core/services/message-service';
-import { Role } from '../../../models/role.model';
+import { Role } from '../../../../core/models/role.model';
 import { RoleService } from '../../../services/role.service';
 
 interface RoleDeleteDialogData {
