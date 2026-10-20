@@ -8,9 +8,15 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Services e Models
+// Core, Services & Models
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { Payment } from '../../../models/payment.model';
 import { PaymentService } from '../../../services/payment.service';
+
+type PaymentHaltedDialogData = {
+  payment?: Payment;
+};
 
 @Component({
   selector: 'app-payment-halted',
@@ -29,7 +35,7 @@ export class PaymentHaltedComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PaymentHaltedDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly paymentService = inject(PaymentService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PaymentHaltedComponent>);
@@ -42,16 +48,16 @@ export class PaymentHaltedComponent {
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // Submissão / Sobrestamento
+  // Métodos de Ação
   // ==========================================
   /**
-   * Dispara a requisição para paralisar/sobrestar a solicitação
+   * Dispara a requisição para paralisar/sobrestar o pagamento da solicitação
    */
   protected onSubmit(): void {
     const paymentId = this.data?.payment?.id;
 
     if (!paymentId) {
-      this.messageService.showMessage('Erro: Identificador da solicitação não encontrado.');
+      this.messageService.showMessage('Identificador do pagamento inválido.');
       return;
     }
 
@@ -71,7 +77,7 @@ export class PaymentHaltedComponent {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Status de sobrestamento atualizado!');
           this.dialogRef.close(true);
         },

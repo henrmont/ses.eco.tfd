@@ -1,17 +1,16 @@
 import { CommonModule } from '@angular/common';
 import { 
   ChangeDetectionStrategy, 
-  ChangeDetectorRef, 
   Component, 
   DestroyRef, 
-  Injector, 
   OnInit, 
+  effect, 
   inject, 
   signal 
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 
 // Material Modules
 import { MatButtonModule } from '@angular/material/button';
@@ -21,9 +20,24 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Core, Models e Serviços
+// Core, Models & Serviços
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+import { Payment } from '../../../models/payment.model';
 import { PaymentService } from '../../../services/payment.service';
+
+// ============================================================================
+// Tipos e Interfaces
+// ============================================================================
+
+export type PaymentUpdateDialogData = {
+  payment?: Payment;
+};
+
+interface ErrorMessage {
+  type: string;
+  message: string;
+}
 
 @Component({
   selector: 'app-payment-update',
@@ -36,8 +50,8 @@ import { PaymentService } from '../../../services/payment.service';
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
-    MatProgressSpinnerModule,
-    MatIconModule
+    MatIconModule,
+    MatProgressSpinnerModule
   ],
   templateUrl: './payment-update.component.html',
   styleUrl: './payment-update.component.scss',
@@ -47,29 +61,22 @@ export class PaymentUpdateComponent implements OnInit {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PaymentUpdateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  private readonly dialogRef = inject(MatDialogRef<PaymentUpdateComponent>);
   private readonly fb = inject(FormBuilder);
   private readonly paymentService = inject(PaymentService);
   private readonly messageService = inject(MessageService);
-  private readonly dialogRef = inject(MatDialogRef<PaymentUpdateComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
-  // Formulário Principal
+  // Propriedades e Estado Reativo
   // ==========================================
   protected updatePaymentForm!: FormGroup;
 
-  // ==========================================
-  // Estados Reativos via Signals
-  // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
 
-  // ==========================================
-  // Dicionário de Mensagens de Erro
-  // ==========================================
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  // Mapeamento de Mensagens de Erro Tipado
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     sigadoc: [
       { type: 'required', message: 'O número do SIGADOC é obrigatório.' }
     ],
@@ -82,48 +89,32 @@ export class PaymentUpdateComponent implements OnInit {
   };
 
   // ==========================================
-  // Ciclo de Vida (Hooks)
+  // Construtor com Lógica Reativa (Effect)
   // ==========================================
-  ngOnInit(): void {
-    this.initForm();
-    this.setupFormSubmittingHandler();
-  }
+  constructor() {
+    effect(() => {
+      const submitting = this.isSubmitting();
 
-  // ==========================================
-  // Inicialização do Formulário
-  // ==========================================
-  private initForm(): void {
-    const payment = this.data?.payment;
+      if (!this.updatePaymentForm) return;
 
-    this.updatePaymentForm = this.fb.group({
-      sigadoc: [payment?.sigadoc ?? null, [Validators.required]],
-      creditor: [payment?.creditor ?? null, [Validators.required]],
-      document_number: [payment?.document_number ?? null, [Validators.required]]
+      if (submitting) {
+        this.updatePaymentForm.disable({ emitEvent: false });
+      } else {
+        this.updatePaymentForm.enable({ emitEvent: false });
+      }
     });
   }
 
   // ==========================================
-  // Handlers Reativos
+  // Ciclo de Vida (Hooks)
   // ==========================================
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.updatePaymentForm.disable({ emitEvent: false });
-        } else {
-          this.updatePaymentForm.enable({ emitEvent: false });
-        }
-        this.cdr.markForCheck();
-      });
+  ngOnInit(): void {
+    this.initForm();
   }
 
   // ==========================================
-  // Submissão do Formulário
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  /**
-   * Submete o formulário para atualização do pagamento.
-   */
   protected onSubmit(): void {
     const paymentId = this.data?.payment?.id;
 
@@ -137,21 +128,15 @@ export class PaymentUpdateComponent implements OnInit {
       return;
     }
 
-    if (this.isSubmitting()) {
-      return;
-    }
-
     this.isSubmitting.set(true);
 
-    const payload = this.updatePaymentForm.getRawValue();
-
-    this.paymentService.updatePayment(paymentId, payload)
+    this.paymentService.updatePayment(paymentId, this.updatePaymentForm.getRawValue())
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response: any) => {
+        next: (response: ApiResponse) => {
           this.messageService.showMessage(response?.message || 'Pagamento atualizado com sucesso!');
           this.dialogRef.close(true);
         },
@@ -160,5 +145,18 @@ export class PaymentUpdateComponent implements OnInit {
           this.messageService.showMessage(err?.error?.message || fallbackError);
         }
       });
+  }
+
+  // ==========================================
+  // Métodos Privados / Auxiliares
+  // ==========================================
+  private initForm(): void {
+    const payment = this.data?.payment;
+
+    this.updatePaymentForm = this.fb.group({
+      sigadoc: [payment?.sigadoc ?? null, [Validators.required]],
+      creditor: [payment?.creditor ?? null, [Validators.required]],
+      document_number: [payment?.document_number ?? null, [Validators.required]]
+    });
   }
 }

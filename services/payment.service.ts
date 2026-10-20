@@ -55,7 +55,7 @@ export class PaymentService {
     return this.http.patch<ApiResponse>(`${this.apiUrl}/${paymentId}/move-from-others`, {});
   }
 
-  undoPatientRequest(patientRequestId: number, data: PatientRequest): Observable<ApiResponse> {
+  undoPatientRequest(patientRequestId: number, data: Record<string, unknown>): Observable<ApiResponse> {
     return this.http.patch<ApiResponse>(`${this.apiUrl}/patient-requests/${patientRequestId}/undo`, data);
   }
 

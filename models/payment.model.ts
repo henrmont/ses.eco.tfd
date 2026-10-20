@@ -1,4 +1,5 @@
 import { PatientRequestCostAssistance } from "./patient-request-cost-assistance.model";
+import { PatientRequest } from "./patient-request.model";
 
 export interface Payment {
     id?: number,
@@ -6,5 +7,10 @@ export interface Payment {
     name?: string,
     description?: string,
     cost_assistance?: PatientRequestCostAssistance,
-    status?: boolean
+    status?: boolean,
+    is_payment_bookmark?: boolean,
+    patient_request?: PatientRequest,
+    sigadoc?: string,
+    creditor?: string,
+    document_number?: string
 }

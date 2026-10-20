@@ -170,6 +170,15 @@ export const tfdRoutes: Routes = [
     }
   },
   {
+    path: 'arquivo-pagamentos',
+    loadComponent: () => import('./../pages/archive-payments-page/archive-payments.page').then(m => m.ArchivePaymentsPage),
+    canActivate: [tfdGuard],
+    data: { 
+      permission: 'tfd/pagamento listar', 
+      types: [Professionals.PAGAMENTO] 
+    }
+  },
+  {
     path: '**',
     redirectTo: '',
     pathMatch: 'full'

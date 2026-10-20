@@ -1,24 +1,23 @@
-import { CommonModule } from '@angular/common';
-import { 
-  ChangeDetectionStrategy, 
-  Component, 
-  DestroyRef, 
-  Injector, 
-  OnDestroy, 
-  OnInit, 
-  effect, 
-  inject, 
-  viewChild 
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  OnDestroy,
+  OnInit,
+  effect,
+  inject,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
-import { NgxMaskPipe } from 'ngx-mask';
+import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
-import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType, Overlay } from '@angular/cdk/overlay';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -27,32 +26,43 @@ import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core, Models e Serviços
+// Core & Models
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
 import { PatientRequest } from '../../models/patient-request.model';
 import { Payment } from '../../models/payment.model';
 import { Permission } from '../../../core/models/permission.model';
 import { Role } from '../../../core/models/role.model';
+import { TfdUser } from '../../models/user.model';
 import { PaymentService } from '../../services/payment.service';
+import { AuthService } from '../../services/auth.service';
 
 // Dialog Components
 import { PatientRequestDetailComponent } from '../../components/patient-requests/patient-request-detail/patient-request-detail.component';
 import { PaymentMoveFromArchiveComponent } from '../../components/payments/payment-move-from-archive/payment-move-from-archive.component';
-import { AuthService } from '../../services/auth.service';
 
-// Define os formatos de dados aceitos pelos modais da página de pagamentos arquivados
+// Interfaces/Tipos estruturados para Dialogs e Tabelas
 type PaymentDialogData =
   | { patient_request: PatientRequest }
   | { payment: Payment };
+
+interface ArchivePaymentTableRow {
+  id?: number;
+  patient_request?: PatientRequest;
+  payment?: Payment;
+  name: string;
+  cns: string;
+  type?: string;
+  responsible: string;
+  budget_allocation?: any;
+  [key: string]: any;
+}
 
 @Component({
   selector: 'app-archive-payments-page',
   standalone: true,
   imports: [
-    CommonModule,
     MatBadgeModule,
     MatButtonModule,
-    MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -62,6 +72,7 @@ type PaymentDialogData =
     MatTooltipModule,
     NgxMaskPipe,
   ],
+  providers: [provideNgxMask()],
   templateUrl: './archive-payments.page.html',
   styleUrl: './archive-payments.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -92,11 +103,10 @@ export class ArchivePaymentsPage implements OnInit, OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser = this.authService.getCurrentUser();
+  private readonly currentUser: TfdUser | null = this.authService.getCurrentUser();
 
   protected readonly displayedColumns: string[] = ['name', 'cns', 'type', 'responsible', 'actions'];
-
-  protected readonly archivedDataSource = new MatTableDataSource<any>([]);
+  protected readonly archivedDataSource = new MatTableDataSource<ArchivePaymentTableRow>([]);
 
   // ==========================================
   // Ciclo de Vida (Hooks)
@@ -146,16 +156,13 @@ export class ArchivePaymentsPage implements OnInit, OnDestroy {
   // Métodos Privados / Auxiliares
   // ==========================================
   private setupTableBindings(): void {
-    effect(
-      () => {
-        const sortRef = this.archiveSort();
-        const paginatorRef = this.archivePaginator();
+    effect(() => {
+      const archiveSort = this.archiveSort();
+      const archivePaginator = this.archivePaginator();
 
-        if (sortRef) this.archivedDataSource.sort = sortRef;
-        if (paginatorRef) this.archivedDataSource.paginator = paginatorRef;
-      },
-      { injector: this.injector }
-    );
+      if (archiveSort) this.archivedDataSource.sort = archiveSort;
+      if (archivePaginator) this.archivedDataSource.paginator = archivePaginator;
+    }, { injector: this.injector });
   }
 
   private fetchArchivePayments(showLoading = false): void {
@@ -196,12 +203,12 @@ export class ArchivePaymentsPage implements OnInit, OnDestroy {
     };
   }
 
-  private mapPaymentRow(item: any, budgetAllocation: any) {
+  private mapPaymentRow(item: any, budgetAllocation: any): ArchivePaymentTableRow {
     return {
       ...item,
-      name: item.patient_request?.report?.patient_care?.patient?.name || 'Não informado',
-      cns: item.patient_request?.report?.patient_care?.patient?.cns || '',
-      type: item.patient_request?.type,
+      name: item.patient_request?.report?.patient_care?.patient?.name || '-',
+      cns: item.patient_request?.report?.patient_care?.patient?.cns || '-',
+      type: item.patient_request?.type || '-',
       responsible: item.payment_professional?.name || '-',
       budget_allocation: budgetAllocation,
     };
@@ -216,7 +223,7 @@ export class ArchivePaymentsPage implements OnInit, OnDestroy {
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PaymentDialogData,
     width = '400px',
     height = 'auto',

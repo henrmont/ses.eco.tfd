@@ -1,14 +1,23 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnDestroy, OnInit, effect, inject, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  OnDestroy,
+  OnInit,
+  effect,
+  inject,
+  viewChild
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NgxMaskPipe } from 'ngx-mask';
+import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
-import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType, Overlay } from '@angular/cdk/overlay';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -24,7 +33,9 @@ import { PatientRequest } from '../../models/patient-request.model';
 import { Payment } from '../../models/payment.model';
 import { Permission } from '../../../core/models/permission.model';
 import { Role } from '../../../core/models/role.model';
+import { TfdUser } from '../../models/user.model';
 import { PaymentService } from '../../services/payment.service';
+import { AuthService } from '../../services/auth.service';
 
 // Dialog Components
 import { PatientRequestDetailComponent } from '../../components/patient-requests/patient-request-detail/patient-request-detail.component';
@@ -33,13 +44,39 @@ import { PaymentHaltedComponent } from '../../components/payments/payment-halted
 import { PaymentMemoComponent } from '../../components/payments/payment-memo/payment-memo.component';
 import { PaymentUpdateComponent } from '../../components/payments/payment-update/payment-update.component';
 import { PatientRequestUndoComponent } from '../../components/payments/patient-request-undo/patient-request-undo.component';
-import { AuthService } from '../../services/auth.service';
+import { PaymentMoveFromOthersComponent } from '../../components/payments/payment-move-from-others/payment-move-from-others.component';
+import { PaymentRequirementComponent } from '../../components/payments/payment-requirement/payment-requirement.component';
 
-// Types locais para entrada de dados nos modais
-type PaymentDialogData =
-  | { patient_request: PatientRequest }
-  | { payment: Payment };
+// Interfaces/Tipos estruturados para Dialogs e Tabelas
+type PaymentDialogData = {
+  patient_request?: PatientRequest;
+  payment?: Payment;
+}
 
+interface OwnerPaymentTableRow {
+  id?: number;
+  patient_request?: PatientRequest;
+  payment?: Payment;
+  name: string;
+  cns: string;
+  type?: string;
+  consultation_date?: string;
+  budget_allocation?: any;
+  [key: string]: any;
+}
+
+interface OthersPaymentTableRow {
+  id?: number;
+  patient_request?: PatientRequest;
+  payment?: Payment;
+  name: string;
+  cns: string;
+  type?: string;
+  consultation_date?: string;
+  responsible?: string;
+  budget_allocation?: any;
+  [key: string]: any;
+}
 
 @Component({
   selector: 'app-payments-page',
@@ -56,15 +93,16 @@ type PaymentDialogData =
     MatTableModule,
     MatTabsModule,
     MatTooltipModule,
-    NgxMaskPipe,
+    NgxMaskPipe
   ],
+  providers: [provideNgxMask()],
   templateUrl: './payments.page.html',
   styleUrl: './payments.page.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PaymentsPage implements OnInit, OnDestroy {
   // ==========================================
-  // Instância própria do canal
+  // Instância do Canal Broadcast
   // ==========================================
   private readonly paymentsChannel = new BroadcastChannel('tfd-payments-channel');
 
@@ -83,24 +121,23 @@ export class PaymentsPage implements OnInit, OnDestroy {
   // ==========================================
   private readonly ownerSort = viewChild<MatSort>('ownerSort');
   private readonly othersSort = viewChild<MatSort>('othersSort');
-
   private readonly ownerPaginator = viewChild<MatPaginator>('ownerPaginator');
   private readonly othersPaginator = viewChild<MatPaginator>('othersPaginator');
 
   // ==========================================
-  // Propriedades e Estado Reativo
+  // Propriedades e Estado
   // ==========================================
   private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser = this.authService.getCurrentUser();
+  private readonly currentUser: TfdUser | null = this.authService.getCurrentUser();
 
   protected readonly displayedOwnerColumns: string[] = ['bookmark', 'patient', 'cns', 'type', 'consultation_date', 'status', 'actions'];
   protected readonly displayedOthersColumns: string[] = ['patient', 'cns', 'type', 'consultation_date', 'responsible', 'actions'];
 
-  protected readonly ownerDataSource = new MatTableDataSource<any>([]);
-  protected readonly othersDataSource = new MatTableDataSource<any>([]);
+  protected readonly ownerDataSource = new MatTableDataSource<OwnerPaymentTableRow>([]);
+  protected readonly othersDataSource = new MatTableDataSource<OthersPaymentTableRow>([]);
 
   // ==========================================
-  // Ciclo de Vida (Hooks)
+  // Ciclo de Vida
   // ==========================================
   ngOnInit(): void {
     this.setupTableBindings();
@@ -113,7 +150,7 @@ export class PaymentsPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Filtros e Permissões
   // ==========================================
   protected applyOwnerFilter(event: Event): void {
     const filterValue = (event.target as HTMLInputElement).value;
@@ -147,7 +184,9 @@ export class PaymentsPage implements OnInit, OnDestroy {
     return !!(patientRequest.medical_status && patientRequest.social_status);
   }
 
-  // Ações disparadas pelos botões da tabela
+  // ==========================================
+  // Ações Disparadas pela Tabela
+  // ==========================================
   protected downloadMergedPdf(patientRequest: PatientRequest): void {
     this.openLoading();
 
@@ -175,7 +214,7 @@ export class PaymentsPage implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Erro ao realizar o download do arquivo mesclado:', err);
-        },
+        }
       });
   }
 
@@ -204,29 +243,30 @@ export class PaymentsPage implements OnInit, OnDestroy {
   }
 
   protected paymentMoveFromOthers(payment: Payment): void {
-    this.openDialog(PaymentUpdateComponent, { payment }, '400px');
+    this.openDialog(PaymentMoveFromOthersComponent, { payment }, '400px');
+  }
+
+  protected paymentRequirement(payment: Payment): void {
+    this.openDialog(PaymentRequirementComponent, { payment }, '500px');
   }
 
   // ==========================================
-  // Métodos Privados / Auxiliares
+  // Métodos Privados Auxiliares
   // ==========================================
   private setupTableBindings(): void {
-    effect(
-      () => {
-        const ownerSort = this.ownerSort();
-        const ownerPaginator = this.ownerPaginator();
+    effect(() => {
+      const ownerSort = this.ownerSort();
+      const ownerPaginator = this.ownerPaginator();
 
-        if (ownerSort) this.ownerDataSource.sort = ownerSort;
-        if (ownerPaginator) this.ownerDataSource.paginator = ownerPaginator;
+      if (ownerSort) this.ownerDataSource.sort = ownerSort;
+      if (ownerPaginator) this.ownerDataSource.paginator = ownerPaginator;
 
-        const othersSort = this.othersSort();
-        const othersPaginator = this.othersPaginator();
+      const othersSort = this.othersSort();
+      const othersPaginator = this.othersPaginator();
 
-        if (othersSort) this.othersDataSource.sort = othersSort;
-        if (othersPaginator) this.othersDataSource.paginator = othersPaginator;
-      },
-      { injector: this.injector }
-    );
+      if (othersSort) this.othersDataSource.sort = othersSort;
+      if (othersPaginator) this.othersDataSource.paginator = othersPaginator;
+    }, { injector: this.injector });
   }
 
   private fetchPayments(showLoading = false): void {
@@ -260,7 +300,7 @@ export class PaymentsPage implements OnInit, OnDestroy {
         error: () => {
           this.ownerDataSource.data = [];
           this.othersDataSource.data = [];
-        },
+        }
       });
   }
 
@@ -275,11 +315,12 @@ export class PaymentsPage implements OnInit, OnDestroy {
   private mapPaymentRow(item: any, budgetAllocation: any) {
     return {
       ...item,
-      name: item.patient_request?.report?.patient_care?.patient?.name || '',
-      cns: item.patient_request?.report?.patient_care?.patient?.cns || '',
+      name: item.patient_request?.report?.patient_care?.patient?.name || '-',
+      cns: item.patient_request?.report?.patient_care?.patient?.cns || '-',
       type: item.patient_request?.type,
       consultation_date: item.patient_request?.consultation_date,
-      budget_allocation: budgetAllocation,
+      responsible: item.payment_professional?.name || '-',
+      budget_allocation: budgetAllocation
     };
   }
 
@@ -287,26 +328,25 @@ export class PaymentsPage implements OnInit, OnDestroy {
     this.loadingDialog = this.dialog.open(LoadingComponent, {
       height: '200px',
       disableClose: true,
-      autoFocus: false,
+      autoFocus: false
     });
   }
 
   private openDialog<T>(
-    component: new (...args: any[]) => T,
+    component: ComponentType<T>,
     data: PaymentDialogData,
     width = '400px',
     height = 'auto',
     requiresRefresh = true
   ): void {
-    this.dialog
-      .open(component, {
-        width,
-        height,
-        disableClose: true,
-        autoFocus: false,
-        scrollStrategy: this.overlay.scrollStrategies.noop(),
-        data,
-      })
+    this.dialog.open(component, {
+      width,
+      height,
+      disableClose: true,
+      autoFocus: false,
+      scrollStrategy: this.overlay.scrollStrategies.noop(),
+      data
+    })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
