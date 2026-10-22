@@ -62,7 +62,7 @@
       
       <mat-form-field appearance="outline">
         <mat-label>Matrícula</mat-label>
-        <input matInput type="text" mask="000000" formControlName="registration">
+        <input matInput type="text" mask="000009" formControlName="registration">
         @for (item of errorMessages['registration']; track $index) {
           <mat-error [hidden]="!userForm.get('registration')?.hasError(item.type)">
             {{ item.message }}

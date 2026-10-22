@@ -180,7 +180,7 @@ export class UserUpdateComponent implements OnInit {
         [Validators.required], 
         [this.userService.cnsUserExistsValidator(initialCns)]
       ],
-      registration: [professional ? professional.registration : '', [Validators.required]],
+      registration: [professional ? professional.registration : '', [Validators.required, Validators.minLength(5), Validators.maxLength(6)]],
       professional_register: [{ value: professional ? professional.professional_register : '', disabled: true }],
       cbo: [{ value: professional ? professional.cbo : '', disabled: true }]
     });

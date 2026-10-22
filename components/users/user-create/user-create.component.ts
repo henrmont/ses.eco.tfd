@@ -151,7 +151,7 @@ export class UserCreateComponent implements OnInit {
         [Validators.required],
         [this.userService.cnsUserExistsValidator(null)]
       ],
-      registration: ['', [Validators.required]],
+      registration: ['', [Validators.required, Validators.minLength(5), Validators.maxLength(6)]],
       professional_register: [{ value: '', disabled: true }],
       cbo: [{ value: '', disabled: true }]
     });
