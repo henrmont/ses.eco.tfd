@@ -6,5 +6,6 @@ export enum Professionals {
     ASSISTENTE_SOCIAL = 'Assistente Social',
     PASSAGEM = 'Passagem',
     AJUDA_DE_CUSTO = 'Ajuda de Custo',
-    PAGAMENTO = 'Pagamento'
+    PAGAMENTO = 'Pagamento',
+    FATURAMENTO = 'Faturamento',
 }
