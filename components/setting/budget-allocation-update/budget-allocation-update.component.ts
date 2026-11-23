@@ -1,6 +1,20 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, Injector, OnInit, signal } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import {
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  FormsModule,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { finalize } from 'rxjs';
 
 // Angular Material
@@ -14,11 +28,25 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
+
+// Services & Models
 import { BudgetAllocation } from '../../../models/budget-allocation.model';
 import { SettingService } from '../../../services/setting.service';
 
-interface BudgetAllocationUpdateDialogData {
+export interface BudgetAllocationUpdateDialogData {
   budget_allocation?: BudgetAllocation;
+}
+
+interface ErrorMessage {
+  type: string;
+  message: string;
+}
+
+interface BudgetAllocationUpdateForm {
+  program: FormControl<string>;
+  active_project: FormControl<string>;
+  nature_of_expenditure: FormControl<string>;
+  source: FormControl<string>;
 }
 
 @Component({
@@ -32,55 +60,65 @@ interface BudgetAllocationUpdateDialogData {
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
-    ReactiveFormsModule
+    ReactiveFormsModule,
   ],
   templateUrl: './budget-allocation-update.component.html',
   styleUrl: './budget-allocation-update.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class BudgetAllocationUpdateComponent implements OnInit {
+export class BudgetAllocationUpdateComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<BudgetAllocationUpdateDialogData>(MAT_DIALOG_DATA, { optional: true });
-  private readonly fb = inject(FormBuilder);
+  protected readonly data = inject<BudgetAllocationUpdateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  private readonly fb = inject(FormBuilder).nonNullable;
   private readonly settingService = inject(SettingService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<BudgetAllocationUpdateComponent>);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
   // ==========================================
-  protected budgetAllocationForm!: FormGroup;
+  protected readonly budgetAllocationForm: FormGroup<BudgetAllocationUpdateForm>;
   protected readonly isSubmitting = signal<boolean>(false);
 
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     program: [
-      { type: 'required', message: 'O programa é obrigatório.' }
+      { type: 'required', message: 'O programa é obrigatório.' },
     ],
     active_project: [
-      { type: 'required', message: 'O projeto ativo é obrigatório.' }
+      { type: 'required', message: 'O projeto ativo é obrigatório.' },
     ],
     nature_of_expenditure: [
-      { type: 'required', message: 'A natureza da despesa é obrigatória.' }
+      { type: 'required', message: 'A natureza da despesa é obrigatória.' },
     ],
     source: [
-      { type: 'required', message: 'A fonte é obrigatória.' }
-    ]
+      { type: 'required', message: 'A fonte é obrigatória.' },
+    ],
   };
 
-  // ==========================================
-  // Ciclo de Vida (Hooks)
-  // ==========================================
-  ngOnInit(): void {
-    this.initForm();
-    this.setupFormSubmittingHandler();
+  constructor() {
+    const budget = this.data?.budget_allocation;
+
+    this.budgetAllocationForm = this.fb.group<BudgetAllocationUpdateForm>({
+      program: this.fb.control(budget?.program || '', [Validators.required]),
+      active_project: this.fb.control(budget?.active_project || '', [Validators.required]),
+      nature_of_expenditure: this.fb.control(budget?.nature_of_expenditure || '', [Validators.required]),
+      source: this.fb.control(budget?.source || '', [Validators.required]),
+    });
+
+    effect(() => {
+      if (this.isSubmitting()) {
+        this.budgetAllocationForm.disable({ emitEvent: false });
+      } else {
+        this.budgetAllocationForm.enable({ emitEvent: false });
+      }
+    });
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected onSubmit(): void {
     const budgetId = this.data?.budget_allocation?.id;
@@ -90,53 +128,32 @@ export class BudgetAllocationUpdateComponent implements OnInit {
       return;
     }
 
-    if (this.budgetAllocationForm.invalid) {
+    if (this.budgetAllocationForm.invalid || this.isSubmitting()) {
       this.budgetAllocationForm.markAllAsTouched();
       return;
     }
 
     this.isSubmitting.set(true);
 
-    this.settingService.updateBudgetAllocation(budgetId, this.budgetAllocationForm.getRawValue())
+    const payload = this.budgetAllocationForm.getRawValue() as Partial<BudgetAllocation>;
+
+    this.settingService
+      .updateBudgetAllocation(budgetId, payload)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Alocação orçamentária atualizada com sucesso!');
+          this.messageService.showMessage(
+            response?.message || 'Alocação orçamentária atualizada com sucesso!'
+          );
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao atualizar a alocação orçamentária.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
-      });
-  }
-
-  // ==========================================
-  // Métodos Privados
-  // ==========================================
-  private initForm(): void {
-    const budget = this.data?.budget_allocation;
-
-    this.budgetAllocationForm = this.fb.group({
-      program: [budget?.program || '', [Validators.required]],
-      active_project: [budget?.active_project || '', [Validators.required]],
-      nature_of_expenditure: [budget?.nature_of_expenditure || '', [Validators.required]],
-      source: [budget?.source || '', [Validators.required]]
-    });
-  }
-
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.budgetAllocationForm.disable({ emitEvent: false });
-        } else {
-          this.budgetAllocationForm.enable({ emitEvent: false });
-        }
+        },
       });
   }
 }

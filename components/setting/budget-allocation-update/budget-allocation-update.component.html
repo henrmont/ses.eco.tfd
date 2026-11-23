@@ -2,18 +2,16 @@
 
 <form [formGroup]="budgetAllocationForm">
   <mat-dialog-content>
-    
     <div class="line double-columns">
       <mat-form-field appearance="outline">
         <mat-label>Programa</mat-label>
-        <input 
-          matInput 
-          type="text" 
-          placeholder="Ex: Programa de Gestão" 
-          formControlName="program"
-        >
+        <input
+          matInput
+          type="text"
+          placeholder="Ex: Programa de Gestão"
+          formControlName="program" />
         @for (item of errorMessages['program']; track item.type) {
-          <mat-error [hidden]="!budgetAllocationForm.get('program')?.hasError(item.type)">
+          <mat-error [hidden]="!budgetAllocationForm.controls.program.hasError(item.type)">
             {{ item.message }}
           </mat-error>
         }
@@ -21,14 +19,13 @@
 
       <mat-form-field appearance="outline">
         <mat-label>Projeto ativo</mat-label>
-        <input 
-          matInput 
-          type="text" 
-          placeholder="Ex: Projeto Expansão" 
-          formControlName="active_project"
-        >
+        <input
+          matInput
+          type="text"
+          placeholder="Ex: Projeto Expansão"
+          formControlName="active_project" />
         @for (item of errorMessages['active_project']; track item.type) {
-          <mat-error [hidden]="!budgetAllocationForm.get('active_project')?.hasError(item.type)">
+          <mat-error [hidden]="!budgetAllocationForm.controls.active_project.hasError(item.type)">
             {{ item.message }}
           </mat-error>
         }
@@ -38,14 +35,13 @@
     <div class="line double-columns">
       <mat-form-field appearance="outline">
         <mat-label>Natureza da despesa</mat-label>
-        <input 
-          matInput 
-          type="text" 
-          placeholder="Ex: 3.3.90.30" 
-          formControlName="nature_of_expenditure"
-        >
+        <input
+          matInput
+          type="text"
+          placeholder="Ex: 3.3.90.30"
+          formControlName="nature_of_expenditure" />
         @for (item of errorMessages['nature_of_expenditure']; track item.type) {
-          <mat-error [hidden]="!budgetAllocationForm.get('nature_of_expenditure')?.hasError(item.type)">
+          <mat-error [hidden]="!budgetAllocationForm.controls.nature_of_expenditure.hasError(item.type)">
             {{ item.message }}
           </mat-error>
         }
@@ -53,33 +49,30 @@
 
       <mat-form-field appearance="outline">
         <mat-label>Fonte</mat-label>
-        <input 
-          matInput 
-          type="text" 
-          placeholder="Ex: Recursos Próprios / Tesouro" 
-          formControlName="source"
-        >
+        <input
+          matInput
+          type="text"
+          placeholder="Ex: Recursos Próprios / Tesouro"
+          formControlName="source" />
         @for (item of errorMessages['source']; track item.type) {
-          <mat-error [hidden]="!budgetAllocationForm.get('source')?.hasError(item.type)">
+          <mat-error [hidden]="!budgetAllocationForm.controls.source.hasError(item.type)">
             {{ item.message }}
           </mat-error>
         }
       </mat-form-field>
     </div>
-
   </mat-dialog-content>
-  
+
   <mat-dialog-actions align="end">
     <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">
       Fechar
     </button>
-    <button 
-      mat-flat-button 
-      color="primary" 
-      type="button" 
+    <button
+      mat-flat-button
+      color="primary"
+      type="button"
       [disabled]="budgetAllocationForm.invalid || budgetAllocationForm.pending || budgetAllocationForm.pristine || isSubmitting()"
-      (click)="onSubmit()"
-    >
+      (click)="onSubmit()">
       <div class="waiting">
         @if (isSubmitting()) {
           <mat-spinner diameter="20"></mat-spinner>

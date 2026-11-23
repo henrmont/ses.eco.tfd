@@ -5,7 +5,7 @@
       <mat-card-title>ALOCAÇÃO ORÇAMENTÁRIA</mat-card-title>
     </div>
   </mat-card-header>
-  
+
   <mat-card-content>
     @if (isLoading()) {
       <div class="loading-container">
@@ -32,12 +32,13 @@
               <span class="value">{{ item.source || 'N/A' }}</span>
             </div>
           </div>
-          
+
           <div class="budget-actions">
-            <button 
-              mat-icon-button 
+            <button
+              mat-icon-button
               type="button"
-              matTooltip="Atualizar dotação orçamentária" 
+              matTooltip="Atualizar dotação orçamentária"
+              [disabled]="checkPermissions('configuração atualizar')"
               (click)="budgetAllocationUpdate(item)">
               <mat-icon>drive_file_rename_outline</mat-icon>
             </button>
