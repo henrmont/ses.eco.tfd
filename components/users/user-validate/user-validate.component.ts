@@ -11,22 +11,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 
-// Services
+// Services & Models
+import { TfdUser as User } from '../../../models/user.model';
 import { UserService } from '../../../services/user.service';
 
-type UserValidateDialogData = {
-  user?: {
-    id: number;
-    name?: string;
-    professional?: {
-      name?: string;
-    };
-    module?: {
-      pivot?: {
-        is_valid?: boolean;
-      };
-    };
-  };
+export type UserValidateDialogData = {
+  user?: User;
 };
 
 @Component({
@@ -35,11 +25,11 @@ type UserValidateDialogData = {
   imports: [
     MatButtonModule,
     MatDialogModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
   ],
   templateUrl: './user-validate.component.html',
   styleUrl: './user-validate.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UserValidateComponent {
   // ==========================================
@@ -80,20 +70,23 @@ export class UserValidateComponent {
 
     this.isSubmitting.set(true);
 
-    this.userService.validateUser(userId)
+    this.userService
+      .validateUser(userId, !this.isValid)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Status do usuário atualizado com sucesso!');
+          this.messageService.showMessage(
+            response?.message || 'Status do usuário atualizado com sucesso!'
+          );
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao tentar alterar a validação do usuário.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 }

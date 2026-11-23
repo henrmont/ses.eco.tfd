@@ -2,7 +2,7 @@ import { PatientEscort } from "./patient-escort.model"
 import { Module } from "./../../core/models/module.model"
 import { Patient } from "./patient.model"
 import { PatientReport } from "./patient-report.model"
-import { TfdUser } from "./user.model"
+import { TfdUser as User } from "./user.model"
 
 export interface PatientCare {
     id?: number,
@@ -15,7 +15,7 @@ export interface PatientCare {
     status?: boolean,
     patient?: Patient,
     module?: Module,
-    user?: TfdUser,
+    user?: User,
     escorts?: PatientEscort[],
     reports?: PatientReport[],
     owner?: boolean,

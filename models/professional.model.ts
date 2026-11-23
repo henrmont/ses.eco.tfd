@@ -1,5 +1,5 @@
 import { ProfessionalType } from "./professional-type.model";
-import { TfdUser } from "./user.model";
+import { TfdUser as User } from "./user.model";
 
 export interface Professional {
     id: number,
@@ -9,6 +9,6 @@ export interface Professional {
     registration: string,
     professional_register?: string,
     cbo?: string,
-    user: TfdUser,
+    user: User,
     types: ProfessionalType[] | null,
 }

@@ -11,17 +11,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 
-// Services
+// Services & Models
+import { TfdUser as User } from '../../../models/user.model';
 import { UserService } from '../../../services/user.service';
 
 export type UserDeleteDialogData = {
-  user?: {
-    id: number;
-    name?: string;
-    professional?: {
-      name?: string;
-    };
-  };
+  user?: User;
 };
 
 @Component({
@@ -30,11 +25,11 @@ export type UserDeleteDialogData = {
   imports: [
     MatButtonModule,
     MatDialogModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
   ],
   templateUrl: './user-delete.component.html',
   styleUrl: './user-delete.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UserDeleteComponent {
   // ==========================================
@@ -71,20 +66,23 @@ export class UserDeleteComponent {
 
     this.isSubmitting.set(true);
 
-    this.userService.deleteUser(userId)
+    this.userService
+      .deleteUser(userId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Usuário removido com sucesso!');
+          this.messageService.showMessage(
+            response?.message || 'Usuário removido com sucesso!'
+          );
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao tentar remover o usuário.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 }

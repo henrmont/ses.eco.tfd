@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnDestroy, OnInit, effect, inject, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ComponentType } from '@angular/cdk/portal';
 import { Overlay } from '@angular/cdk/overlay';
@@ -16,12 +26,13 @@ import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core & Models
+// Core & Models (Padrão alias "as User")
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
 import { Permission } from '../../../core/models/permission.model';
 import { Role } from '../../../core/models/role.model';
-import { TfdUser } from '../../models/user.model';
+import { TfdUser as User } from '../../models/user.model';
 import { UserService } from '../../services/user.service';
+import { AuthService } from '../../services/auth.service';
 
 // Dialog Components
 import { UserDeleteComponent } from '../../components/users/user-delete/user-delete.component';
@@ -30,15 +41,22 @@ import { UserLockComponent } from '../../components/users/user-lock/user-lock.co
 import { UserRolesComponent } from '../../components/users/user-roles/user-roles.component';
 import { UserUpdateComponent } from '../../components/users/user-update/user-update.component';
 import { UserValidateComponent } from '../../components/users/user-validate/user-validate.component';
-import { AuthService } from '../../services/auth.service';
 
-interface UserTableRow extends TfdUser {
+// ============================================================================
+// CONFIGURAÇÃO DO MÓDULO (Único bloco a ajustar ao replicar para outro módulo)
+// ============================================================================
+const PAGE_CONFIG = {
+  channelName: 'tfd-users-channel',
+  permissionPrefix: 'tfd/',
+} as const;
+
+interface UserTableRow extends User {
   is_editable: boolean;
   cns: string;
 }
 
 interface UsersDialogData {
-  user: TfdUser;
+  user: User;
 }
 
 @Component({
@@ -53,16 +71,16 @@ interface UsersDialogData {
     MatSortModule,
     MatTableModule,
     MatTooltipModule,
-    NgxMaskPipe
+    NgxMaskPipe,
   ],
   providers: [provideNgxMask()],
   templateUrl: './users.page.html',
   styleUrl: './users.page.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UsersPage implements OnInit, OnDestroy {
   // Canais de Comunicação Externa
-  private readonly usersChannel = new BroadcastChannel('tfd-users-channel');
+  private readonly usersChannel = new BroadcastChannel(PAGE_CONFIG.channelName);
 
   // Injeção de Dependências
   private readonly userService = inject(UserService);
@@ -70,15 +88,24 @@ export class UsersPage implements OnInit, OnDestroy {
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // Queries Reativas da View
   private readonly userSort = viewChild<MatSort>('userSort');
   private readonly userPaginator = viewChild<MatPaginator>('userPaginator');
 
-  // Estado e Controle
+  // Estado e Controle Reativo
   private loadingDialog?: MatDialogRef<LoadingComponent>;
-  private readonly currentUser: TfdUser | null = this.authService.getCurrentUser();
+  private readonly currentUser = computed(() => this.authService.currentUser() as User | null);
+
+  private readonly userPermissions = computed<Set<string>>(() => {
+    const roles = this.currentUser()?.roles || [];
+    return new Set<string>(
+      roles
+        .flatMap((role: Role) => role.permissions || [])
+        .map((perm: Permission) => perm.name?.trim().toLowerCase())
+        .filter((name): name is string => Boolean(name))
+    );
+  });
 
   protected readonly displayedColumns: string[] = [
     'is_editable',
@@ -86,13 +113,22 @@ export class UsersPage implements OnInit, OnDestroy {
     'name',
     'cns',
     'is_valid',
-    'actions'
+    'actions',
   ];
 
   protected readonly dataSource = new MatTableDataSource<UserTableRow>([]);
 
+  constructor() {
+    effect(() => {
+      const sort = this.userSort();
+      const paginator = this.userPaginator();
+
+      if (sort) this.dataSource.sort = sort;
+      if (paginator) this.dataSource.paginator = paginator;
+    });
+  }
+
   ngOnInit(): void {
-    this.setupTableBindings();
     this.fetchUsers(true);
     this.listenToBroadcastChannel();
   }
@@ -113,59 +149,54 @@ export class UsersPage implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Retorna `true` quando o botão deve ficar DESABILITADO (`[disabled]="checkPermissions('...')"`)
+   */
   protected checkPermissions(permissionName: string): boolean {
-    if (!this.currentUser?.roles) return true;
+    const permissions = this.userPermissions();
+    if (permissions.size === 0) return true;
 
-    const hasPermission = this.currentUser.roles.some((role: Role) =>
-      role.permissions?.some((perm: Permission) => perm.name === permissionName)
-    );
+    const target = permissionName.trim().toLowerCase();
+    const hasPermission =
+      permissions.has(target) ||
+      permissions.has(`${PAGE_CONFIG.permissionPrefix}${target}`);
 
     return !hasPermission;
   }
 
   // Ações da Tabela
-  protected userLock(user: TfdUser): void {
+  protected userLock(user: User): void {
     this.openDialog(UserLockComponent, { user });
   }
 
-  protected userValidate(user: TfdUser): void {
+  protected userValidate(user: User): void {
     this.openDialog(UserValidateComponent, { user });
   }
 
-  protected userRoles(user: TfdUser): void {
+  protected userRoles(user: User): void {
     this.openDialog(UserRolesComponent, { user }, '700px');
   }
 
-  protected userDelete(user: TfdUser): void {
+  protected userDelete(user: User): void {
     this.openDialog(UserDeleteComponent, { user });
   }
 
-  protected userUpdate(user: TfdUser): void {
+  protected userUpdate(user: User): void {
     this.openDialog(UserUpdateComponent, { user }, '700px');
   }
 
-  protected userDetail(user: TfdUser): void {
+  protected userDetail(user: User): void {
     this.openDialog(UserDetailComponent, { user }, '700px');
   }
 
   // ==========================================
   // Métodos Privados
   // ==========================================
-  private setupTableBindings(): void {
-    // Registra o efeito no ciclo de inicialização (ngOnInit) usando o DestroyRef da classe
-    effect(() => {
-      const sort = this.userSort();
-      const paginator = this.userPaginator();
-
-      if (sort) this.dataSource.sort = sort;
-      if (paginator) this.dataSource.paginator = paginator;
-    }, { injector: this.injector });
-  }
-
   private fetchUsers(showLoading = false): void {
     if (showLoading) this.openLoading();
 
-    this.userService.getUsers()
+    this.userService
+      .getUsers()
       .pipe(
         finalize(() => {
           if (showLoading && this.loadingDialog) {
@@ -181,7 +212,7 @@ export class UsersPage implements OnInit, OnDestroy {
         },
         error: () => {
           this.dataSource.data = [];
-        }
+        },
       });
   }
 
@@ -193,25 +224,28 @@ export class UsersPage implements OnInit, OnDestroy {
     };
   }
 
-  private mapUserToRow(item: Partial<TfdUser> & { professional?: { name?: string; cns?: string } }): UserTableRow {
-    const userObj: TfdUser = {
+  private mapUserToRow(
+    item: Partial<User> & { professional?: { name?: string; cns?: string } }
+  ): UserTableRow {
+    const userObj: User = {
       id: item.id!,
       email: item.email || '',
       name: item.professional?.name || item.name || '',
       module: item.module,
       professional: item.professional,
-      roles: item.roles
+      roles: item.roles,
     };
 
     return {
       ...userObj,
       cns: item.professional?.cns || '-',
-      is_editable: this.calculateEditable(userObj)
+      is_editable: this.calculateEditable(userObj),
     };
   }
 
-  private calculateEditable(user: TfdUser): boolean {
-    if (!this.currentUser || this.currentUser.id === user.id) return false;
+  private calculateEditable(user: User): boolean {
+    const loggedUser = this.currentUser();
+    if (!loggedUser || loggedUser.id === user.id) return false;
     return !user.module?.pivot?.is_editable;
   }
 
@@ -219,7 +253,7 @@ export class UsersPage implements OnInit, OnDestroy {
     this.loadingDialog = this.dialog.open(LoadingComponent, {
       height: '200px',
       disableClose: true,
-      autoFocus: false
+      autoFocus: false,
     });
   }
 
@@ -230,21 +264,22 @@ export class UsersPage implements OnInit, OnDestroy {
     height = 'auto',
     requiresRefresh = true
   ): void {
-    this.dialog.open(component, {
-      width,
-      height,
-      disableClose: true,
-      autoFocus: false,
-      scrollStrategy: this.overlay.scrollStrategies.noop(),
-      data
-    })
-    .afterClosed()
-    .pipe(takeUntilDestroyed(this.destroyRef))
-    .subscribe((result) => {
-      if (result && requiresRefresh) {
-        this.handleUserChange();
-      }
-    });
+    this.dialog
+      .open(component, {
+        width,
+        height,
+        disableClose: true,
+        autoFocus: false,
+        scrollStrategy: this.overlay.scrollStrategies.noop(),
+        data,
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result && requiresRefresh) {
+          this.handleUserChange();
+        }
+      });
   }
 
   private handleUserChange(): void {

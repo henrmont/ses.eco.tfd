@@ -2,7 +2,7 @@ import { inject, Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { TfdUser } from '../models/user.model';
+import { TfdUser as User } from '../models/user.model';
 import { AuthService as CoreAuthService } from '../../core/services/auth-service';
 
 @Injectable({
@@ -14,7 +14,7 @@ export class AuthService {
   private readonly apiUrl = `${environment.apiTfdUrl}/users/me`;
 
   // 🔒 Estado reativo do TfdUser
-  private readonly _currentUser = signal<TfdUser | null>(null);
+  private readonly _currentUser = signal<User | null>(null);
 
   readonly currentUser = this._currentUser.asReadonly();
   readonly isAuthenticated = computed(() => !!this._currentUser());
@@ -34,18 +34,18 @@ export class AuthService {
       .map((type) => type.trim());
   });
 
-  setCurrentUser(user: TfdUser | null): void {
+  setCurrentUser(user: User | null): void {
     this._currentUser.set(user);
     // Atualiza o core AuthService para manter sincronizado com o sistema
     this.coreAuthService.setCurrentUser(user);
   }
 
-  getCurrentUser(): TfdUser | null {
-    return this._currentUser() || this.coreAuthService.getCurrentUser<TfdUser>();
+  getCurrentUser(): User | null {
+    return this._currentUser() || this.coreAuthService.getCurrentUser<User>();
   }
 
-  getMe(): Observable<TfdUser> {
-    return this.http.get<TfdUser>(this.apiUrl).pipe(
+  getMe(): Observable<User> {
+    return this.http.get<User>(this.apiUrl).pipe(
       tap((user) => this.setCurrentUser(user))
     );
   }

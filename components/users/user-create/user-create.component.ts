@@ -1,8 +1,22 @@
 import { Overlay } from '@angular/cdk/overlay';
 import { ComponentType } from '@angular/cdk/portal';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  OnInit,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { finalize } from 'rxjs';
 import { NgxMaskDirective } from 'ngx-mask';
 
@@ -23,13 +37,30 @@ import { Professionals } from '../../../enums/professionals';
 import { UserService } from '../../../services/user.service';
 import { ProfessionalTypesComponent } from '../professional-types/professional-types.component';
 
-export type ProfessionalTypesDialogData = {
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-users-channel',
+} as const;
+
+interface ProfessionalTypesDialogData {
   selectedTypes: string[];
-};
+}
 
 interface ErrorMessage {
   type: string;
   message: string;
+}
+
+interface UserCreateForm {
+  name: FormControl<string>;
+  email: FormControl<string>;
+  types: FormControl<string[]>;
+  cns: FormControl<string>;
+  registration: FormControl<string>;
+  professional_register: FormControl<string>;
+  cbo: FormControl<string>;
 }
 
 @Component({
@@ -43,13 +74,16 @@ interface ErrorMessage {
     MatInputModule,
     MatProgressSpinnerModule,
     NgxMaskDirective,
-    ReactiveFormsModule
+    ReactiveFormsModule,
   ],
   templateUrl: './user-create.component.html',
   styleUrl: './user-create.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class UserCreateComponent implements OnInit {
+export class UserCreateComponent implements OnInit, OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly usersChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
@@ -64,28 +98,36 @@ export class UserCreateComponent implements OnInit {
   // ==========================================
   // Propriedades e Estado Reativo
   // ==========================================
-  protected userForm!: FormGroup;
+  protected userForm!: FormGroup<UserCreateForm>;
   protected readonly isSubmitting = signal<boolean>(false);
 
   protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     name: [
-      { type: 'required', message: 'O nome é obrigatório.' }
+      { type: 'required', message: 'O nome é obrigatório.' },
     ],
     email: [
       { type: 'required', message: 'O e-mail é obrigatório.' },
       { type: 'email', message: 'Formato de e-mail inválido.' },
-      { type: 'emailExists', message: 'O e-mail informado já está em uso.' }
+      { type: 'emailExists', message: 'O e-mail informado já está em uso.' },
     ],
     types: [
-      { type: 'required', message: 'Selecione ao menos um tipo de profissional.' }
+      { type: 'required', message: 'Selecione ao menos um tipo de profissional.' },
     ],
     cns: [
       { type: 'required', message: 'O CNS é obrigatório.' },
-      { type: 'cnsExists', message: 'O CNS informado já está em uso.' }
+      { type: 'cnsExists', message: 'O CNS informado já está em uso.' },
     ],
     registration: [
-      { type: 'required', message: 'A matrícula é obrigatória.' }
-    ]
+      { type: 'required', message: 'A matrícula é obrigatória.' },
+      { type: 'minlength', message: 'A matrícula deve ter no mínimo 5 dígitos.' },
+      { type: 'maxlength', message: 'A matrícula deve ter no máximo 6 dígitos.' },
+    ],
+    professional_register: [
+      { type: 'required', message: 'O registro profissional é obrigatório.' },
+    ],
+    cbo: [
+      { type: 'required', message: 'O CBO é obrigatório.' },
+    ],
   };
 
   // ==========================================
@@ -96,11 +138,15 @@ export class UserCreateComponent implements OnInit {
     this.setupProfessionalTypesListener();
   }
 
+  ngOnDestroy(): void {
+    this.usersChannel.close();
+  }
+
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected openProfessionalTypesDialog(): void {
-    const currentTypes: string[] = this.userForm.get('types')?.value || [];
+    const currentTypes = this.userForm.controls.types.value;
     this.openDialog(ProfessionalTypesComponent, { selectedTypes: currentTypes });
   }
 
@@ -113,24 +159,28 @@ export class UserCreateComponent implements OnInit {
     this.isSubmitting.set(true);
     this.userForm.disable({ emitEvent: false });
 
-    this.userService.createUser(this.userForm.getRawValue())
+    this.userService
+      .createUser(this.userForm.getRawValue())
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);
           this.userForm.enable({ emitEvent: false });
-          this.evaluateProfessionalControls(this.userForm.get('types')?.value || []);
+          this.evaluateProfessionalControls(this.userForm.controls.types.value);
         }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Usuário cadastrado com sucesso!');
+          this.usersChannel.postMessage('update');
+          this.messageService.showMessage(
+            response?.message || 'Usuário cadastrado com sucesso!'
+          );
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao criar o usuário.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 
@@ -138,30 +188,34 @@ export class UserCreateComponent implements OnInit {
   // Métodos Privados / Auxiliares
   // ==========================================
   private initForm(): void {
-    this.userForm = this.fb.group({
-      name: ['', [Validators.required]],
-      email: [
+    this.userForm = this.fb.group<UserCreateForm>({
+      name: this.fb.control('', [Validators.required]),
+      email: this.fb.control(
         '',
         [Validators.required, Validators.email],
-        [this.userService.emailUserExistsValidator(null)]
-      ],
-      types: [<string[]>[], [Validators.required]],
-      cns: [
+        [this.userService.emailUserExistsValidator()]
+      ),
+      types: this.fb.control<string[]>([], [Validators.required]),
+      cns: this.fb.control(
         '',
         [Validators.required],
-        [this.userService.cnsUserExistsValidator(null)]
-      ],
-      registration: ['', [Validators.required, Validators.minLength(5), Validators.maxLength(6)]],
-      professional_register: [{ value: '', disabled: true }],
-      cbo: [{ value: '', disabled: true }]
+        [this.userService.cnsUserExistsValidator()]
+      ),
+      registration: this.fb.control('', [
+        Validators.required,
+        Validators.minLength(5),
+        Validators.maxLength(6),
+      ]),
+      professional_register: this.fb.control({ value: '', disabled: true }),
+      cbo: this.fb.control({ value: '', disabled: true }),
     });
   }
 
   private setupProfessionalTypesListener(): void {
-    this.userForm.get('types')?.valueChanges
+    this.userForm.controls.types.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((selectedTypes: string[]) => {
-        this.evaluateProfessionalControls(selectedTypes || []);
+      .subscribe((selectedTypes) => {
+        this.evaluateProfessionalControls(selectedTypes);
       });
   }
 
@@ -169,22 +223,28 @@ export class UserCreateComponent implements OnInit {
     const hasMedico = selectedTypes.includes(Professionals.MEDICO);
     const hasAssistenteSocial = selectedTypes.includes(Professionals.ASSISTENTE_SOCIAL);
 
-    const professionalRegisterCtrl = this.userForm.get('professional_register');
-    const cboCtrl = this.userForm.get('cbo');
+    const professionalRegisterCtrl = this.userForm.controls.professional_register;
+    const cboCtrl = this.userForm.controls.cbo;
 
     if (hasMedico || hasAssistenteSocial) {
-      professionalRegisterCtrl?.enable();
+      professionalRegisterCtrl.setValidators([Validators.required]);
+      professionalRegisterCtrl.enable({ emitEvent: false });
     } else {
-      professionalRegisterCtrl?.disable();
-      professionalRegisterCtrl?.reset();
+      professionalRegisterCtrl.clearValidators();
+      professionalRegisterCtrl.disable({ emitEvent: false });
+      professionalRegisterCtrl.reset('', { emitEvent: false });
     }
+    professionalRegisterCtrl.updateValueAndValidity({ emitEvent: false });
 
     if (hasMedico) {
-      cboCtrl?.enable();
+      cboCtrl.setValidators([Validators.required]);
+      cboCtrl.enable({ emitEvent: false });
     } else {
-      cboCtrl?.disable();
-      cboCtrl?.reset();
+      cboCtrl.clearValidators();
+      cboCtrl.disable({ emitEvent: false });
+      cboCtrl.reset('', { emitEvent: false });
     }
+    cboCtrl.updateValueAndValidity({ emitEvent: false });
   }
 
   private openDialog<T>(
@@ -193,21 +253,22 @@ export class UserCreateComponent implements OnInit {
     width = '600px',
     height = 'auto'
   ): void {
-    this.dialog.open(component, {
-      width,
-      height,
-      disableClose: true,
-      autoFocus: false,
-      scrollStrategy: this.overlay.scrollStrategies.noop(),
-      data
-    })
+    this.dialog
+      .open(component, {
+        width,
+        height,
+        disableClose: true,
+        autoFocus: false,
+        scrollStrategy: this.overlay.scrollStrategies.noop(),
+        data,
+      })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((selectedTypes: string[]) => {
+      .subscribe((selectedTypes: string[] | undefined) => {
         if (selectedTypes) {
-          const typesCtrl = this.userForm.get('types');
-          typesCtrl?.setValue(selectedTypes);
-          typesCtrl?.markAsTouched();
+          const typesCtrl = this.userForm.controls.types;
+          typesCtrl.setValue(selectedTypes);
+          typesCtrl.markAsTouched();
         }
       });
   }

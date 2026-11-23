@@ -1,20 +1,17 @@
 <mat-drawer-container>
   <mat-drawer mode="side" opened>
     <mat-action-list>
-      
       @for (group of menuGroups; track group.subHeader) {
-        @if (hasAccess(group.requiredTypes, group.requiredPermissions)) {
-          
+        @if (checkProfessionalType(group.requiredTypes)) {
           <div mat-subheader>{{ group.subHeader }}</div>
-          
+
           @for (item of group.items; track item.label) {
             @if (checkProfessionalType(item.types)) {
-              
               <!-- Item de Navegação (RouterLink) -->
               @if (item.routerLink) {
-                <button 
-                  mat-list-item 
-                  [routerLink]="checkPermission(item.permissions) ? item.routerLink : null" 
+                <button
+                  mat-list-item
+                  [routerLink]="checkPermission(item.permissions) ? item.routerLink : null"
                   [disabled]="!checkPermission(item.permissions)"
                   routerLinkActive="active"
                   [attr.aria-disabled]="!checkPermission(item.permissions)">
@@ -24,26 +21,24 @@
                   </div>
                 </button>
               }
-              
+
               <!-- Item de Ação (Dialog/Modal) -->
               @if (item.action) {
                 <button
-                  mat-list-item 
-                  (click)="checkPermission(item.permissions) && item.action()" 
-                  [disabled]="!checkPermission(item.permissions)">
+                  mat-list-item
+                  (click)="checkPermission(item.permissions) && item.action()"
+                  [disabled]="!checkPermission(item.permissions)"
+                  [attr.aria-disabled]="!checkPermission(item.permissions)">
                   <div class="link">
                     <mat-icon>{{ item.icon }}</mat-icon>
                     <div>{{ item.label }}</div>
                   </div>
                 </button>
               }
-
             }
           }
-
         }
       }
-
     </mat-action-list>
   </mat-drawer>
 

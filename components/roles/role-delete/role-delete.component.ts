@@ -8,31 +8,34 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 // Core & Models
-import { MessageService } from '../../../../core/services/message-service';
+import { ApiResponse } from '../../../../core/models/api-response.model';
 import { Role } from '../../../../core/models/role.model';
+import { MessageService } from '../../../../core/services/message-service';
+
+// Services
 import { RoleService } from '../../../services/role.service';
 
-interface RoleDeleteDialogData {
+export type RoleDeleteDialogData = {
   role?: Role;
-}
+};
 
 @Component({
   selector: 'app-role-delete',
   standalone: true,
   imports: [
     MatButtonModule,
-    MatDialogModule, 
-    MatProgressSpinnerModule
+    MatDialogModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './role-delete.component.html',
   styleUrl: './role-delete.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RoleDeleteComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<RoleDeleteDialogData>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<RoleDeleteDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly roleService = inject(RoleService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<RoleDeleteComponent>);
@@ -44,7 +47,16 @@ export class RoleDeleteComponent {
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // Métodos Acessíveis pelo Template
+  // Getters para Facilitação do Template
+  // ==========================================
+  protected get roleName(): string {
+    const rawName = this.data?.role?.name;
+    if (!rawName) return 'Regra';
+    return rawName.split('/').pop() || rawName;
+  }
+
+  // ==========================================
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected formatRoleName(name?: string): string {
     if (!name) return '';
@@ -53,6 +65,7 @@ export class RoleDeleteComponent {
 
   protected onSubmit(): void {
     const roleId = this.data?.role?.id;
+
     if (!roleId) {
       this.messageService.showMessage('Identificador da regra inválido.');
       return;
@@ -60,20 +73,23 @@ export class RoleDeleteComponent {
 
     this.isSubmitting.set(true);
 
-    this.roleService.deleteRole(roleId)
+    this.roleService
+      .deleteRole(roleId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (response) => {
-          this.messageService.showMessage(response?.message || 'Regra removida com sucesso!');
+        next: (response: ApiResponse) => {
+          this.messageService.showMessage(
+            response?.message || 'Regra removida com sucesso!'
+          );
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao tentar remover a regra.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 }

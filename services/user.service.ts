@@ -1,12 +1,17 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { AbstractControl, AsyncValidatorFn, ValidationErrors } from '@angular/forms';
 import { catchError, map, Observable, of, switchMap, timer } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../core/models/api-response.model';
 import { Role } from '../../core/models/role.model';
-import { TfdUser } from '../models/user.model';
+import { TfdUser as User } from '../models/user.model';
+
+interface AvailabilityResponse {
+  available: boolean;
+  exists: boolean;
+}
 
 @Injectable({
   providedIn: 'root',
@@ -15,15 +20,15 @@ export class UserService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = `${environment.apiTfdUrl}/users`;
 
-  getMe(): Observable<TfdUser> {
-    return this.http.get<TfdUser>(`${this.apiUrl}/me`);
-  }
-
   // ==========================================
   // Consultas (GET)
   // ==========================================
-  getUsers(): Observable<TfdUser[]> {
-    return this.http.get<TfdUser[]>(`${this.apiUrl}/`);
+  getMe(): Observable<User> {
+    return this.http.get<User>(`${this.apiUrl}/me`);
+  }
+
+  getUsers(): Observable<User[]> {
+    return this.http.get<User[]>(this.apiUrl);
   }
 
   getRoles(): Observable<Role[]> {
@@ -33,12 +38,16 @@ export class UserService {
   // ==========================================
   // Operações de Escrita / CRUD
   // ==========================================
-  createUser(data: TfdUser): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`${this.apiUrl}/`, data);
+  createUser(data: User): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(this.apiUrl, data);
   }
 
-  updateUser(userId: number, data: TfdUser): Observable<ApiResponse> {
+  updateUser(userId: number, data: User): Observable<ApiResponse> {
     return this.http.put<ApiResponse>(`${this.apiUrl}/${userId}`, data);
+  }
+
+  patchUser(userId: number, partialData: Partial<User>): Observable<ApiResponse> {
+    return this.http.patch<ApiResponse>(`${this.apiUrl}/${userId}`, partialData);
   }
 
   deleteUser(userId: number): Observable<ApiResponse> {
@@ -46,34 +55,45 @@ export class UserService {
   }
 
   // ==========================================
-  // Ações de Usuário
+  // Ações de Estado e Sub-recursos
   // ==========================================
-  lockUser(userId: number): Observable<ApiResponse> {
-    return this.http.patch<ApiResponse>(`${this.apiUrl}/${userId}/lock`, {});
+  lockUser(userId: number, isEditable: boolean): Observable<ApiResponse> {
+    return this.patchUser(userId, { is_editable: isEditable } as Partial<User>);
   }
 
-  validateUser(userId: number): Observable<ApiResponse> {
-    return this.http.patch<ApiResponse>(`${this.apiUrl}/${userId}/validate`, {});
+  validateUser(userId: number, isValid: boolean): Observable<ApiResponse> {
+    return this.patchUser(userId, { is_valid: isValid } as Partial<User>);
   }
 
   rolesUser(userId: number, data: Role[]): Observable<ApiResponse> {
-    return this.http.patch<ApiResponse>(`${this.apiUrl}/${userId}/roles`, data);
+    return this.http.put<ApiResponse>(`${this.apiUrl}/${userId}/roles`, data);
   }
 
   // ==========================================
-  // Métodos de Checagem HTTP (Simples)
+  // Métodos de Checagem HTTP (Query Params REST)
   // ==========================================
   checkEmailExists(email: string, currentEmail?: string | null): Observable<boolean> {
-    const encodedEmail = encodeURIComponent(email);
-    const encodedCompare = encodeURIComponent(currentEmail || '');
-    return this.http.get<boolean>(`${this.apiUrl}/exists-email/${encodedEmail}/${encodedCompare}`);
+    let params = new HttpParams().set('email', email.trim().toLowerCase());
+    if (currentEmail) {
+      params = params.set('ignore', currentEmail.trim().toLowerCase());
+    }
+
+    return this.http
+      .get<AvailabilityResponse>(`${this.apiUrl}/availability`, { params })
+      .pipe(map((res) => res.exists));
   }
 
   checkCnsExists(cns: string, currentCns?: string | null): Observable<boolean> {
     const cleanCns = cns.replace(/\D/g, '');
-    const encodedCns = encodeURIComponent(cleanCns);
-    const encodedCompare = encodeURIComponent(currentCns || '');
-    return this.http.get<boolean>(`${this.apiUrl}/exists-cns/${encodedCns}/${encodedCompare}`);
+    let params = new HttpParams().set('cns', cleanCns);
+
+    if (currentCns) {
+      params = params.set('ignore', currentCns.replace(/\D/g, ''));
+    }
+
+    return this.http
+      .get<AvailabilityResponse>(`${this.apiUrl}/availability`, { params })
+      .pipe(map((res) => res.exists));
   }
 
   // ==========================================
@@ -84,17 +104,14 @@ export class UserService {
 
     return (control: AbstractControl): Observable<ValidationErrors | null> => {
       const email = control.value?.trim().toLowerCase();
-      
-      // Só dispara se preenchido e com formato válido
+
       if (!email || !EMAIL_REGEX.test(email)) {
         return of(null);
       }
 
-      // timer(400) aguarda 400ms sem digitação.
-      // switchMap cancela a requisição anterior se o usuário voltar a digitar.
       return timer(400).pipe(
         switchMap(() => this.checkEmailExists(email, currentEmail)),
-        map(exists => (exists ? { emailExists: true } : null)),
+        map((exists) => (exists ? { emailExists: true } : null)),
         catchError(() => of(null))
       );
     };
@@ -104,14 +121,13 @@ export class UserService {
     return (control: AbstractControl): Observable<ValidationErrors | null> => {
       const cnsClean = control.value ? String(control.value).replace(/\D/g, '') : '';
 
-      // Só dispara se tiver exatamente 15 dígitos
       if (cnsClean.length !== 15) {
         return of(null);
       }
 
       return timer(400).pipe(
         switchMap(() => this.checkCnsExists(cnsClean, currentCns)),
-        map(exists => (exists ? { cnsExists: true } : null)),
+        map((exists) => (exists ? { cnsExists: true } : null)),
         catchError(() => of(null))
       );
     };
