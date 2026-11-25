@@ -44,7 +44,7 @@ const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
 } as const;
 
-interface ReportAttachmentUpdateDialogData {
+export interface ReportAttachmentUpdateDialogData {
   patient_care?: PatientCare;
   patient_report?: PatientReport;
   report_attachment?: ReportAttachment;
@@ -107,9 +107,9 @@ export class ReportAttachmentUpdateComponent implements OnInit, OnDestroy {
     () => this.selectedFile()?.name ?? 'Nenhum arquivo selecionado'
   );
 
-  private readonly patientCareId = computed(() => this.data?.patient_care?.id ?? null);
-  private readonly reportId = computed(() => this.data?.patient_report?.id ?? null);
-  private readonly attachmentId = computed(() => this.data?.report_attachment?.id ?? null);
+  private readonly patientCareId = this.data?.patient_care?.id ?? null;
+  private readonly reportId = this.data?.patient_report?.id ?? null;
+  private readonly attachmentId = this.data?.report_attachment?.id ?? null;
 
   // Mapeamento de Mensagens de Erro
   protected readonly errorMessages: Record<string, ErrorMessage[]> = {
@@ -156,6 +156,7 @@ export class ReportAttachmentUpdateComponent implements OnInit, OnDestroy {
     }
 
     this.attachmentForm.markAsDirty();
+    input.value = '';
   }
 
   protected download(archiveId: number | null | undefined, name?: string): void {
@@ -183,11 +184,7 @@ export class ReportAttachmentUpdateComponent implements OnInit, OnDestroy {
   }
 
   protected onSubmit(): void {
-    const careId = this.patientCareId();
-    const repId = this.reportId();
-    const attId = this.attachmentId();
-
-    if (!careId || !repId || !attId) {
+    if (!this.patientCareId || !this.reportId || !this.attachmentId) {
       this.messageService.showMessage(
         'Identificadores do atendimento, laudo ou anexo não encontrados.'
       );
@@ -202,13 +199,10 @@ export class ReportAttachmentUpdateComponent implements OnInit, OnDestroy {
     this.isSubmitting.set(true);
     this.attachmentForm.disable({ emitEvent: false });
 
-    const payload = {
-      name: this.attachmentForm.controls.name.getRawValue().trim(),
-      file: this.selectedFile(),
-    } as unknown as ReportAttachment;
+    const payload = this.getUpdatePayload();
 
     this.patientService
-      .updateReportAttachment(careId, repId, attId, payload)
+      .updateReportAttachment(this.patientCareId, this.reportId, this.attachmentId, payload)
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);
@@ -237,5 +231,18 @@ export class ReportAttachmentUpdateComponent implements OnInit, OnDestroy {
     this.attachmentForm = this.fb.group<AttachmentForm>({
       name: this.fb.control(currentName, [Validators.required]),
     });
+  }
+
+  private getUpdatePayload(): ReportAttachment {
+    const payload: Record<string, unknown> = {
+      name: this.attachmentForm.controls.name.getRawValue().trim(),
+    };
+
+    const file = this.selectedFile();
+    if (file) {
+      payload['file'] = file;
+    }
+
+    return payload as unknown as ReportAttachment;
   }
 }

@@ -53,12 +53,10 @@ const PAGE_CONFIG = {
 // Estrutura dos dados para exibição da tabela de arquivados
 interface ArchivePatientTableRow extends PatientCare {
   name: string;
-  fullName: string;
   cns: string;
   document: string;
   document_type: string;
   responsible: string;
-  fullResponsible: string;
 }
 
 interface PatientDialogData {
@@ -227,12 +225,10 @@ export class ArchivePatientsPage implements OnInit, OnDestroy {
     return {
       ...item,
       name: this.formatPatientName(rawName),
-      fullName: rawName,
       cns: item.patient?.cns || '-',
       document: item.patient?.document || '-',
       document_type: item.patient?.document_type || '-',
       responsible: this.formatResponsibleName(rawResponsible),
-      fullResponsible: rawResponsible,
     };
   }
 

@@ -40,9 +40,10 @@ import { PatientService } from '../../../services/patient.service';
 // ============================================================================
 const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
+  maxAutocompleteOptions: 10,
 } as const;
 
-interface PatientReportUpdateDialogData {
+export interface PatientReportUpdateDialogData {
   patient_care?: PatientCare;
   patient_report?: PatientReport;
 }
@@ -162,36 +163,41 @@ export class PatientReportUpdateComponent implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Getters para Facilitação do Template
   // ==========================================
   protected get isFormInvalidOrPending(): boolean {
     return this.reportForm.invalid || this.reportForm.pending;
   }
 
+  // ==========================================
+  // Métodos Acessíveis pelo Template (Protected)
+  // ==========================================
   protected isFormPristine(): boolean {
     return this.reportForm.pristine;
   }
 
-  protected displayCid(cid?: CidOption | string | null): string {
-    if (!cid || typeof cid === 'string') return cid ?? '';
-    return cid.code && cid.name ? `${cid.code} - ${cid.name}` : '';
-  }
+  protected readonly displayCid = (cid?: CidOption | string | null): string => {
+    if (!cid) return '';
+    if (typeof cid === 'string') return cid;
+    return this.formatCidLabel(cid);
+  };
 
-  protected displaySpecialty(specialty?: SpecialtyOption | string | null): string {
-    if (!specialty || typeof specialty === 'string') return specialty ?? '';
+  protected readonly displaySpecialty = (specialty?: SpecialtyOption | string | null): string => {
+    if (!specialty) return '';
+    if (typeof specialty === 'string') return specialty;
     return specialty.label || '';
-  }
+  };
 
   protected onCidSelected(cid: CidOption): void {
     this.reportForm.controls.cid_id.setValue(cid.id ?? null);
     this.reportForm.controls.cid_id.markAsDirty();
-    this.reportForm.controls.cid_search.setErrors(null);
+    this.clearControlError(this.reportForm.controls.cid_search, 'invalidSelection');
   }
 
   protected onSpecialtySelected(option: SpecialtyOption): void {
     this.reportForm.controls.specialty.setValue(option.key);
     this.reportForm.controls.specialty.markAsDirty();
-    this.reportForm.controls.specialty_search.setErrors(null);
+    this.clearControlError(this.reportForm.controls.specialty_search, 'invalidSelection');
   }
 
   protected onSubmit(): void {
@@ -217,13 +223,7 @@ export class PatientReportUpdateComponent implements OnInit, OnDestroy {
     this.isSubmitting.set(true);
     this.reportForm.disable({ emitEvent: false });
 
-    const payload = {
-      protocol: rawValue.protocol.trim(),
-      specialty: rawValue.specialty,
-      cid_id: rawValue.cid_id,
-      lawsuit: rawValue.lawsuit,
-      diagnosis: rawValue.diagnosis.trim(),
-    } as PatientReport;
+    const payload = this.getUpdatePayload();
 
     this.patientService
       .updatePatientReport(careId, reportId, payload)
@@ -264,26 +264,39 @@ export class PatientReportUpdateComponent implements OnInit, OnDestroy {
     });
   }
 
+  private getUpdatePayload(): PatientReport {
+    const rawValue = this.reportForm.getRawValue();
+
+    return {
+      protocol: rawValue.protocol.trim(),
+      specialty: rawValue.specialty,
+      cid_id: rawValue.cid_id,
+      lawsuit: rawValue.lawsuit,
+      diagnosis: rawValue.diagnosis.trim(),
+    } as PatientReport;
+  }
+
   private setupAutocompleteFilters(): void {
     this.reportForm.controls.specialty_search.valueChanges
       .pipe(startWith(''), takeUntilDestroyed(this.destroyRef))
       .subscribe((value) => {
-        const term = typeof value === 'string' ? value : value?.label || '';
+        const term = this.extractSpecialtyTerm(value);
         this.filteredSpecialtyOptions.set(
-          term ? this.filterSpecialty(term) : this.specialtyOptions.slice(0, 10)
+          term
+            ? this.filterSpecialty(term)
+            : this.specialtyOptions.slice(0, COMPONENT_CONFIG.maxAutocompleteOptions)
         );
       });
 
     this.reportForm.controls.cid_search.valueChanges
       .pipe(startWith(''), takeUntilDestroyed(this.destroyRef))
       .subscribe((value) => {
-        const term =
-          typeof value === 'string'
-            ? value
-            : value?.code
-              ? `${value.code} - ${value.name}`
-              : '';
-        this.filteredCidOptions.set(term ? this.filterCid(term) : this.cidOptions.slice(0, 10));
+        const term = this.extractCidTerm(value);
+        this.filteredCidOptions.set(
+          term
+            ? this.filterCid(term)
+            : this.cidOptions.slice(0, COMPONENT_CONFIG.maxAutocompleteOptions)
+        );
       });
   }
 
@@ -293,8 +306,13 @@ export class PatientReportUpdateComponent implements OnInit, OnDestroy {
       .subscribe((value) => {
         if (!value || typeof value !== 'object') {
           this.reportForm.controls.cid_id.setValue(null, { emitEvent: false });
+          this.clearControlError(this.reportForm.controls.cid_search, 'invalidSelection');
+
           if (typeof value === 'string' && value.trim().length > 0) {
-            this.reportForm.controls.cid_search.setErrors({ invalidSelection: true });
+            this.reportForm.controls.cid_search.setErrors({
+              ...(this.reportForm.controls.cid_search.errors ?? {}),
+              invalidSelection: true,
+            });
           }
         }
       });
@@ -304,8 +322,13 @@ export class PatientReportUpdateComponent implements OnInit, OnDestroy {
       .subscribe((value) => {
         if (!value || typeof value !== 'object') {
           this.reportForm.controls.specialty.setValue(null, { emitEvent: false });
+          this.clearControlError(this.reportForm.controls.specialty_search, 'invalidSelection');
+
           if (typeof value === 'string' && value.trim().length > 0) {
-            this.reportForm.controls.specialty_search.setErrors({ invalidSelection: true });
+            this.reportForm.controls.specialty_search.setErrors({
+              ...(this.reportForm.controls.specialty_search.errors ?? {}),
+              invalidSelection: true,
+            });
           }
         }
       });
@@ -359,16 +382,20 @@ export class PatientReportUpdateComponent implements OnInit, OnDestroy {
       { emitEvent: false }
     );
 
-    const specialtyTerm = matchedSpecialty?.label ?? '';
+    const specialtyTerm = this.extractSpecialtyTerm(matchedSpecialty);
     this.filteredSpecialtyOptions.set(
-      specialtyTerm ? this.filterSpecialty(specialtyTerm) : this.specialtyOptions.slice(0, 10)
+      specialtyTerm
+        ? this.filterSpecialty(specialtyTerm)
+        : this.specialtyOptions.slice(0, COMPONENT_CONFIG.maxAutocompleteOptions)
     );
   }
 
   private syncCidSelection(): void {
     const report = this.data?.patient_report;
     if (!report) {
-      this.filteredCidOptions.set(this.cidOptions.slice(0, 10));
+      this.filteredCidOptions.set(
+        this.cidOptions.slice(0, COMPONENT_CONFIG.maxAutocompleteOptions)
+      );
       return;
     }
 
@@ -386,8 +413,38 @@ export class PatientReportUpdateComponent implements OnInit, OnDestroy {
       );
     }
 
-    const cidTerm = matchedCid?.code ? `${matchedCid.code} - ${matchedCid.name}` : '';
-    this.filteredCidOptions.set(cidTerm ? this.filterCid(cidTerm) : this.cidOptions.slice(0, 10));
+    const cidTerm = this.extractCidTerm(matchedCid);
+    this.filteredCidOptions.set(
+      cidTerm
+        ? this.filterCid(cidTerm)
+        : this.cidOptions.slice(0, COMPONENT_CONFIG.maxAutocompleteOptions)
+    );
+  }
+
+  private formatCidLabel(cid: CidOption): string {
+    if (cid.code && cid.name) return `${cid.code} - ${cid.name}`;
+    return cid.code || cid.name || '';
+  }
+
+  private extractCidTerm(value: string | CidOption | null): string {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    return this.formatCidLabel(value);
+  }
+
+  private extractSpecialtyTerm(value: string | SpecialtyOption | null): string {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    return value.label || '';
+  }
+
+  private clearControlError(control: FormControl, errorKey: string): void {
+    if (!control.errors || !(errorKey in control.errors)) {
+      return;
+    }
+
+    const { [errorKey]: _, ...remainingErrors } = control.errors;
+    control.setErrors(Object.keys(remainingErrors).length > 0 ? remainingErrors : null);
   }
 
   private filterCid(term: string): CidOption[] {
@@ -398,13 +455,13 @@ export class PatientReportUpdateComponent implements OnInit, OnDestroy {
           option.name?.toLowerCase().includes(filterValue) ||
           option.code?.toLowerCase().includes(filterValue)
       )
-      .slice(0, 10);
+      .slice(0, COMPONENT_CONFIG.maxAutocompleteOptions);
   }
 
   private filterSpecialty(label: string): SpecialtyOption[] {
     const filterValue = label.toLowerCase();
     return this.specialtyOptions
       .filter((option) => option.label.toLowerCase().includes(filterValue))
-      .slice(0, 10);
+      .slice(0, COMPONENT_CONFIG.maxAutocompleteOptions);
   }
 }

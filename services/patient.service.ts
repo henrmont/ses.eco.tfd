@@ -54,7 +54,9 @@ export class PatientService {
   }
 
   getReportAttachments(patientCareId: number, reportId: number): Observable<ReportAttachment[]> {
-    return this.http.get<ReportAttachment[]>(`${this.apiUrl}/${patientCareId}/reports/${reportId}/attachments`);
+    return this.http.get<ReportAttachment[]>(
+      `${this.apiUrl}/${patientCareId}/reports/${reportId}/attachments`
+    );
   }
 
   // ==========================================
@@ -65,19 +67,8 @@ export class PatientService {
   }
 
   updatePatient(patientCareId: number, data: Patient): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`${this.apiUrl}/${patientCareId}`, this.mountFormData(data, 'PUT'));
-  }
-
-  createPatientEscort(patientCareId: number, data: PatientEscort): Observable<ApiResponse> {
     return this.http.post<ApiResponse>(
-      `${this.apiUrl}/${patientCareId}/escorts`,
-      this.mountFormData(data)
-    );
-  }
-
-  updatePatientEscort(patientCareId: number, escortId: number, data: PatientEscort): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(
-      `${this.apiUrl}/${patientCareId}/escorts/${escortId}`,
+      `${this.apiUrl}/${patientCareId}`,
       this.mountFormData(data, 'PUT')
     );
   }
@@ -86,45 +77,22 @@ export class PatientService {
     return this.http.delete<ApiResponse>(`${this.apiUrl}/${patientCareId}/escorts/${escortId}`);
   }
 
-  createPatientReport(patientCareId: number, data: PatientReport): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`${this.apiUrl}/${patientCareId}/reports`, data);
-  }
-
-  updatePatientReport(patientCareId: number, reportId: number, data: PatientReport): Observable<ApiResponse> {
-    return this.http.put<ApiResponse>(`${this.apiUrl}/${patientCareId}/reports/${reportId}`, data);
-  }
-
   deletePatientReport(patientCareId: number, reportId: number): Observable<ApiResponse> {
     return this.http.delete<ApiResponse>(`${this.apiUrl}/${patientCareId}/reports/${reportId}`);
   }
 
-  createReportAttachment(patientCareId: number, reportId: number, data: ReportAttachment): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(
-      `${this.apiUrl}/${patientCareId}/reports/${reportId}/attachments`,
-      this.mountFormData(data)
-    );
-  }
-
-  updateReportAttachment(
+  deleteReportAttachment(
     patientCareId: number,
     reportId: number,
-    attachmentId: number,
-    data: ReportAttachment
+    attachmentId: number
   ): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(
-      `${this.apiUrl}/${patientCareId}/reports/${reportId}/attachments/${attachmentId}`,
-      this.mountFormData(data, 'PUT')
-    );
-  }
-
-  deleteReportAttachment(patientCareId: number, reportId: number, attachmentId: number): Observable<ApiResponse> {
     return this.http.delete<ApiResponse>(
       `${this.apiUrl}/${patientCareId}/reports/${reportId}/attachments/${attachmentId}`
     );
   }
 
   // ==========================================
-  // Ações de Estado do Atendimento
+  // Ações de Estado e Sub-recursos
   // ==========================================
   archivePatient(patientCareId: number): Observable<ApiResponse> {
     return this.http.patch<ApiResponse>(`${this.apiUrl}/${patientCareId}/archive`, {});
@@ -144,6 +112,59 @@ export class PatientService {
 
   finishBackPatient(patientCareId: number): Observable<ApiResponse> {
     return this.http.patch<ApiResponse>(`${this.apiUrl}/${patientCareId}/finish-back`, {});
+  }
+
+  createPatientEscort(patientCareId: number, data: PatientEscort): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(
+      `${this.apiUrl}/${patientCareId}/escorts`,
+      this.mountFormData(data)
+    );
+  }
+
+  updatePatientEscort(
+    patientCareId: number,
+    escortId: number,
+    data: PatientEscort
+  ): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(
+      `${this.apiUrl}/${patientCareId}/escorts/${escortId}`,
+      this.mountFormData(data, 'PUT')
+    );
+  }
+
+  createPatientReport(patientCareId: number, data: PatientReport): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${this.apiUrl}/${patientCareId}/reports`, data);
+  }
+
+  updatePatientReport(
+    patientCareId: number,
+    reportId: number,
+    data: PatientReport
+  ): Observable<ApiResponse> {
+    return this.http.put<ApiResponse>(`${this.apiUrl}/${patientCareId}/reports/${reportId}`, data);
+  }
+
+  createReportAttachment(
+    patientCareId: number,
+    reportId: number,
+    data: ReportAttachment
+  ): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(
+      `${this.apiUrl}/${patientCareId}/reports/${reportId}/attachments`,
+      this.mountFormData(data)
+    );
+  }
+
+  updateReportAttachment(
+    patientCareId: number,
+    reportId: number,
+    attachmentId: number,
+    data: ReportAttachment
+  ): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(
+      `${this.apiUrl}/${patientCareId}/reports/${reportId}/attachments/${attachmentId}`,
+      this.mountFormData(data, 'PUT')
+    );
   }
 
   // ==========================================
@@ -176,7 +197,11 @@ export class PatientService {
       const cnsClean = this.cleanDigits(control.value);
       const currentClean = this.cleanDigits(currentCns);
 
-      if (cnsClean.length !== 15 || (currentClean && cnsClean === currentClean) || !control.dirty) {
+      if (
+        cnsClean.length !== 15 ||
+        (currentClean && cnsClean === currentClean) ||
+        !control.dirty
+      ) {
         return of(null);
       }
 
@@ -203,7 +228,11 @@ export class PatientService {
       const docClean = this.cleanDigits(control.value);
       const currentClean = this.cleanDigits(currentDocument);
 
-      if (!this.isValidDocumentLength(docClean) || (currentClean && docClean === currentClean) || !control.dirty) {
+      if (
+        !this.isValidDocumentLength(docClean) ||
+        (currentClean && docClean === currentClean) ||
+        !control.dirty
+      ) {
         return of(null);
       }
 
@@ -270,7 +299,11 @@ export class PatientService {
       const document = this.cleanDigits(control.value);
       const current = this.cleanDigits(currentDocument);
 
-      if (!this.isValidDocumentLength(document) || (current && document === current) || !control.dirty) {
+      if (
+        !this.isValidDocumentLength(document) ||
+        (current && document === current) ||
+        !control.dirty
+      ) {
         return of(null);
       }
 
@@ -287,7 +320,11 @@ export class PatientService {
               onFound?.(escort);
 
               if (patientCare?.id) {
-                const existsInCurrentCare = this.isEscortInCare(patientCare, 'document', document);
+                const existsInCurrentCare = this.isEscortInCare(
+                  patientCare,
+                  'document',
+                  document
+                );
                 return existsInCurrentCare ? { documentExists: true } : null;
               }
 
@@ -303,14 +340,20 @@ export class PatientService {
   // ==========================================
   // Métodos Auxiliares Privados
   // ==========================================
-  private searchPatientByParam(paramKey: 'cns' | 'document', value: string): Observable<PatientLookupResult | null> {
+  private searchPatientByParam(
+    paramKey: 'cns' | 'document',
+    value: string
+  ): Observable<PatientLookupResult | null> {
     const params = new HttpParams().set(paramKey, value);
     return this.http
       .get<PatientLookupResult>(`${this.apiUrl}/search`, { params })
       .pipe(catchError(() => of(null)));
   }
 
-  private searchEscortByParam(paramKey: 'cns' | 'document', value: string): Observable<PatientEscort | null> {
+  private searchEscortByParam(
+    paramKey: 'cns' | 'document',
+    value: string
+  ): Observable<PatientEscort | null> {
     const params = new HttpParams().set(paramKey, value);
     return this.http
       .get<PatientEscort>(`${this.apiUrl}/escorts/search`, { params })
@@ -325,8 +368,14 @@ export class PatientService {
     return digits.length === 11 || digits.length === 14;
   }
 
-  private isEscortInCare(patientCare: PatientCare, field: 'cns' | 'document', cleanValue: string): boolean {
-    return Boolean(patientCare.escorts?.some((escort) => this.cleanDigits(escort[field]) === cleanValue));
+  private isEscortInCare(
+    patientCare: PatientCare,
+    field: 'cns' | 'document',
+    cleanValue: string
+  ): boolean {
+    return Boolean(
+      patientCare.escorts?.some((escort) => this.cleanDigits(escort[field]) === cleanValue)
+    );
   }
 
   private mountFormData(data: object, method?: 'PUT' | 'PATCH'): FormData {
@@ -358,6 +407,10 @@ export class PatientService {
   }
 
   private isMomentLike(value: unknown): value is MomentLike {
-    return typeof value === 'object' && value !== null && typeof (value as MomentLike).format === 'function';
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      typeof (value as MomentLike).format === 'function'
+    );
   }
 }

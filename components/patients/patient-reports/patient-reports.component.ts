@@ -42,7 +42,7 @@ const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
 } as const;
 
-interface PatientReportDialogData {
+export interface PatientReportDialogData {
   patient_care?: PatientCare;
   patient_report?: PatientReport;
 }
@@ -113,6 +113,16 @@ export class PatientReportsComponent implements OnInit, OnDestroy {
     return Specialty[specialtyKey as keyof typeof Specialty] ?? specialtyKey;
   }
 
+  protected getCidLabel(report: PatientReport): string {
+    const code = report.cid?.code?.trim();
+    const name = report.cid?.name?.trim();
+
+    if (code && name) return `${code} - ${name}`;
+    if (code) return code;
+    if (name) return name;
+    return 'Não informado';
+  }
+
   protected patientReportDetail(patientReport: PatientReport): void {
     this.openDialog(
       PatientReportDetailComponent,
@@ -124,14 +134,26 @@ export class PatientReportsComponent implements OnInit, OnDestroy {
   }
 
   protected patientReportCreate(): void {
-    this.openDialog(PatientReportCreateComponent, { patient_care: this.data?.patient_care });
+    this.openDialog(
+      PatientReportCreateComponent,
+      { patient_care: this.data?.patient_care },
+      '800px',
+      'auto',
+      true
+    );
   }
 
   protected patientReportUpdate(patientReport: PatientReport): void {
-    this.openDialog(PatientReportUpdateComponent, {
-      patient_care: this.data?.patient_care,
-      patient_report: patientReport,
-    });
+    this.openDialog(
+      PatientReportUpdateComponent,
+      {
+        patient_care: this.data?.patient_care,
+        patient_report: patientReport,
+      },
+      '800px',
+      'auto',
+      true
+    );
   }
 
   protected patientReportDelete(patientReport: PatientReport): void {

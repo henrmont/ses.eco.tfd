@@ -11,12 +11,7 @@
         <div class="search">
           <mat-form-field appearance="outline">
             <mat-label>Buscar</mat-label>
-            <input
-              matInput
-              type="text"
-              (keyup)="applyOwnerFilter($event)"
-              placeholder="Buscar paciente"
-              #ownerInput />
+            <input matInput type="text" (keyup)="applyOwnerFilter($event)" placeholder="Buscar paciente" #ownerInput />
             <mat-icon matSuffix>search</mat-icon>
           </mat-form-field>
         </div>
@@ -42,11 +37,8 @@
           <ng-container matColumnDef="document">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Documento</th>
             <td mat-cell *matCellDef="let element">
-              {{
-                element.document !== '-'
-                  ? (element.document | mask: (element.document_type === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00'))
-                  : '-'
-              }}
+              {{ element.document !== '-' ? (element.document | mask: (element.document_type === 'CPF' ?
+              '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00')) : '-' }}
             </td>
           </ng-container>
 
@@ -55,32 +47,22 @@
             <th mat-header-cell *matHeaderCellDef class="center">Status</th>
             <td mat-cell *matCellDef="let element" class="center">
               @if (element.back_to_user) {
-                <button
-                  mat-icon-button
-                  type="button"
-                  matTooltip="Finalizar retorno"
-                  (click)="patientFinishBack(element)">
-                  <mat-icon class="warning">warning_amber</mat-icon>
-                </button>
+              <button mat-icon-button type="button" matTooltip="Finalizar retorno" (click)="patientFinishBack(element)">
+                <mat-icon class="warning">warning_amber</mat-icon>
+              </button>
               } @else if (element.status) {
-                <button
-                  mat-icon-button
-                  type="button"
-                  [matTooltip]="element.is_valid ? 'Inativar paciente' : 'Ativar paciente'"
-                  [disabled]="checkPermissions('paciente validar')"
-                  (click)="patientValidate(element)">
-                  <mat-icon [class]="element.is_valid ? 'valid' : 'invalid'">
-                    {{ element.is_valid ? 'check' : 'close' }}
-                  </mat-icon>
-                </button>
+              <button mat-icon-button type="button"
+                [matTooltip]="element.is_valid ? 'Inativar paciente' : 'Ativar paciente'"
+                [disabled]="checkPermissions('paciente validar')" (click)="patientValidate(element)">
+                <mat-icon [class]="element.is_valid ? 'valid' : 'invalid'">
+                  {{ element.is_valid ? 'check' : 'close' }}
+                </mat-icon>
+              </button>
               } @else {
-                <button
-                  mat-icon-button
-                  type="button"
-                  matTooltip="Pendências do paciente"
-                  (click)="patientRequirement(element)">
-                  <mat-icon class="invalid">priority_high</mat-icon>
-                </button>
+              <button mat-icon-button type="button" matTooltip="Pendências do paciente"
+                (click)="patientRequirement(element)">
+                <mat-icon class="invalid">priority_high</mat-icon>
+              </button>
               }
             </td>
           </ng-container>
@@ -89,45 +71,26 @@
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef class="center">Ações</th>
             <td mat-cell *matCellDef="let element" class="center actions-cell">
-              <button
-                mat-icon-button
-                type="button"
-                matTooltip="Detalhes do paciente"
-                (click)="patientDetail(element)">
+              <button mat-icon-button type="button" matTooltip="Detalhes do paciente" (click)="patientDetail(element)">
                 <mat-icon>visibility</mat-icon>
               </button>
 
-              <button
-                mat-icon-button
-                type="button"
-                matTooltip="Atualizar paciente"
-                [disabled]="checkPermissions('paciente atualizar')"
-                (click)="patientUpdate(element)">
+              <button mat-icon-button type="button" matTooltip="Atualizar paciente"
+                [disabled]="checkPermissions('paciente atualizar')" (click)="patientUpdate(element)">
                 <mat-icon>drive_file_rename_outline</mat-icon>
               </button>
 
-              <button
-                mat-icon-button
-                type="button"
-                matTooltip="Acompanhantes"
-                [disabled]="checkPermissions('paciente acompanhantes')"
-                (click)="patientEscorts(element)">
+              <button mat-icon-button type="button" matTooltip="Acompanhantes"
+                [disabled]="checkPermissions('paciente acompanhantes')" (click)="patientEscorts(element)">
                 <mat-icon>group</mat-icon>
               </button>
 
-              <button
-                mat-icon-button
-                type="button"
-                matTooltip="Laudos"
-                [disabled]="checkPermissions('paciente laudos')"
+              <button mat-icon-button type="button" matTooltip="Laudos" [disabled]="checkPermissions('paciente laudos')"
                 (click)="patientReports(element)">
                 <mat-icon>medical_information</mat-icon>
               </button>
 
-              <button
-                mat-icon-button
-                type="button"
-                matTooltip="Arquivar"
+              <button mat-icon-button type="button" matTooltip="Arquivar"
                 [disabled]="element.back_to_user || checkPermissions('paciente atualizar')"
                 (click)="patientArchive(element)">
                 <mat-icon>inventory_2</mat-icon>
@@ -145,10 +108,7 @@
           </tr>
         </table>
 
-        <mat-paginator
-          #ownerPaginator
-          [pageSize]="8"
-          [hidePageSize]="true">
+        <mat-paginator #ownerPaginator [pageSize]="8" [hidePageSize]="true">
         </mat-paginator>
       </div>
     </mat-tab>
@@ -164,11 +124,7 @@
         <div class="search">
           <mat-form-field appearance="outline">
             <mat-label>Buscar</mat-label>
-            <input
-              matInput
-              type="text"
-              (keyup)="applyOthersFilter($event)"
-              placeholder="Buscar paciente"
+            <input matInput type="text" (keyup)="applyOthersFilter($event)" placeholder="Buscar paciente"
               #othersInput />
             <mat-icon matSuffix>search</mat-icon>
           </mat-form-field>
@@ -195,20 +151,15 @@
           <ng-container matColumnDef="document">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Documento</th>
             <td mat-cell *matCellDef="let element">
-              {{
-                element.document !== '-'
-                  ? (element.document | mask: (element.document_type === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00'))
-                  : '-'
-              }}
+              {{ element.document !== '-' ? (element.document | mask: (element.document_type === 'CPF' ?
+              '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00')) : '-' }}
             </td>
           </ng-container>
 
           <!-- Responsável -->
           <ng-container matColumnDef="responsible">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Responsável</th>
-            <td
-              mat-cell
-              *matCellDef="let element"
+            <td mat-cell *matCellDef="let element"
               [matTooltip]="element.fullProfessional !== element.professional ? element.fullProfessional : ''">
               {{ element.professional }}
             </td>
@@ -219,17 +170,14 @@
             <th mat-header-cell *matHeaderCellDef class="center">Status</th>
             <td mat-cell *matCellDef="let element" class="center">
               @if (element.status) {
-                <button mat-icon-button type="button" disabled>
-                  <mat-icon class="valid">check</mat-icon>
-                </button>
+              <button mat-icon-button type="button" disabled>
+                <mat-icon class="valid">check</mat-icon>
+              </button>
               } @else {
-                <button
-                  mat-icon-button
-                  type="button"
-                  matTooltip="Pendências do paciente"
-                  (click)="patientRequirement(element)">
-                  <mat-icon class="invalid">priority_high</mat-icon>
-                </button>
+              <button mat-icon-button type="button" matTooltip="Pendências do paciente"
+                (click)="patientRequirement(element)">
+                <mat-icon class="invalid">priority_high</mat-icon>
+              </button>
               }
             </td>
           </ng-container>
@@ -238,20 +186,12 @@
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef class="center">Ações</th>
             <td mat-cell *matCellDef="let element" class="center actions-cell">
-              <button
-                mat-icon-button
-                type="button"
-                matTooltip="Detalhes do paciente"
-                (click)="patientDetail(element)">
+              <button mat-icon-button type="button" matTooltip="Detalhes do paciente" (click)="patientDetail(element)">
                 <mat-icon>visibility</mat-icon>
               </button>
 
-              <button
-                mat-icon-button
-                type="button"
-                matTooltip="Mover para minha caixa"
-                [disabled]="checkPermissions('paciente atualizar')"
-                (click)="patientMoveFromOthers(element)">
+              <button mat-icon-button type="button" matTooltip="Mover para minha caixa"
+                [disabled]="checkPermissions('paciente atualizar')" (click)="patientMoveFromOthers(element)">
                 <mat-icon>move_to_inbox</mat-icon>
               </button>
             </td>
@@ -267,10 +207,7 @@
           </tr>
         </table>
 
-        <mat-paginator
-          #othersPaginator
-          [pageSize]="8"
-          [hidePageSize]="true">
+        <mat-paginator #othersPaginator [pageSize]="8" [hidePageSize]="true">
         </mat-paginator>
       </div>
     </mat-tab>

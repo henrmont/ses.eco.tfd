@@ -42,7 +42,7 @@ const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
 } as const;
 
-interface ReportAttachmentCreateDialogData {
+export interface ReportAttachmentCreateDialogData {
   patient_care?: PatientCare;
   patient_report?: PatientReport;
 }
@@ -102,8 +102,8 @@ export class ReportAttachmentCreateComponent implements OnInit, OnDestroy {
     () => this.selectedFile()?.name ?? 'Nenhum arquivo selecionado'
   );
 
-  private readonly patientCareId = computed(() => this.data?.patient_care?.id ?? null);
-  private readonly reportId = computed(() => this.data?.patient_report?.id ?? null);
+  private readonly patientCareId = this.data?.patient_care?.id ?? null;
+  private readonly reportId = this.data?.patient_report?.id ?? null;
 
   // Mapeamento de Mensagens de Erro
   protected readonly errorMessages: Record<string, ErrorMessage[]> = {
@@ -145,13 +145,12 @@ export class ReportAttachmentCreateComponent implements OnInit, OnDestroy {
       this.attachmentForm.controls.name.setValue(sanitizedName);
       this.attachmentForm.controls.name.markAsDirty();
     }
+
+    input.value = '';
   }
 
   protected onSubmit(): void {
-    const careId = this.patientCareId();
-    const repId = this.reportId();
-
-    if (!careId || !repId) {
+    if (!this.patientCareId || !this.reportId) {
       this.messageService.showMessage('Identificadores do atendimento ou do laudo não encontrados.');
       return;
     }
@@ -168,13 +167,10 @@ export class ReportAttachmentCreateComponent implements OnInit, OnDestroy {
     this.isSubmitting.set(true);
     this.attachmentForm.disable({ emitEvent: false });
 
-    const payload = {
-      name: this.attachmentForm.controls.name.getRawValue().trim(),
-      file,
-    } as unknown as ReportAttachment;
+    const payload = this.getCreatePayload(file);
 
     this.patientService
-      .createReportAttachment(careId, repId, payload)
+      .createReportAttachment(this.patientCareId, this.reportId, payload)
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);
@@ -202,5 +198,12 @@ export class ReportAttachmentCreateComponent implements OnInit, OnDestroy {
     this.attachmentForm = this.fb.group<AttachmentForm>({
       name: this.fb.control('', [Validators.required]),
     });
+  }
+
+  private getCreatePayload(file: File): ReportAttachment {
+    return {
+      name: this.attachmentForm.controls.name.getRawValue().trim(),
+      file,
+    } as unknown as ReportAttachment;
   }
 }

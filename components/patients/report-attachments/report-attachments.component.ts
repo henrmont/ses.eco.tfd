@@ -4,7 +4,6 @@ import {
   DestroyRef,
   OnDestroy,
   OnInit,
-  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -43,7 +42,7 @@ const COMPONENT_CONFIG = {
   defaultDialogWidth: '400px',
 } as const;
 
-interface ReportAttachmentDialogData {
+export interface ReportAttachmentDialogData {
   patient_care?: PatientCare;
   patient_report?: PatientReport;
   report_attachment?: ReportAttachment;
@@ -90,8 +89,8 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
   protected readonly isLoading = signal<boolean>(true);
   protected readonly downloadingArchiveId = signal<number | null>(null);
 
-  private readonly patientCareId = computed(() => this.data?.patient_care?.id ?? null);
-  private readonly reportId = computed(() => this.data?.patient_report?.id ?? null);
+  private readonly patientCareId = this.data?.patient_care?.id ?? null;
+  private readonly reportId = this.data?.patient_report?.id ?? null;
 
   // ==========================================
   // Ciclo de Vida (Hooks)
@@ -113,6 +112,8 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
 
     this.downloadingArchiveId.set(archiveId);
 
+    const fileName = name?.trim() || `anexo-${archiveId}`;
+
     this.storageService
       .download('tfd', archiveId)
       .pipe(
@@ -122,7 +123,7 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           if (response?.archive) {
-            saveAs(response.archive, name || `anexo-${archiveId}`);
+            saveAs(response.archive, fileName);
           }
         },
         error: (err) => {
@@ -133,36 +134,42 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
   }
 
   protected reportAttachmentCreate(): void {
-    this.openDialog(ReportAttachmentCreateComponent, {
-      patient_care: this.data?.patient_care,
-      patient_report: this.data?.patient_report,
-    });
+    this.openDialog(ReportAttachmentCreateComponent, this.getBaseDialogData());
   }
 
   protected reportAttachmentUpdate(reportAttachment: ReportAttachment): void {
-    this.openDialog(ReportAttachmentUpdateComponent, {
-      patient_care: this.data?.patient_care,
-      patient_report: this.data?.patient_report,
-      report_attachment: reportAttachment,
-    });
+    this.openDialog(
+      ReportAttachmentUpdateComponent,
+      this.getAttachmentDialogData(reportAttachment)
+    );
   }
 
   protected reportAttachmentDelete(reportAttachment: ReportAttachment): void {
-    this.openDialog(ReportAttachmentDeleteComponent, {
-      patient_care: this.data?.patient_care,
-      patient_report: this.data?.patient_report,
-      report_attachment: reportAttachment,
-    });
+    this.openDialog(
+      ReportAttachmentDeleteComponent,
+      this.getAttachmentDialogData(reportAttachment)
+    );
   }
 
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
-  private fetchReportAttachments(showLoading = false): void {
-    const careId = this.patientCareId();
-    const repId = this.reportId();
+  private getBaseDialogData(): ReportAttachmentDialogData {
+    return {
+      patient_care: this.data?.patient_care,
+      patient_report: this.data?.patient_report,
+    };
+  }
 
-    if (!careId || !repId) {
+  private getAttachmentDialogData(reportAttachment: ReportAttachment): ReportAttachmentDialogData {
+    return {
+      ...this.getBaseDialogData(),
+      report_attachment: reportAttachment,
+    };
+  }
+
+  private fetchReportAttachments(showLoading = false): void {
+    if (!this.patientCareId || !this.reportId) {
       this.isLoading.set(false);
       return;
     }
@@ -172,7 +179,7 @@ export class ReportAttachmentsComponent implements OnInit, OnDestroy {
     }
 
     this.patientService
-      .getReportAttachments(careId, repId)
+      .getReportAttachments(this.patientCareId, this.reportId)
       .pipe(
         finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)

@@ -1,12 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  OnDestroy,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -18,22 +10,19 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
-import { PatientCare } from '../../../models/patient-care.model';
 
-// Services
+// Services & Models
+import { PatientCare } from '../../../models/patient-care.model';
 import { PatientService } from '../../../services/patient.service';
 
-// ============================================================================
-// CONFIGURAÇÃO DO COMPONENTE
-// ============================================================================
 const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
 } as const;
 
-interface PatientFinishBackDialogData {
+export type PatientFinishBackDialogData = {
   patient_care?: PatientCare;
   back_to_user?: string;
-}
+};
 
 @Component({
   selector: 'app-patient-finish-back',
@@ -66,12 +55,17 @@ export class PatientFinishBackComponent implements OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
-  protected readonly backToUser = computed<string>(
-    () =>
+
+  // ==========================================
+  // Getters para Facilitação do Template
+  // ==========================================
+  protected get backToUser(): string {
+    return (
       this.data?.patient_care?.back_to_user?.trim() ||
       this.data?.back_to_user?.trim() ||
       'Informação de retorno não disponível.'
-  );
+    );
+  }
 
   // ==========================================
   // Ciclo de Vida (Hooks)

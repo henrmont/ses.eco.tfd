@@ -30,7 +30,7 @@ const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
 } as const;
 
-interface PatientReportDeleteDialogData {
+export interface PatientReportDeleteDialogData {
   patient_care?: PatientCare;
   patient_report?: PatientReport;
 }
@@ -66,6 +66,8 @@ export class PatientReportDeleteComponent implements OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly reportProtocol =
+    this.data?.patient_report?.protocol?.trim() || 'Sem protocolo';
 
   // ==========================================
   // Ciclo de Vida (Hooks)
@@ -77,10 +79,6 @@ export class PatientReportDeleteComponent implements OnDestroy {
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected get reportProtocol(): string {
-    return this.data?.patient_report?.protocol || 'Sem protocolo';
-  }
-
   protected onSubmit(): void {
     const patientCareId = this.data?.patient_care?.id;
     const reportId = this.data?.patient_report?.id;

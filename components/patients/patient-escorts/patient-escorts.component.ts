@@ -33,9 +33,6 @@ import { PatientEscortDetailComponent } from '../patient-escort-detail/patient-e
 import { PatientEscortRequirementComponent } from '../patient-escort-requirement/patient-escort-requirement.component';
 import { PatientEscortUpdateComponent } from '../patient-escort-update/patient-escort-update.component';
 
-// ============================================================================
-// CONFIGURAÇÃO DO COMPONENTE
-// ============================================================================
 const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
   defaultDialogWidth: '800px',
@@ -43,15 +40,15 @@ const COMPONENT_CONFIG = {
   confirmDialogWidth: '400px',
 } as const;
 
-interface EscortTableRow extends PatientEscort {
-  name: string;
-  fullName: string;
-}
-
-interface PatientEscortDialogData {
+export type PatientEscortDialogData = {
   patient_care?: PatientCare;
   patient_escort?: PatientEscort;
-}
+};
+
+type EscortTableRow = PatientEscort & {
+  name: string;
+  fullName: string;
+};
 
 @Component({
   selector: 'app-patient-escorts',
@@ -112,7 +109,7 @@ export class PatientEscortsComponent implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Handlers do Template
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected patientEscortDetail(row: EscortTableRow): void {
     this.openDialog(

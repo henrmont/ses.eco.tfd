@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  OnDestroy,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
 // Angular Material
 import { MatButtonModule } from '@angular/material/button';
@@ -16,16 +9,9 @@ import { MatListModule } from '@angular/material/list';
 // Models
 import { PatientCare } from '../../../models/patient-care.model';
 
-// ============================================================================
-// CONFIGURAÇÃO DO COMPONENTE
-// ============================================================================
-const COMPONENT_CONFIG = {
-  channelName: 'tfd-patients-channel',
-} as const;
-
-interface PatientRequirementDialogData {
+export type PatientRequirementDialogData = {
   patient_care?: PatientCare;
-}
+};
 
 interface RequirementItem {
   label: string;
@@ -45,10 +31,7 @@ interface RequirementItem {
   styleUrl: './patient-requirement.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientRequirementComponent implements OnDestroy {
-  // Canais de Comunicação Externa
-  private readonly patientsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
-
+export class PatientRequirementComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
@@ -121,23 +104,6 @@ export class PatientRequirementComponent implements OnDestroy {
       },
     ];
   });
-
-  protected readonly fulfilledCount = computed<number>(
-    () => this.requirements().filter((item) => item.fulfilled).length
-  );
-
-  protected readonly totalCount = computed<number>(() => this.requirements().length);
-
-  protected readonly isAllFulfilled = computed<boolean>(
-    () => this.totalCount() > 0 && this.fulfilledCount() === this.totalCount()
-  );
-
-  // ==========================================
-  // Ciclo de Vida (Hooks)
-  // ==========================================
-  ngOnDestroy(): void {
-    this.patientsChannel.close();
-  }
 
   // ==========================================
   // Métodos Privados / Auxiliares

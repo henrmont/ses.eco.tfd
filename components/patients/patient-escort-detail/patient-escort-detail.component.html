@@ -10,10 +10,13 @@
       </mat-card-header>
 
       <mat-card-content>
-        <div class="line cols-1-1">
+        <div class="line cols-1-col">
           <div>
             <strong>Nome:</strong> {{ escort()?.name || 'Não informado' }}
           </div>
+        </div>
+
+        <div class="line cols-1-col">
           <div>
             <strong>Vínculo / Parentesco:</strong> {{ escort()?.relation || 'Não informado' }}
           </div>

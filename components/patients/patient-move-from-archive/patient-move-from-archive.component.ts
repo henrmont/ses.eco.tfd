@@ -1,12 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  OnDestroy,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -18,21 +10,18 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
-import { PatientCare } from '../../../models/patient-care.model';
 
-// Services
+// Services & Models
+import { PatientCare } from '../../../models/patient-care.model';
 import { PatientService } from '../../../services/patient.service';
 
-// ============================================================================
-// CONFIGURAÇÃO DO COMPONENTE
-// ============================================================================
 const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
 } as const;
 
-interface PatientMoveFromArchiveDialogData {
+export type PatientMoveFromArchiveDialogData = {
   patient_care?: PatientCare;
-}
+};
 
 @Component({
   selector: 'app-patient-move-from-archive',
@@ -65,9 +54,13 @@ export class PatientMoveFromArchiveComponent implements OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
-  protected readonly patientName = computed<string>(
-    () => this.data?.patient_care?.patient?.name?.trim() || 'Paciente'
-  );
+
+  // ==========================================
+  // Getters para Facilitação do Template
+  // ==========================================
+  protected get patientName(): string {
+    return this.data?.patient_care?.patient?.name?.trim() || 'Paciente';
+  }
 
   // ==========================================
   // Ciclo de Vida (Hooks)

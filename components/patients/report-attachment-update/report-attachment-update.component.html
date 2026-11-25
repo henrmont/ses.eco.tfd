@@ -9,7 +9,7 @@
         <mat-form-field appearance="outline">
           <mat-label>Nome</mat-label>
           <input matInput type="text" formControlName="name">
-          @for (item of errorMessages['name']; track $index) {
+          @for (item of errorMessages['name']; track item.type) {
             <mat-error [hidden]="!attachmentForm.get('name')?.hasError(item.type)">
               {{ item.message }}
             </mat-error>

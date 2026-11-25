@@ -1,17 +1,14 @@
 <h2 mat-dialog-title>Requisitos do paciente</h2>
 
-<mat-dialog-content>
+<mat-dialog-content class="requirements-dialog-content">
   @if (requirements().length > 0) {
-    <div class="requirements-summary" [class.complete]="isAllFulfilled()">
-      <span>
-        {{ fulfilledCount() }} de {{ totalCount() }} requisitos preenchidos
-      </span>
-    </div>
-
-    <mat-list>
+    <mat-list class="requirements-list">
       @for (item of requirements(); track item.label) {
-        <mat-list-item [class.fulfilled]="item.fulfilled" [class.unfulfilled]="!item.fulfilled">
-          <mat-icon matListItemIcon>
+        <mat-list-item
+          class="requirement-item"
+          [class.fulfilled]="item.fulfilled"
+          [class.unfulfilled]="!item.fulfilled">
+          <mat-icon matListItemIcon class="requirement-icon">
             {{ item.fulfilled ? 'check_circle' : 'cancel' }}
           </mat-icon>
           <div matListItemTitle class="requirement-title">

@@ -9,7 +9,7 @@
         <mat-form-field appearance="outline">
           <mat-label>Protocolo</mat-label>
           <input matInput type="text" formControlName="protocol">
-          @for (item of errorMessages['protocol']; track $index) {
+          @for (item of errorMessages['protocol']; track item.type) {
             <mat-error [hidden]="!reportForm.get('protocol')?.hasError(item.type)">
               {{ item.message }}
             </mat-error>
@@ -42,7 +42,7 @@
             }
           </mat-autocomplete>
 
-          @for (item of errorMessages['specialty_search']; track $index) {
+          @for (item of errorMessages['specialty_search']; track item.type) {
             <mat-error [hidden]="!reportForm.get('specialty_search')?.hasError(item.type)">
               {{ item.message }}
             </mat-error>
@@ -68,14 +68,14 @@
             #cidAuto="matAutocomplete"
             [displayWith]="displayCid"
             (optionSelected)="onCidSelected($event.option.value)">
-            @for (option of filteredCidOptions(); track option.id ?? $index) {
+            @for (option of filteredCidOptions(); track option.id ?? option.code ?? $index) {
               <mat-option [value]="option">
                 {{ option.code }} - {{ option.name }}
               </mat-option>
             }
           </mat-autocomplete>
 
-          @for (item of errorMessages['cid_search']; track $index) {
+          @for (item of errorMessages['cid_search']; track item.type) {
             <mat-error [hidden]="!reportForm.get('cid_search')?.hasError(item.type)">
               {{ item.message }}
             </mat-error>
@@ -88,7 +88,7 @@
         <mat-form-field appearance="outline">
           <mat-label>Diagnóstico</mat-label>
           <textarea matInput rows="6" formControlName="diagnosis"></textarea>
-          @for (item of errorMessages['diagnosis']; track $index) {
+          @for (item of errorMessages['diagnosis']; track item.type) {
             <mat-error [hidden]="!reportForm.get('diagnosis')?.hasError(item.type)">
               {{ item.message }}
             </mat-error>

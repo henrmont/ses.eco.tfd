@@ -27,12 +27,13 @@ import {
   startWith,
   switchMap,
 } from 'rxjs';
+import moment, { Moment } from 'moment';
+import { NgxMaskDirective, provideNgxMask } from 'ngx-mask';
 import { saveAs } from 'file-saver';
 
 // Angular Material
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
-import { DateAdapter } from '@angular/material/core';
 import { MatDatepickerInputEvent, MatDatepickerModule } from '@angular/material/datepicker';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -44,17 +45,14 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Bibliotecas de Terceiros
-import { NgxMaskDirective, provideNgxMask } from 'ngx-mask';
-
-// Core, Services & Validators
+// Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { StorageService } from '../../../../core/services/storage-service';
 import { ViacepService } from '../../../../core/services/viacep-service';
 import { CustomValidators } from '../../../../core/validators/custom.validator';
 
-// Enums & Models
+// Services, Enums & Models
 import { Deficiency } from '../../../enums/deficiency';
 import { Ethnicity } from '../../../enums/ethnicity';
 import { Gender } from '../../../enums/gender';
@@ -83,7 +81,7 @@ interface IdentificationForm {
 
 interface PersonalForm {
   name: FormControl<string>;
-  birth_date: FormControl<unknown>;
+  birth_date: FormControl<Moment | null>;
   gender: FormControl<string>;
   newborn: FormControl<boolean>;
   race: FormControl<string>;
@@ -172,7 +170,6 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
     optional: true,
   });
   private readonly fb = inject(FormBuilder).nonNullable;
-  private readonly dateAdapter = inject(DateAdapter<unknown>);
   private readonly viacepService = inject(ViacepService);
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
@@ -199,7 +196,6 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
 
   private naturalnessOptions: string[] = [];
 
-  // Opções dos Enums Centralizadas
   protected readonly options = {
     races: Object.values(Race),
     deficiencies: Object.values(Deficiency),
@@ -210,7 +206,6 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
     ufs: Object.keys(Ufs),
   } as const;
 
-  // Mapeamento de Mensagens de Erro
   protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     cns: [
       { type: 'required', message: 'O número do CNS é obrigatório.' },
@@ -261,7 +256,6 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
     ],
   };
 
-  // Gerenciamento de Anexos/Arquivos
   protected readonly files: Record<FileType, AttachedFileState> = {
     cns: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) },
     document: { file: null, label: signal('Nenhum arquivo selecionado'), hasFile: signal(false) },
@@ -275,10 +269,10 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
   // ==========================================
   ngOnInit(): void {
     this.initForms();
-    this.registerRaceDependency();
+    this.setupRaceListener();
     this.setupAutocompleteFilters();
+    this.setupCepListener();
     this.fetchNaturalness();
-    this.registerCepListener();
   }
 
   ngOnDestroy(): void {
@@ -286,7 +280,7 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected get isFormInvalidOrPending(): boolean {
     return (
@@ -318,60 +312,66 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
 
     if (!rawValue) {
       control.setValue(null, { emitEvent: false });
-      control.setErrors({ required: true });
+      control.updateValueAndValidity();
+      return;
+    }
+
+    const digitsOnly = rawValue.replace(/\D/g, '');
+    if (digitsOnly.length < 8) {
+      return;
+    }
+
+    const formatted = `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2, 4)}/${digitsOnly.slice(4, 8)}`;
+    const parsed = moment(formatted, 'DD/MM/YYYY', true);
+
+    if (!parsed.isValid() || parsed.year() < 1000) {
+      control.setErrors({ ...(control.errors ?? {}), invalidDate: true });
       control.markAsTouched();
       return;
     }
 
-    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(rawValue)) {
-      control.setErrors({ invalidDate: true });
-      control.markAsTouched();
-      return;
-    }
-
-    const [day, month, year] = rawValue.split('/').map(Number);
-    const candidate = new Date(year, month - 1, day);
-    const isRealCalendarDate =
-      candidate.getFullYear() === year &&
-      candidate.getMonth() === month - 1 &&
-      candidate.getDate() === day;
-
-    if (!isRealCalendarDate) {
-      control.setErrors({ invalidDate: true });
-      control.markAsTouched();
-      return;
-    }
-
-    const parsed = this.dateAdapter.createDate(year, month - 1, day);
-    control.setValue(parsed);
+    this.clearBirthDateError('invalidDate');
+    control.setValue(parsed, { emitEvent: false });
     control.updateValueAndValidity();
     this.personalForm.markAsDirty();
   }
 
-  protected setBirthDate(event: MatDatepickerInputEvent<unknown>): void {
+  protected setBirthDate(event: MatDatepickerInputEvent<Moment | null>): void {
+    const control = this.personalForm.controls.birth_date;
     const inputEl = event.targetElement as HTMLInputElement | null;
     const rawValue = inputEl?.value.trim() ?? '';
 
-    if (rawValue && !/^\d{2}\/\d{2}\/\d{4}$/.test(rawValue)) {
-      const control = this.personalForm.controls.birth_date;
-      control.setErrors({ invalidDate: true });
-      control.markAsTouched();
-      if (inputEl) {
-        inputEl.value = rawValue;
-      }
-      return;
-    }
+    if (rawValue) {
+      const digitsOnly = rawValue.replace(/\D/g, '');
+      const formatted =
+        digitsOnly.length === 8
+          ? `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2, 4)}/${digitsOnly.slice(4, 8)}`
+          : rawValue;
+      const parsed = moment(formatted, 'DD/MM/YYYY', true);
 
-    if (event.value && this.dateAdapter.isDateInstance(event.value)) {
-      const year = this.dateAdapter.getYear(event.value);
-      if (year < 1000) {
-        const control = this.personalForm.controls.birth_date;
-        control.setErrors({ invalidDate: true });
+      if (!parsed.isValid() || parsed.year() < 1000) {
+        control.setErrors({ ...(control.errors ?? {}), invalidDate: true });
         control.markAsTouched();
         return;
       }
 
-      this.personalForm.controls.birth_date.setValue(event.value);
+      this.clearBirthDateError('invalidDate');
+      control.setValue(parsed, { emitEvent: false });
+      control.updateValueAndValidity();
+      this.personalForm.markAsDirty();
+      return;
+    }
+
+    if (event.value && moment.isMoment(event.value) && event.value.isValid()) {
+      if (event.value.year() < 1000) {
+        control.setErrors({ ...(control.errors ?? {}), invalidDate: true });
+        control.markAsTouched();
+        return;
+      }
+
+      this.clearBirthDateError('invalidDate');
+      control.setValue(event.value, { emitEvent: false });
+      control.updateValueAndValidity();
       this.personalForm.markAsDirty();
     }
   }
@@ -449,21 +449,7 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
     this.isSubmitting.set(true);
     this.setFormsState(false);
 
-    const rawPersonal = this.personalForm.getRawValue();
-    const formattedBirthDate = this.formatDateToIso(rawPersonal.birth_date);
-
-    const payload = {
-      ...this.identificationForm.getRawValue(),
-      ...rawPersonal,
-      birth_date: formattedBirthDate,
-      ...this.addressForm.getRawValue(),
-      ...this.infoForm.getRawValue(),
-      file_cns: this.files.cns.file,
-      file_document: this.files.document.file,
-      file_deficiency: this.files.deficiency.file,
-      file_address: this.files.address.file,
-      file_sigadoc: this.files.sigadoc.file,
-    } as unknown as Patient;
+    const payload = this.getUpdatePayload();
 
     this.patientService
       .updatePatient(patientCareId, payload)
@@ -492,6 +478,39 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
+  private clearBirthDateError(errorKey: string): void {
+    const control = this.personalForm.controls.birth_date;
+    const currentErrors = control.errors;
+    if (!currentErrors || !(errorKey in currentErrors)) {
+      return;
+    }
+
+    const { [errorKey]: _, ...remainingErrors } = currentErrors;
+    control.setErrors(Object.keys(remainingErrors).length > 0 ? remainingErrors : null);
+  }
+
+  private getUpdatePayload(): Patient {
+    const identification = this.identificationForm.getRawValue();
+    const personal = this.personalForm.getRawValue();
+    const address = this.addressForm.getRawValue();
+    const info = this.infoForm.getRawValue();
+
+    const payload: Record<string, unknown> = {
+      ...identification,
+      ...personal,
+      birth_date: this.formatDateToIso(personal.birth_date),
+      ...address,
+      ...info,
+      file_cns: this.files.cns.file,
+      file_document: this.files.document.file,
+      file_deficiency: this.files.deficiency.file,
+      file_address: this.files.address.file,
+      file_sigadoc: this.files.sigadoc.file,
+    };
+
+    return payload as unknown as Patient;
+  }
+
   private initForms(): void {
     const patient = this.data?.patient_care?.patient;
     const initialBirthDate = patient?.birth_date
@@ -516,7 +535,7 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
 
     this.personalForm = this.fb.group<PersonalForm>({
       name: this.fb.control(patient?.name ?? '', [Validators.required]),
-      birth_date: new FormControl<unknown>(initialBirthDate, [
+      birth_date: new FormControl<Moment | null>(initialBirthDate, [
         Validators.required,
         CustomValidators.dateValidator(),
         CustomValidators.birthDateValidator(),
@@ -560,9 +579,33 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
       ),
       observation: this.fb.control(patient?.patient_info?.observation ?? ''),
     });
+
+    this.isEthnicityDisabled.set(patient?.race !== 'Indígena');
   }
 
-  private registerCepListener(): void {
+  private setupRaceListener(): void {
+    this.personalForm.controls.race.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((selectedRace) => {
+        this.evaluateEthnicityControl(selectedRace);
+      });
+  }
+
+  private evaluateEthnicityControl(selectedRace: string): void {
+    const ethnicityCtrl = this.personalForm.controls.ethnicity;
+    const isIndigena = selectedRace === 'Indígena';
+
+    this.isEthnicityDisabled.set(!isIndigena);
+
+    if (isIndigena) {
+      ethnicityCtrl.enable({ emitEvent: false });
+    } else {
+      ethnicityCtrl.disable({ emitEvent: false });
+      ethnicityCtrl.reset('', { emitEvent: false });
+    }
+  }
+
+  private setupCepListener(): void {
     this.addressForm.controls.cep.valueChanges
       .pipe(
         map((val) => (val ? String(val).replace(/\D/g, '') : '')),
@@ -584,45 +627,6 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
           });
           this.addressForm.markAsDirty();
         }
-      });
-  }
-
-  private registerRaceDependency(): void {
-    const isInitialIndigena = this.data?.patient_care?.patient?.race === 'Indígena';
-    this.isEthnicityDisabled.set(!isInitialIndigena);
-
-    this.personalForm.controls.race.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((selectedRace) => {
-        const ethnicityCtrl = this.personalForm.controls.ethnicity;
-        const isIndigena = selectedRace === 'Indígena';
-
-        this.isEthnicityDisabled.set(!isIndigena);
-
-        if (isIndigena) {
-          ethnicityCtrl.enable();
-        } else {
-          ethnicityCtrl.disable();
-          ethnicityCtrl.reset('', { emitEvent: false });
-        }
-      });
-  }
-
-  private fetchNaturalness(): void {
-    this.naturalnessLoading.set(true);
-
-    this.viacepService
-      .getNaturalness()
-      .pipe(
-        finalize(() => this.naturalnessLoading.set(false)),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe((response: NaturalnessOption[]) => {
-        this.naturalnessOptions = (response || []).map((item) => item.nome);
-        const currentVal = this.personalForm.controls.naturalness.value || '';
-        this.filteredNaturalnessOptions.set(
-          this.filterOptions(this.naturalnessOptions, currentVal).slice(0, 10)
-        );
       });
   }
 
@@ -650,6 +654,24 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
       });
   }
 
+  private fetchNaturalness(): void {
+    this.naturalnessLoading.set(true);
+
+    this.viacepService
+      .getNaturalness()
+      .pipe(
+        finalize(() => this.naturalnessLoading.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((response: NaturalnessOption[]) => {
+        this.naturalnessOptions = (response || []).map((item) => item.nome);
+        const currentVal = this.personalForm.controls.naturalness.value || '';
+        this.filteredNaturalnessOptions.set(
+          this.filterOptions(this.naturalnessOptions, currentVal).slice(0, 10)
+        );
+      });
+  }
+
   private filterOptions(options: readonly string[], value: string): string[] {
     const filterValue = value.toLowerCase();
     return options.filter((option) => option.toLowerCase().includes(filterValue));
@@ -659,20 +681,20 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
     if (!response) return;
 
     const cnsCtrl = this.identificationForm.controls.cns;
+    const docTypeCtrl = this.identificationForm.controls.document_type;
     const docCtrl = this.identificationForm.controls.document;
 
     if (!cnsCtrl.dirty && response.cns) {
       cnsCtrl.setValue(response.cns, { emitEvent: false });
     }
 
+    if (!docTypeCtrl.dirty && response.document_type) {
+      docTypeCtrl.setValue(response.document_type, { emitEvent: false });
+    }
+
     if (!docCtrl.dirty && response.document) {
       docCtrl.setValue(response.document, { emitEvent: false });
     }
-
-    this.identificationForm.patchValue(
-      { document_type: response.document_type || '' },
-      { emitEvent: false }
-    );
 
     this.personalForm.patchValue(
       {
@@ -721,16 +743,7 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
       this.personalForm.controls.birth_date.setValue(parsedDate, { emitEvent: false });
     }
 
-    const isIndigena = response.race === 'Indígena';
-    this.isEthnicityDisabled.set(!isIndigena);
-    const ethnicityCtrl = this.personalForm.controls.ethnicity;
-
-    if (isIndigena) {
-      ethnicityCtrl.enable({ emitEvent: false });
-    } else {
-      ethnicityCtrl.disable({ emitEvent: false });
-      ethnicityCtrl.reset('', { emitEvent: false });
-    }
+    this.evaluateEthnicityControl(response.race || '');
 
     this.identificationForm.markAsDirty();
     this.personalForm.markAsDirty();
@@ -738,25 +751,22 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
     this.infoForm.markAsDirty();
   }
 
-  private parseIsoDate(rawDate: string): unknown {
+  private parseIsoDate(rawDate: string): Moment | null {
     const cleanDate = rawDate.split(' ')[0].split('T')[0];
-    const [year, month, day] = cleanDate.split('-').map(Number);
+    const parsed = moment(cleanDate, 'YYYY-MM-DD', true);
 
-    if (!year || !month || !day) return null;
-    return this.dateAdapter.createDate(year, month - 1, day);
+    return parsed.isValid() ? parsed : null;
   }
 
   private formatDateToIso(value: unknown): string | null {
     if (!value) return null;
 
-    if (this.dateAdapter.isDateInstance(value) && this.dateAdapter.isValid(value)) {
-      const year = this.dateAdapter.getYear(value);
-      const month = String(this.dateAdapter.getMonth(value) + 1).padStart(2, '0');
-      const day = String(this.dateAdapter.getDate(value)).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+    if (moment.isMoment(value) && value.isValid()) {
+      return value.format('YYYY-MM-DD');
     }
 
-    return null;
+    const fallback = moment(value as string);
+    return fallback.isValid() ? fallback.format('YYYY-MM-DD') : null;
   }
 
   private setFormsState(enable: boolean): void {
@@ -775,8 +785,8 @@ export class PatientUpdateComponent implements OnInit, OnDestroy {
       }
     }
 
-    if (enable && this.personalForm.controls.race.value !== 'Indígena') {
-      this.personalForm.controls.ethnicity.disable({ emitEvent: false });
+    if (enable) {
+      this.evaluateEthnicityControl(this.personalForm.controls.race.value);
     }
   }
 }

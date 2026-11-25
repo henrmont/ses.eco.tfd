@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   OnDestroy,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -29,7 +30,7 @@ const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
 } as const;
 
-interface ReportAttachmentDeleteDialogData {
+export interface ReportAttachmentDeleteDialogData {
   patient_care?: PatientCare;
   patient_report?: PatientReport;
   report_attachment?: ReportAttachment;
@@ -66,6 +67,13 @@ export class ReportAttachmentDeleteComponent implements OnDestroy {
   // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly attachmentName = computed<string>(
+    () => this.data?.report_attachment?.name || 'Sem nome'
+  );
+
+  private readonly patientCareId = this.data?.patient_care?.id ?? null;
+  private readonly reportId = this.data?.patient_report?.id ?? null;
+  private readonly attachmentId = this.data?.report_attachment?.id ?? null;
 
   // ==========================================
   // Ciclo de Vida (Hooks)
@@ -77,16 +85,8 @@ export class ReportAttachmentDeleteComponent implements OnDestroy {
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected get attachmentName(): string {
-    return this.data?.report_attachment?.name || 'Sem nome';
-  }
-
   protected onSubmit(): void {
-    const patientCareId = this.data?.patient_care?.id;
-    const reportId = this.data?.patient_report?.id;
-    const attachmentId = this.data?.report_attachment?.id;
-
-    if (!patientCareId || !reportId || !attachmentId) {
+    if (!this.patientCareId || !this.reportId || !this.attachmentId) {
       this.messageService.showMessage(
         'Identificadores do atendimento, laudo ou anexo não encontrados.'
       );
@@ -96,7 +96,7 @@ export class ReportAttachmentDeleteComponent implements OnDestroy {
     this.isSubmitting.set(true);
 
     this.patientService
-      .deleteReportAttachment(patientCareId, reportId, attachmentId)
+      .deleteReportAttachment(this.patientCareId, this.reportId, this.attachmentId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)

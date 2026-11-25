@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  OnDestroy,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -23,17 +16,14 @@ import { PatientCare } from '../../../models/patient-care.model';
 import { PatientEscort } from '../../../models/patient-escort.model';
 import { PatientService } from '../../../services/patient.service';
 
-// ============================================================================
-// CONFIGURAÇÃO DO COMPONENTE
-// ============================================================================
 const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
 } as const;
 
-interface PatientEscortDeleteDialogData {
+export type PatientEscortDeleteDialogData = {
   patient_care?: PatientCare;
   patient_escort?: PatientEscort;
-}
+};
 
 @Component({
   selector: 'app-patient-escort-delete',
@@ -68,6 +58,13 @@ export class PatientEscortDeleteComponent implements OnDestroy {
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
+  // Getters para Facilitação do Template
+  // ==========================================
+  protected get escortName(): string {
+    return this.data?.patient_escort?.name?.trim() || 'Acompanhante';
+  }
+
+  // ==========================================
   // Ciclo de Vida (Hooks)
   // ==========================================
   ngOnDestroy(): void {
@@ -77,10 +74,6 @@ export class PatientEscortDeleteComponent implements OnDestroy {
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected get escortName(): string {
-    return this.data?.patient_escort?.name || 'Acompanhante';
-  }
-
   protected onSubmit(): void {
     const patientCareId = this.data?.patient_care?.id;
     const escortId = this.data?.patient_escort?.pivot?.id ?? this.data?.patient_escort?.id;

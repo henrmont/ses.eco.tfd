@@ -60,7 +60,6 @@ const PAGE_CONFIG = {
 // Estrutura dos dados para exibição das tabelas
 interface OwnerPatientTableRow extends PatientCare {
   name: string;
-  fullName: string;
   cns: string;
   document: string;
   document_type: string;
@@ -68,12 +67,10 @@ interface OwnerPatientTableRow extends PatientCare {
 
 interface OthersPatientTableRow extends PatientCare {
   name: string;
-  fullName: string;
   cns: string;
   document: string;
   document_type: string;
   professional: string;
-  fullProfessional: string;
 }
 
 interface PatientDialogData {
@@ -300,7 +297,6 @@ export class PatientsPage implements OnInit, OnDestroy {
     return {
       ...item,
       name: this.formatPatientName(rawName),
-      fullName: rawName,
       cns: item.patient?.cns || '-',
       document: item.patient?.document || '-',
       document_type: item.patient?.document_type || '-',
@@ -314,12 +310,10 @@ export class PatientsPage implements OnInit, OnDestroy {
     return {
       ...item,
       name: this.formatPatientName(rawName),
-      fullName: rawName,
       cns: item.patient?.cns || '-',
       document: item.patient?.document || '-',
       document_type: item.patient?.document_type || '-',
       professional: this.formatResponsibleName(rawProfessional),
-      fullProfessional: rawProfessional,
     };
   }
 

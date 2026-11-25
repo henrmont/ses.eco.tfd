@@ -16,6 +16,8 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+import moment, { Moment } from 'moment';
+import { NgxMaskDirective, provideNgxMask } from 'ngx-mask';
 import {
   EMPTY,
   catchError,
@@ -31,7 +33,6 @@ import {
 // Angular Material
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
-import { DateAdapter } from '@angular/material/core';
 import { MatDatepickerInputEvent, MatDatepickerModule } from '@angular/material/datepicker';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -42,9 +43,6 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatTooltipModule } from '@angular/material/tooltip';
-
-// Bibliotecas de Terceiros
-import { NgxMaskDirective, provideNgxMask } from 'ngx-mask';
 
 // Core, Services & Validators
 import { ApiResponse } from '../../../../core/models/api-response.model';
@@ -59,14 +57,17 @@ import { PatientCare } from '../../../models/patient-care.model';
 import { PatientEscort } from '../../../models/patient-escort.model';
 import { PatientService } from '../../../services/patient.service';
 
-// ============================================================================
-// CONFIGURAÇÃO DO COMPONENTE
-// ============================================================================
 const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
+  dateFormat: 'DD/MM/YYYY',
+  isoDateFormat: 'YYYY-MM-DD',
 } as const;
 
 type FileType = 'cns' | 'document' | 'address';
+
+export type PatientEscortCreateDialogData = {
+  patient_care: PatientCare;
+};
 
 interface PersonalForm {
   cns: FormControl<string>;
@@ -75,7 +76,7 @@ interface PersonalForm {
   file_document_id: FormControl<number | null>;
   name: FormControl<string>;
   relation: FormControl<string>;
-  birth_date: FormControl<unknown>;
+  birth_date: FormControl<Moment | null>;
   gender: FormControl<string>;
   is_same_address: FormControl<boolean>;
 }
@@ -100,10 +101,6 @@ interface AttachedFileState {
 interface ErrorMessage {
   type: string;
   message: string;
-}
-
-interface PatientEscortCreateDialogData {
-  patient_care: PatientCare;
 }
 
 @Component({
@@ -144,7 +141,6 @@ export class PatientEscortCreateComponent implements OnInit, OnDestroy {
     optional: true,
   });
   private readonly fb = inject(FormBuilder).nonNullable;
-  private readonly dateAdapter = inject(DateAdapter<unknown>);
   private readonly viacepService = inject(ViacepService);
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
@@ -232,7 +228,7 @@ export class PatientEscortCreateComponent implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Getters para Facilitação do Template
   // ==========================================
   protected get isFormInvalidOrPending(): boolean {
     return (
@@ -243,6 +239,9 @@ export class PatientEscortCreateComponent implements OnInit, OnDestroy {
     );
   }
 
+  // ==========================================
+  // Métodos Acessíveis pelo Template (Protected)
+  // ==========================================
   protected onBirthDateInput(event: Event): void {
     const input = event.target as HTMLInputElement;
     const rawValue = input.value.trim();
@@ -250,43 +249,43 @@ export class PatientEscortCreateComponent implements OnInit, OnDestroy {
 
     if (!rawValue) {
       control.setValue(null, { emitEvent: false });
-      control.setErrors({ required: true });
+      control.updateValueAndValidity();
+      return;
+    }
+
+    const digitsOnly = rawValue.replace(/\D/g, '');
+    if (digitsOnly.length < 8) {
+      return;
+    }
+
+    const formatted = `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2, 4)}/${digitsOnly.slice(4, 8)}`;
+    const parsed = moment(formatted, COMPONENT_CONFIG.dateFormat, true);
+
+    if (!parsed.isValid() || parsed.year() < 1000) {
+      control.setErrors({ ...(control.errors ?? {}), invalidDate: true });
       control.markAsTouched();
       return;
     }
 
-    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(rawValue)) {
-      control.setErrors({ invalidDate: true });
-      control.markAsTouched();
-      return;
-    }
-
-    const [day, month, year] = rawValue.split('/').map(Number);
-    const candidate = new Date(year, month - 1, day);
-    const isRealCalendarDate =
-      candidate.getFullYear() === year &&
-      candidate.getMonth() === month - 1 &&
-      candidate.getDate() === day;
-
-    if (!isRealCalendarDate) {
-      control.setErrors({ invalidDate: true });
-      control.markAsTouched();
-      return;
-    }
-
-    const parsed = this.dateAdapter.createDate(year, month - 1, day);
-    control.setValue(parsed);
+    this.clearBirthDateError('invalidDate');
+    control.setValue(parsed, { emitEvent: false });
     control.updateValueAndValidity();
     this.personalForm.markAsDirty();
   }
 
-  protected setBirthDate(event: MatDatepickerInputEvent<unknown>): void {
+  protected setBirthDate(event: MatDatepickerInputEvent<Moment | null>): void {
     const inputEl = event.targetElement as HTMLInputElement | null;
     const rawValue = inputEl?.value.trim() ?? '';
+    const control = this.personalForm.controls.birth_date;
+
+    if (!rawValue && !event.value) {
+      control.setValue(null, { emitEvent: false });
+      control.updateValueAndValidity();
+      return;
+    }
 
     if (rawValue && !/^\d{2}\/\d{2}\/\d{4}$/.test(rawValue)) {
-      const control = this.personalForm.controls.birth_date;
-      control.setErrors({ invalidDate: true });
+      control.setErrors({ ...(control.errors ?? {}), invalidDate: true });
       control.markAsTouched();
       if (inputEl) {
         inputEl.value = rawValue;
@@ -294,16 +293,35 @@ export class PatientEscortCreateComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (event.value && this.dateAdapter.isDateInstance(event.value)) {
-      const year = this.dateAdapter.getYear(event.value);
-      if (year < 1000) {
-        const control = this.personalForm.controls.birth_date;
-        control.setErrors({ invalidDate: true });
+    const value = event.value;
+    if (value && moment.isMoment(value)) {
+      if (value.year() < 1000 || !value.isValid()) {
+        control.setErrors({ ...(control.errors ?? {}), invalidDate: true });
         control.markAsTouched();
+        if (inputEl && rawValue) {
+          inputEl.value = rawValue;
+        }
         return;
       }
 
-      this.personalForm.controls.birth_date.setValue(event.value);
+      this.clearBirthDateError('invalidDate');
+      control.setValue(value);
+      control.updateValueAndValidity();
+      this.personalForm.markAsDirty();
+    } else if (rawValue) {
+      const parsed = moment(rawValue, COMPONENT_CONFIG.dateFormat, true);
+      if (!parsed.isValid() || parsed.year() < 1000) {
+        control.setErrors({ ...(control.errors ?? {}), invalidDate: true });
+        control.markAsTouched();
+        if (inputEl) {
+          inputEl.value = rawValue;
+        }
+        return;
+      }
+
+      this.clearBirthDateError('invalidDate');
+      control.setValue(parsed);
+      control.updateValueAndValidity();
       this.personalForm.markAsDirty();
     }
   }
@@ -346,17 +364,7 @@ export class PatientEscortCreateComponent implements OnInit, OnDestroy {
     this.isSubmitting.set(true);
     this.setFormsState(false);
 
-    const rawPersonal = this.personalForm.getRawValue();
-    const formattedBirthDate = this.formatDateToIso(rawPersonal.birth_date);
-
-    const payload = {
-      ...rawPersonal,
-      birth_date: formattedBirthDate,
-      ...this.addressForm.getRawValue(),
-      file_cns: this.files.cns.file,
-      file_document: this.files.document.file,
-      file_address: this.files.address.file,
-    } as unknown as PatientEscort;
+    const payload = this.getCreatePayload();
 
     this.patientService
       .createPatientEscort(patientCareId, payload)
@@ -385,6 +393,16 @@ export class PatientEscortCreateComponent implements OnInit, OnDestroy {
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
+  private clearBirthDateError(errorKey: string): void {
+    const control = this.personalForm.controls.birth_date;
+    if (!control.errors || !(errorKey in control.errors)) {
+      return;
+    }
+
+    const { [errorKey]: _, ...remainingErrors } = control.errors;
+    control.setErrors(Object.keys(remainingErrors).length > 0 ? remainingErrors : null);
+  }
+
   private initForms(): void {
     const patientCare = this.data?.patient_care;
     const handleFound = (escort: PatientEscort) => this.populateFromResponse(escort);
@@ -404,7 +422,7 @@ export class PatientEscortCreateComponent implements OnInit, OnDestroy {
       file_document_id: new FormControl<number | null>(null),
       name: this.fb.control('', [Validators.required]),
       relation: this.fb.control(''),
-      birth_date: new FormControl<unknown>(null, [
+      birth_date: new FormControl<Moment | null>(null, [
         Validators.required,
         CustomValidators.dateValidator(),
         CustomValidators.birthDateValidator(),
@@ -423,6 +441,34 @@ export class PatientEscortCreateComponent implements OnInit, OnDestroy {
       city: this.fb.control(''),
       state: this.fb.control(''),
     });
+  }
+
+  private getCreatePayload(): PatientEscort {
+    const rawPersonal = this.personalForm.getRawValue();
+    const rawAddress = this.addressForm.getRawValue();
+
+    return {
+      cns: rawPersonal.cns,
+      file_cns_id: rawPersonal.file_cns_id,
+      document: rawPersonal.document,
+      file_document_id: rawPersonal.file_document_id,
+      name: rawPersonal.name,
+      relation: rawPersonal.relation,
+      birth_date: this.formatDateToIso(rawPersonal.birth_date),
+      gender: rawPersonal.gender,
+      is_same_address: rawPersonal.is_same_address,
+      cep: rawAddress.cep,
+      address: rawAddress.address,
+      file_address_id: rawAddress.file_address_id,
+      number: rawAddress.number,
+      complement: rawAddress.complement,
+      neighborhood: rawAddress.neighborhood,
+      city: rawAddress.city,
+      state: rawAddress.state,
+      file_cns: this.files.cns.file,
+      file_document: this.files.document.file,
+      file_address: this.files.address.file,
+    } as unknown as PatientEscort;
   }
 
   private registerAddressDependency(): void {
@@ -555,25 +601,18 @@ export class PatientEscortCreateComponent implements OnInit, OnDestroy {
     this.personalForm.markAsDirty();
   }
 
-  private parseIsoDate(rawDate: string): unknown {
+  private parseIsoDate(rawDate: string): Moment | null {
     const cleanDate = rawDate.split(' ')[0].split('T')[0];
-    const [year, month, day] = cleanDate.split('-').map(Number);
-
-    if (!year || !month || !day) return null;
-    return this.dateAdapter.createDate(year, month - 1, day);
+    const parsed = moment(cleanDate, COMPONENT_CONFIG.isoDateFormat, true);
+    return parsed.isValid() ? parsed : null;
   }
 
-  private formatDateToIso(value: unknown): string | null {
-    if (!value) return null;
-
-    if (this.dateAdapter.isDateInstance(value) && this.dateAdapter.isValid(value)) {
-      const year = this.dateAdapter.getYear(value);
-      const month = String(this.dateAdapter.getMonth(value) + 1).padStart(2, '0');
-      const day = String(this.dateAdapter.getDate(value)).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+  private formatDateToIso(value: Moment | null): string | null {
+    if (!value || !moment.isMoment(value) || !value.isValid()) {
+      return null;
     }
 
-    return null;
+    return value.format(COMPONENT_CONFIG.isoDateFormat);
   }
 
   private setFormsState(enable: boolean): void {

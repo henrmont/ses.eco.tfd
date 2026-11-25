@@ -1,13 +1,13 @@
 <h2 mat-dialog-title>
-  {{ isValid() ? 'Invalidar paciente' : 'Validar paciente' }}
+  {{ isValid ? 'Invalidar paciente' : 'Validar paciente' }}
 </h2>
 
 <mat-dialog-content>
   <p>
-    @if (isValid()) {
-      Você deseja realmente invalidar o paciente <strong>{{ patientName() }}</strong>?
+    @if (isValid) {
+      Você deseja realmente invalidar o paciente <strong>{{ patientName }}</strong>?
     } @else {
-      Você deseja realmente validar o paciente <strong>{{ patientName() }}</strong>?
+      Você deseja realmente validar o paciente <strong>{{ patientName }}</strong>?
     }
   </p>
 </mat-dialog-content>
@@ -31,7 +31,7 @@
       @if (isSubmitting()) {
         <mat-spinner [diameter]="20"></mat-spinner>
       }
-      <span>{{ isValid() ? 'Invalidar' : 'Validar' }}</span>
+      <span>{{ isValid ? 'Invalidar' : 'Validar' }}</span>
     </div>
   </button>
 </mat-dialog-actions>

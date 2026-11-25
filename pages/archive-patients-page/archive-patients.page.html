@@ -3,11 +3,7 @@
     <div class="search-bar">
       <mat-form-field appearance="outline">
         <mat-label>Buscar</mat-label>
-        <input
-          matInput
-          type="text"
-          (keyup)="applyFilter($event)"
-          placeholder="Buscar paciente arquivado"
+        <input matInput type="text" (keyup)="applyFilter($event)" placeholder="Buscar paciente arquivado"
           #archiveInput />
         <mat-icon matSuffix>search</mat-icon>
       </mat-form-field>
@@ -17,10 +13,8 @@
       <!-- Nome -->
       <ng-container matColumnDef="name">
         <th mat-header-cell *matHeaderCellDef mat-sort-header>Nome</th>
-        <td
-          mat-cell
-          *matCellDef="let element"
-          [matTooltip]="element.fullName !== element.name ? element.fullName : ''">
+        <td mat-cell *matCellDef="let element">
+
           {{ element.name }}
         </td>
       </ng-container>
@@ -37,21 +31,16 @@
       <ng-container matColumnDef="document">
         <th mat-header-cell *matHeaderCellDef mat-sort-header>Documento</th>
         <td mat-cell *matCellDef="let element">
-          {{
-            element.document !== '-'
-              ? (element.document | mask: (element.document_type === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00'))
-              : '-'
-          }}
+          {{ element.document !== '-' ? (element.document | mask: (element.document_type === 'CPF' ? '000.000.000-00' :
+          '000000 00 00 0000 0 00000 000 0000000 00')) : '-' }}
         </td>
       </ng-container>
 
       <!-- Responsável -->
       <ng-container matColumnDef="responsible">
         <th mat-header-cell *matHeaderCellDef mat-sort-header>Responsável</th>
-        <td
-          mat-cell
-          *matCellDef="let element"
-          [matTooltip]="element.fullResponsible !== element.responsible ? element.fullResponsible : ''">
+        <td mat-cell *matCellDef="let element">
+
           {{ element.responsible }}
         </td>
       </ng-container>
@@ -61,17 +50,14 @@
         <th mat-header-cell *matHeaderCellDef class="col-center">Status</th>
         <td mat-cell *matCellDef="let element" class="col-center">
           @if (element.status) {
-            <button mat-icon-button type="button" disabled>
-              <mat-icon class="valid">check</mat-icon>
-            </button>
+          <button mat-icon-button type="button" disabled>
+            <mat-icon class="valid">check</mat-icon>
+          </button>
           } @else {
-            <button
-              mat-icon-button
-              type="button"
-              matTooltip="Pendências do paciente"
-              (click)="patientRequirement(element)">
-              <mat-icon class="invalid">priority_high</mat-icon>
-            </button>
+          <button mat-icon-button type="button" matTooltip="Pendências do paciente"
+            (click)="patientRequirement(element)">
+            <mat-icon class="invalid">priority_high</mat-icon>
+          </button>
           }
         </td>
       </ng-container>
@@ -80,20 +66,12 @@
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef class="col-center">Ações</th>
         <td mat-cell *matCellDef="let element" class="col-center actions-cell">
-          <button
-            mat-icon-button
-            type="button"
-            matTooltip="Detalhes do paciente"
-            (click)="patientDetail(element)">
+          <button mat-icon-button type="button" matTooltip="Detalhes do paciente" (click)="patientDetail(element)">
             <mat-icon>visibility</mat-icon>
           </button>
 
-          <button
-            mat-icon-button
-            type="button"
-            matTooltip="Mover para minha caixa"
-            [disabled]="checkPermissions('paciente atualizar')"
-            (click)="patientMoveFromArchive(element)">
+          <button mat-icon-button type="button" matTooltip="Mover para minha caixa"
+            [disabled]="checkPermissions('paciente atualizar')" (click)="patientMoveFromArchive(element)">
             <mat-icon>unarchive</mat-icon>
           </button>
         </td>
@@ -109,10 +87,7 @@
       </tr>
     </table>
 
-    <mat-paginator
-      #archivePaginator
-      [pageSize]="8"
-      [hidePageSize]="true">
+    <mat-paginator #archivePaginator [pageSize]="8" [hidePageSize]="true">
     </mat-paginator>
   </div>
 </section>
