@@ -1,7 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  OnInit,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
-import { NgxMaskPipe } from 'ngx-mask';
+import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Angular Material & CDK
 import { ComponentType, Overlay } from '@angular/cdk/overlay';
@@ -13,6 +21,7 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Core & Models
+import { MessageService } from '../../../../core/services/message-service';
 import { PatientCare } from '../../../models/patient-care.model';
 import { PatientEscort } from '../../../models/patient-escort.model';
 import { PatientService } from '../../../services/patient.service';
@@ -24,11 +33,25 @@ import { PatientEscortDetailComponent } from '../patient-escort-detail/patient-e
 import { PatientEscortRequirementComponent } from '../patient-escort-requirement/patient-escort-requirement.component';
 import { PatientEscortUpdateComponent } from '../patient-escort-update/patient-escort-update.component';
 
-// Tipagem dos Dados do Modal
-type PatientEscortDialogData = {
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patients-channel',
+  defaultDialogWidth: '800px',
+  requirementDialogWidth: '500px',
+  confirmDialogWidth: '400px',
+} as const;
+
+interface EscortTableRow extends PatientEscort {
+  name: string;
+  fullName: string;
+}
+
+interface PatientEscortDialogData {
   patient_care?: PatientCare;
   patient_escort?: PatientEscort;
-};
+}
 
 @Component({
   selector: 'app-patient-escorts',
@@ -40,32 +63,40 @@ type PatientEscortDialogData = {
     MatProgressSpinnerModule,
     MatTableModule,
     MatTooltipModule,
-    NgxMaskPipe
+    NgxMaskPipe,
   ],
+  providers: [provideNgxMask()],
   templateUrl: './patient-escorts.component.html',
   styleUrl: './patient-escorts.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PatientEscortsComponent implements OnInit, OnDestroy {
-  // ==========================================
-  // Instância do Canal Broadcast
-  // ==========================================
-  private readonly patientsChannel = new BroadcastChannel('tfd-patients-channel');
+  // Canais de Comunicação Externa
+  private readonly patientsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
 
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientEscortDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientEscortDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly patientService = inject(PatientService);
+  private readonly messageService = inject(MessageService);
   private readonly destroyRef = inject(DestroyRef);
 
   // ==========================================
   // Propriedades e Estado Reativo
   // ==========================================
-  protected readonly displayedColumns: string[] = ['name', 'document', 'cns', 'status', 'actions'];
-  protected readonly dataSource = new MatTableDataSource<PatientEscort>([]);
+  protected readonly displayedColumns: readonly string[] = [
+    'name',
+    'document',
+    'cns',
+    'status',
+    'actions',
+  ];
+  protected readonly dataSource = new MatTableDataSource<EscortTableRow>([]);
   protected readonly isLoading = signal<boolean>(true);
 
   // ==========================================
@@ -83,24 +114,50 @@ export class PatientEscortsComponent implements OnInit, OnDestroy {
   // ==========================================
   // Handlers do Template
   // ==========================================
-  protected patientEscortDetail(patientEscort: PatientEscort): void {
-    this.openDialog(PatientEscortDetailComponent, { patient_escort: patientEscort }, '800px', 'auto', false);
+  protected patientEscortDetail(row: EscortTableRow): void {
+    this.openDialog(
+      PatientEscortDetailComponent,
+      { patient_escort: this.toRawEscort(row) },
+      COMPONENT_CONFIG.defaultDialogWidth,
+      'auto',
+      false
+    );
   }
 
   protected patientEscortCreate(): void {
-    this.openDialog(PatientEscortCreateComponent, { patient_care: this.data?.patient_care });
+    this.openDialog(PatientEscortCreateComponent, {
+      patient_care: this.data?.patient_care,
+    });
   }
 
-  protected patientEscortUpdate(patientEscort: PatientEscort): void {
-    this.openDialog(PatientEscortUpdateComponent, { patient_care: this.data?.patient_care, patient_escort: patientEscort });
+  protected patientEscortUpdate(row: EscortTableRow): void {
+    this.openDialog(PatientEscortUpdateComponent, {
+      patient_care: this.data?.patient_care,
+      patient_escort: this.toRawEscort(row),
+    });
   }
 
-  protected patientEscortDelete(patientEscort: PatientEscort): void {
-    this.openDialog(PatientEscortDeleteComponent, { patient_care: this.data?.patient_care, patient_escort: patientEscort }, '400px', 'auto', true);
+  protected patientEscortDelete(row: EscortTableRow): void {
+    this.openDialog(
+      PatientEscortDeleteComponent,
+      {
+        patient_care: this.data?.patient_care,
+        patient_escort: this.toRawEscort(row),
+      },
+      COMPONENT_CONFIG.confirmDialogWidth,
+      'auto',
+      true
+    );
   }
 
-  protected patientEscortRequirement(patientEscort: PatientEscort): void {
-    this.openDialog(PatientEscortRequirementComponent, { patient_escort: patientEscort }, '500px', 'auto', true);
+  protected patientEscortRequirement(row: EscortTableRow): void {
+    this.openDialog(
+      PatientEscortRequirementComponent,
+      { patient_escort: this.toRawEscort(row) },
+      COMPONENT_CONFIG.requirementDialogWidth,
+      'auto',
+      false
+    );
   }
 
   // ==========================================
@@ -118,18 +175,22 @@ export class PatientEscortsComponent implements OnInit, OnDestroy {
       this.isLoading.set(true);
     }
 
-    this.patientService.getPatientEscorts(patientCareId)
+    this.patientService
+      .getPatientEscorts(patientCareId)
       .pipe(
         finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: PatientEscort[]) => {
-          this.dataSource.data = response || [];
+          this.dataSource.data = (response || []).map((item) => this.mapEscortRow(item));
         },
-        error: () => {
+        error: (err) => {
           this.dataSource.data = [];
-        }
+          this.messageService.showMessage(
+            err?.error?.message || 'Erro ao carregar os acompanhantes do paciente.'
+          );
+        },
       });
   }
 
@@ -141,21 +202,47 @@ export class PatientEscortsComponent implements OnInit, OnDestroy {
     };
   }
 
+  private mapEscortRow(item: PatientEscort): EscortTableRow {
+    const rawName = item.name?.trim() || 'Não informado';
+
+    return {
+      ...item,
+      name: this.formatEscortName(rawName),
+      fullName: rawName,
+    };
+  }
+
+  private formatEscortName(name: string): string {
+    if (name === 'Não informado' || name.length <= 30) {
+      return name;
+    }
+    return `${name.slice(0, 30)} ...${name.slice(-5)}`;
+  }
+
+  private toRawEscort(row: EscortTableRow): PatientEscort {
+    const { fullName, ...escort } = row;
+    return {
+      ...escort,
+      name: fullName === 'Não informado' ? '' : fullName,
+    };
+  }
+
   private openDialog<T>(
     component: ComponentType<T>,
     data: PatientEscortDialogData,
-    width = '800px',
+    width: string = COMPONENT_CONFIG.defaultDialogWidth,
     height = 'auto',
     requiresRefresh = true
   ): void {
-    this.dialog.open(component, {
-      width,
-      height,
-      disableClose: true,
-      autoFocus: false,
-      scrollStrategy: this.overlay.scrollStrategies.noop(),
-      data
-    })
+    this.dialog
+      .open(component, {
+        width,
+        height,
+        disableClose: true,
+        autoFocus: false,
+        scrollStrategy: this.overlay.scrollStrategies.noop(),
+        data,
+      })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {

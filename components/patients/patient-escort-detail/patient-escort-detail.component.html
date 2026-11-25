@@ -1,4 +1,4 @@
-<h2 mat-dialog-title>Detalhes do Acompanhante</h2>
+<h2 mat-dialog-title>Detalhes do acompanhante</h2>
 
 <mat-dialog-content>
   <div class="details-container">
@@ -12,10 +12,10 @@
       <mat-card-content>
         <div class="line cols-1-1">
           <div>
-            <strong>Nome:</strong> {{ escort?.name || 'Não informado' }}
+            <strong>Nome:</strong> {{ escort()?.name || 'Não informado' }}
           </div>
           <div>
-            <strong>Vínculo / Parentesco:</strong> {{ escort?.relation || 'Não informado' }}
+            <strong>Vínculo / Parentesco:</strong> {{ escort()?.relation || 'Não informado' }}
           </div>
         </div>
 
@@ -23,18 +23,18 @@
           <div class="action-cell">
             <strong>CPF:</strong>
             <span>
-              @if (escort?.document; as doc) {
+              @if (escort()?.document; as doc) {
                 {{ doc | mask: '000.000.000-00' }}
               } @else {
                 Não informado
               }
             </span>
-            <button 
-              mat-icon-button 
+            <button
+              mat-icon-button
               type="button"
               matTooltip="Baixar documento"
-              [disabled]="!escort?.file_document_id" 
-              (click)="download(escort?.file_document_id, 'documento_acompanhante')">
+              [disabled]="!escort()?.file_document_id || isDownloading()"
+              (click)="download(escort()?.file_document_id, 'documento_acompanhante')">
               <mat-icon>download</mat-icon>
             </button>
           </div>
@@ -42,18 +42,18 @@
           <div class="action-cell">
             <strong>CNS:</strong>
             <span>
-              @if (escort?.cns; as cnsVal) {
+              @if (escort()?.cns; as cnsVal) {
                 {{ cnsVal | mask: '000 0000 0000 0000' }}
               } @else {
                 Não informado
               }
             </span>
-            <button 
-              mat-icon-button 
+            <button
+              mat-icon-button
               type="button"
               matTooltip="Baixar comprovante de CNS"
-              [disabled]="!escort?.file_cns_id" 
-              (click)="download(escort?.file_cns_id, 'cns_acompanhante')">
+              [disabled]="!escort()?.file_cns_id || isDownloading()"
+              (click)="download(escort()?.file_cns_id, 'cns_acompanhante')">
               <mat-icon>download</mat-icon>
             </button>
           </div>
@@ -61,11 +61,10 @@
 
         <div class="line cols-1-1">
           <div>
-            <strong>Data de Nascimento:</strong>
-            {{ escort?.birth_date ? (escort?.birth_date | date: 'dd/MM/yyyy') : 'Não informado' }}
+            <strong>Data de nascimento:</strong> {{ formattedBirthDate() }}
           </div>
           <div>
-            <strong>Sexo:</strong> {{ escort?.gender || 'Não informado' }}
+            <strong>Gênero:</strong> {{ escort()?.gender || 'Não informado' }}
           </div>
         </div>
       </mat-card-content>
@@ -81,20 +80,20 @@
         <div class="line cols-1-2">
           <div>
             <strong>CEP:</strong>
-            @if (escort?.cep; as cepVal) {
+            @if (escort()?.cep; as cepVal) {
               {{ cepVal | mask: '00000-000' }}
             } @else {
               Não informado
             }
           </div>
           <div class="action-cell">
-            <strong>Endereço:</strong> {{ escort?.address || 'Não informado' }}
-            <button 
-              mat-icon-button 
+            <strong>Endereço:</strong> {{ escort()?.address || 'Não informado' }}
+            <button
+              mat-icon-button
               type="button"
               matTooltip="Baixar comprovante de endereço"
-              [disabled]="!escort?.file_address_id" 
-              (click)="download(escort?.file_address_id, 'comprovante_endereco_acompanhante')">
+              [disabled]="!escort()?.file_address_id || isDownloading()"
+              (click)="download(escort()?.file_address_id, 'comprovante_endereco_acompanhante')">
               <mat-icon>download</mat-icon>
             </button>
           </div>
@@ -102,22 +101,22 @@
 
         <div class="line cols-1-2">
           <div>
-            <strong>Número:</strong> {{ escort?.number || 'Não informado' }}
+            <strong>Número:</strong> {{ escort()?.number || 'Não informado' }}
           </div>
           <div>
-            <strong>Complemento:</strong> {{ escort?.complement || 'Não informado' }}
+            <strong>Complemento:</strong> {{ escort()?.complement || 'Não informado' }}
           </div>
         </div>
 
         <div class="line cols-2-2-1">
           <div>
-            <strong>Bairro:</strong> {{ escort?.neighborhood || 'Não informado' }}
+            <strong>Bairro:</strong> {{ escort()?.neighborhood || 'Não informado' }}
           </div>
           <div>
-            <strong>Cidade:</strong> {{ escort?.city || 'Não informado' }}
+            <strong>Cidade:</strong> {{ escort()?.city || 'Não informado' }}
           </div>
           <div>
-            <strong>Estado:</strong> {{ escort?.state || 'Não informado' }}
+            <strong>UF:</strong> {{ escort()?.state || 'Não informado' }}
           </div>
         </div>
       </mat-card-content>
@@ -127,9 +126,9 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button 
-    mat-button 
-    type="button" 
+  <button
+    mat-button
+    type="button"
     [mat-dialog-close]="false">
     Fechar
   </button>

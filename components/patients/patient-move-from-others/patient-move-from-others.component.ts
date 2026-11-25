@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -15,9 +23,16 @@ import { PatientCare } from '../../../models/patient-care.model';
 // Services
 import { PatientService } from '../../../services/patient.service';
 
-type PatientMoveFromOthersDialogData = {
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patients-channel',
+} as const;
+
+interface PatientMoveFromOthersDialogData {
   patient_care?: PatientCare;
-};
+}
 
 @Component({
   selector: 'app-patient-move-from-others',
@@ -25,17 +40,22 @@ type PatientMoveFromOthersDialogData = {
   imports: [
     MatButtonModule,
     MatDialogModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
   ],
   templateUrl: './patient-move-from-others.component.html',
   styleUrl: './patient-move-from-others.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientMoveFromOthersComponent {
+export class PatientMoveFromOthersComponent implements OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly patientsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientMoveFromOthersDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientMoveFromOthersDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientMoveFromOthersComponent>);
@@ -45,12 +65,15 @@ export class PatientMoveFromOthersComponent {
   // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly patientName = computed<string>(
+    () => this.data?.patient_care?.patient?.name?.trim() || 'Paciente'
+  );
 
   // ==========================================
-  // Getters para Facilitação do Template
+  // Ciclo de Vida (Hooks)
   // ==========================================
-  protected get patientName(): string {
-    return this.data?.patient_care?.patient?.name || 'Paciente';
+  ngOnDestroy(): void {
+    this.patientsChannel.close();
   }
 
   // ==========================================
@@ -66,20 +89,24 @@ export class PatientMoveFromOthersComponent {
 
     this.isSubmitting.set(true);
 
-    this.patientService.movePatientFromOthers(patientCareId)
+    this.patientService
+      .movePatientFromOthers(patientCareId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Solicitação movimentada com sucesso!');
+          this.patientsChannel.postMessage('update');
+          this.messageService.showMessage(
+            response?.message || 'Solicitação movimentada com sucesso!'
+          );
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao tentar movimentar a solicitação.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 }

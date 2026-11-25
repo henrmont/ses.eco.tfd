@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -11,19 +18,22 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 
-// Services
-import { PatientService } from '../../../services/patient.service';
+// Models & Services
 import { PatientCare } from '../../../models/patient-care.model';
 import { PatientEscort } from '../../../models/patient-escort.model';
+import { PatientService } from '../../../services/patient.service';
 
-export type PatientEscortDeleteDialogData = {
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patients-channel',
+} as const;
+
+interface PatientEscortDeleteDialogData {
   patient_care?: PatientCare;
-  patient_escort?: PatientEscort & {
-    pivot?: {
-      id?: number;
-    };
-  };
-};
+  patient_escort?: PatientEscort;
+}
 
 @Component({
   selector: 'app-patient-escort-delete',
@@ -31,17 +41,22 @@ export type PatientEscortDeleteDialogData = {
   imports: [
     MatButtonModule,
     MatDialogModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
   ],
   templateUrl: './patient-escort-delete.component.html',
   styleUrl: './patient-escort-delete.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientEscortDeleteComponent {
+export class PatientEscortDeleteComponent implements OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly patientsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientEscortDeleteDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientEscortDeleteDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientEscortDeleteComponent>);
@@ -53,40 +68,50 @@ export class PatientEscortDeleteComponent {
   protected readonly isSubmitting = signal<boolean>(false);
 
   // ==========================================
-  // Getters para Facilitação do Template
+  // Ciclo de Vida (Hooks)
   // ==========================================
-  protected get escortName(): string {
-    return this.data?.patient_escort?.name || 'Acompanhante';
+  ngOnDestroy(): void {
+    this.patientsChannel.close();
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
+  protected get escortName(): string {
+    return this.data?.patient_escort?.name || 'Acompanhante';
+  }
+
   protected onSubmit(): void {
     const patientCareId = this.data?.patient_care?.id;
-    const escortId = this.data?.patient_escort?.pivot?.id;
+    const escortId = this.data?.patient_escort?.pivot?.id ?? this.data?.patient_escort?.id;
 
     if (!patientCareId || !escortId) {
-      this.messageService.showMessage('Identificadores do atendimento ou do acompanhante inválidos.');
+      this.messageService.showMessage(
+        'Identificadores do atendimento ou do acompanhante inválidos.'
+      );
       return;
     }
 
     this.isSubmitting.set(true);
 
-    this.patientService.deletePatientEscort(patientCareId, escortId)
+    this.patientService
+      .deletePatientEscort(patientCareId, escortId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Acompanhante removido com sucesso!');
+          this.patientsChannel.postMessage('update');
+          this.messageService.showMessage(
+            response?.message || 'Acompanhante removido com sucesso!'
+          );
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Ocorreu um erro ao tentar remover o acompanhante.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 }

@@ -1,6 +1,5 @@
 <section>
   <mat-tab-group dynamicHeight animationDuration="0ms">
-    
     <!-- ABA 1: MINHA CAIXA (OWNER) -->
     <mat-tab>
       <ng-template mat-tab-label>
@@ -12,114 +11,132 @@
         <div class="search">
           <mat-form-field appearance="outline">
             <mat-label>Buscar</mat-label>
-            <input matInput (keyup)="applyOwnerFilter($event)" placeholder="Buscar paciente" #ownerInput>
+            <input
+              matInput
+              type="text"
+              (keyup)="applyOwnerFilter($event)"
+              placeholder="Buscar paciente"
+              #ownerInput />
             <mat-icon matSuffix>search</mat-icon>
           </mat-form-field>
         </div>
 
         <table mat-table [dataSource]="ownerDataSource" matSort #ownerSort="matSort">
-          
           <!-- Nome -->
           <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Nome </th>
-            <td mat-cell *matCellDef="let element"> {{ element.name }} </td>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Nome</th>
+            <td mat-cell *matCellDef="let element">
+              {{ element.name }}
+            </td>
           </ng-container>
 
           <!-- CNS -->
           <ng-container matColumnDef="cns">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> CNS </th>
-            <td mat-cell *matCellDef="let element"> 
-              {{ element.cns !== '-' ? (element.cns | mask: '000 0000 0000 0000') : '-' }} 
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>CNS</th>
+            <td mat-cell *matCellDef="let element">
+              {{ element.cns !== '-' ? (element.cns | mask: '000 0000 0000 0000') : '-' }}
             </td>
           </ng-container>
 
           <!-- Documento -->
           <ng-container matColumnDef="document">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Documento </th>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Documento</th>
             <td mat-cell *matCellDef="let element">
-              {{ element.document !== '-' ? (element.document | mask: element.document_type === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00') : '-' }}
+              {{
+                element.document !== '-'
+                  ? (element.document | mask: (element.document_type === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00'))
+                  : '-'
+              }}
             </td>
           </ng-container>
 
           <!-- Status -->
           <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef class="center"> Status </th>
+            <th mat-header-cell *matHeaderCellDef class="center">Status</th>
             <td mat-cell *matCellDef="let element" class="center">
               @if (element.back_to_user) {
-                <button mat-icon-button 
-                        type="button" 
-                        (click)="patientFinishBack(element)">
+                <button
+                  mat-icon-button
+                  type="button"
+                  matTooltip="Finalizar retorno"
+                  (click)="patientFinishBack(element)">
                   <mat-icon class="warning">warning_amber</mat-icon>
                 </button>
+              } @else if (element.status) {
+                <button
+                  mat-icon-button
+                  type="button"
+                  [matTooltip]="element.is_valid ? 'Inativar paciente' : 'Ativar paciente'"
+                  [disabled]="checkPermissions('paciente validar')"
+                  (click)="patientValidate(element)">
+                  <mat-icon [class]="element.is_valid ? 'valid' : 'invalid'">
+                    {{ element.is_valid ? 'check' : 'close' }}
+                  </mat-icon>
+                </button>
               } @else {
-                @if (element.status) {
-                  <button mat-icon-button 
-                          type="button"
-                          [matTooltip]="element.is_valid ? 'Inativar paciente' : 'Ativar paciente'" 
-                          (click)="patientValidate(element)" 
-                          [disabled]="checkPermissions('tfd/paciente validar')">
-                    <mat-icon [className]="element.is_valid ? 'valid' : 'invalid'">
-                      {{ element.is_valid ? 'check' : 'close' }}
-                    </mat-icon>
-                  </button>
-                } @else {
-                  <button mat-icon-button 
-                          type="button"
-                          (click)="patientRequirement(element)">
-                    <mat-icon class="invalid">priority_high</mat-icon>
-                  </button>
-                }
+                <button
+                  mat-icon-button
+                  type="button"
+                  matTooltip="Pendências do paciente"
+                  (click)="patientRequirement(element)">
+                  <mat-icon class="invalid">priority_high</mat-icon>
+                </button>
               }
             </td>
           </ng-container>
 
           <!-- Ações -->
           <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef class="center"> Ações </th>
+            <th mat-header-cell *matHeaderCellDef class="center">Ações</th>
             <td mat-cell *matCellDef="let element" class="center actions-cell">
-              <button mat-icon-button 
-                      type="button" 
-                      matTooltip="Detalhes do paciente" 
-                      (click)="patientDetail(element)">
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Detalhes do paciente"
+                (click)="patientDetail(element)">
                 <mat-icon>visibility</mat-icon>
               </button>
-              
-              <button mat-icon-button 
-                      type="button"
-                      matTooltip="Atualizar paciente" 
-                      (click)="patientUpdate(element)" 
-                      [disabled]="checkPermissions('tfd/paciente atualizar')">
+
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Atualizar paciente"
+                [disabled]="checkPermissions('paciente atualizar')"
+                (click)="patientUpdate(element)">
                 <mat-icon>drive_file_rename_outline</mat-icon>
               </button>
-              
-              <button mat-icon-button 
-                      type="button"
-                      matTooltip="Acompanhantes" 
-                      (click)="patientEscorts(element)" 
-                      [disabled]="checkPermissions('tfd/paciente acompanhantes')">
+
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Acompanhantes"
+                [disabled]="checkPermissions('paciente acompanhantes')"
+                (click)="patientEscorts(element)">
                 <mat-icon>group</mat-icon>
               </button>
-              
-              <button mat-icon-button 
-                      type="button"
-                      matTooltip="Laudos" 
-                      (click)="patientReports(element)" 
-                      [disabled]="checkPermissions('tfd/paciente laudos')">
+
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Laudos"
+                [disabled]="checkPermissions('paciente laudos')"
+                (click)="patientReports(element)">
                 <mat-icon>medical_information</mat-icon>
               </button>
-              
-              <button mat-icon-button 
-                      type="button"
-                      matTooltip="Arquivar" 
-                      (click)="patientArchive(element)" 
-                      [disabled]="element.back_to_user || checkPermissions('tfd/paciente atualizar')">
+
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Arquivar"
+                [disabled]="element.back_to_user || checkPermissions('paciente atualizar')"
+                (click)="patientArchive(element)">
                 <mat-icon>inventory_2</mat-icon>
               </button>
             </td>
           </ng-container>
 
           <tr mat-header-row *matHeaderRowDef="displayedOwnerColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedOwnerColumns;"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedOwnerColumns"></tr>
 
           <tr class="mat-row" *matNoDataRow>
             <td class="mat-cell center" [attr.colspan]="displayedOwnerColumns.length">
@@ -128,8 +145,8 @@
           </tr>
         </table>
 
-        <mat-paginator 
-          #ownerPaginator 
+        <mat-paginator
+          #ownerPaginator
           [pageSize]="8"
           [hidePageSize]="true">
         </mat-paginator>
@@ -147,53 +164,70 @@
         <div class="search">
           <mat-form-field appearance="outline">
             <mat-label>Buscar</mat-label>
-            <input matInput (keyup)="applyOthersFilter($event)" placeholder="Buscar paciente" #othersInput>
+            <input
+              matInput
+              type="text"
+              (keyup)="applyOthersFilter($event)"
+              placeholder="Buscar paciente"
+              #othersInput />
             <mat-icon matSuffix>search</mat-icon>
           </mat-form-field>
         </div>
 
         <table mat-table [dataSource]="othersDataSource" matSort #othersSort="matSort" class="others-table">
-          
           <!-- Nome -->
           <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Nome </th>
-            <td mat-cell *matCellDef="let element"> {{ element.name }} </td>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Nome</th>
+            <td mat-cell *matCellDef="let element">
+              {{ element.name }}
+            </td>
           </ng-container>
 
           <!-- CNS -->
           <ng-container matColumnDef="cns">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> CNS </th>
-            <td mat-cell *matCellDef="let element"> 
-              {{ element.cns !== '-' ? (element.cns | mask: '000 0000 0000 0000') : '-' }} 
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>CNS</th>
+            <td mat-cell *matCellDef="let element">
+              {{ element.cns !== '-' ? (element.cns | mask: '000 0000 0000 0000') : '-' }}
             </td>
           </ng-container>
 
           <!-- Documento -->
           <ng-container matColumnDef="document">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Documento </th>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Documento</th>
             <td mat-cell *matCellDef="let element">
-              {{ element.document !== '-' ? (element.document | mask: element.document_type === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00') : '-' }}
+              {{
+                element.document !== '-'
+                  ? (element.document | mask: (element.document_type === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00'))
+                  : '-'
+              }}
             </td>
           </ng-container>
 
           <!-- Responsável -->
           <ng-container matColumnDef="responsible">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Responsável </th>
-            <td mat-cell *matCellDef="let element"> {{ element.professional }} </td>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Responsável</th>
+            <td
+              mat-cell
+              *matCellDef="let element"
+              [matTooltip]="element.fullProfessional !== element.professional ? element.fullProfessional : ''">
+              {{ element.professional }}
+            </td>
           </ng-container>
 
           <!-- Status -->
           <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef class="center"> Status </th>
+            <th mat-header-cell *matHeaderCellDef class="center">Status</th>
             <td mat-cell *matCellDef="let element" class="center">
               @if (element.status) {
                 <button mat-icon-button type="button" disabled>
                   <mat-icon class="valid">check</mat-icon>
                 </button>
               } @else {
-                <button mat-icon-button 
-                        type="button"
-                        (click)="patientRequirement(element)">
+                <button
+                  mat-icon-button
+                  type="button"
+                  matTooltip="Pendências do paciente"
+                  (click)="patientRequirement(element)">
                   <mat-icon class="invalid">priority_high</mat-icon>
                 </button>
               }
@@ -202,26 +236,29 @@
 
           <!-- Ações -->
           <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef class="center"> Ações </th>
+            <th mat-header-cell *matHeaderCellDef class="center">Ações</th>
             <td mat-cell *matCellDef="let element" class="center actions-cell">
-              <button mat-icon-button 
-                      type="button" 
-                      matTooltip="Detalhes do paciente" 
-                      (click)="patientDetail(element)">
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Detalhes do paciente"
+                (click)="patientDetail(element)">
                 <mat-icon>visibility</mat-icon>
               </button>
-              
-              <button mat-icon-button 
-                      type="button" 
-                      matTooltip="Mover para minha caixa" 
-                      (click)="patientMoveFromOthers(element)">
+
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Mover para minha caixa"
+                [disabled]="checkPermissions('paciente atualizar')"
+                (click)="patientMoveFromOthers(element)">
                 <mat-icon>move_to_inbox</mat-icon>
               </button>
             </td>
           </ng-container>
 
           <tr mat-header-row *matHeaderRowDef="displayedOthersColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedOthersColumns;"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedOthersColumns"></tr>
 
           <tr class="mat-row" *matNoDataRow>
             <td class="mat-cell center" [attr.colspan]="displayedOthersColumns.length">
@@ -230,8 +267,8 @@
           </tr>
         </table>
 
-        <mat-paginator 
-          #othersPaginator 
+        <mat-paginator
+          #othersPaginator
           [pageSize]="8"
           [hidePageSize]="true">
         </mat-paginator>

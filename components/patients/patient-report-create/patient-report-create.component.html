@@ -1,9 +1,9 @@
 <h2 mat-dialog-title>Novo laudo</h2>
 
-<form [formGroup]="reportForm">
-  <mat-dialog-content>
+<mat-dialog-content>
+  <form [formGroup]="reportForm">
     <div class="stepper">
-      
+
       <!-- Linha 1: Protocolo e Ação Judicial -->
       <div class="line cols-1-1">
         <mat-form-field appearance="outline">
@@ -25,15 +25,18 @@
       <div class="line cols-1-col">
         <mat-form-field appearance="outline">
           <mat-label>Especialidade</mat-label>
-          <input 
-            type="text" 
-            matInput 
-            formControlName="specialty_search" 
+          <input
+            type="text"
+            matInput
+            formControlName="specialty_search"
             [matAutocomplete]="specialtyAuto">
 
-          <mat-autocomplete #specialtyAuto="matAutocomplete" [displayWith]="displaySpecialty">
-            @for (option of filteredSpecialtyOptions | async; track $index) {
-              <mat-option [value]="option" (onSelectionChange)="setSpecialty(option)">
+          <mat-autocomplete
+            #specialtyAuto="matAutocomplete"
+            [displayWith]="displaySpecialty"
+            (optionSelected)="onSpecialtySelected($event.option.value)">
+            @for (option of filteredSpecialtyOptions(); track option.key) {
+              <mat-option [value]="option">
                 {{ option.label }}
               </mat-option>
             }
@@ -51,19 +54,22 @@
       <div class="line cols-1-col">
         <mat-form-field appearance="outline">
           <mat-label>CID</mat-label>
-          <input 
-            type="text" 
-            matInput 
-            formControlName="cid_search" 
+          <input
+            type="text"
+            matInput
+            formControlName="cid_search"
             [matAutocomplete]="cidAuto">
-          
+
           @if (cidLoading()) {
             <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
           }
 
-          <mat-autocomplete #cidAuto="matAutocomplete" [displayWith]="displayCid">
-            @for (option of filteredCidOptions | async; track $index) {
-              <mat-option [value]="option" (onSelectionChange)="setCid(option)">
+          <mat-autocomplete
+            #cidAuto="matAutocomplete"
+            [displayWith]="displayCid"
+            (optionSelected)="onCidSelected($event.option.value)">
+            @for (option of filteredCidOptions(); track option.id ?? $index) {
+              <mat-option [value]="option">
                 {{ option.code }} - {{ option.name }}
               </mat-option>
             }
@@ -91,22 +97,28 @@
       </div>
 
     </div>
-  </mat-dialog-content>
+  </form>
+</mat-dialog-content>
 
-  <mat-dialog-actions align="end">
-    <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
-    <button 
-      mat-flat-button 
-      color="primary" 
-      type="submit" 
-      [disabled]="reportForm.invalid || reportForm.pending || isSubmitting()"
-      (click)="onSubmit()">
-      <div class="waiting">
-        @if (isSubmitting()) {
-          <mat-spinner [diameter]="20"></mat-spinner>
-        }
-        Criar laudo
-      </div>
-    </button>
-  </mat-dialog-actions>
-</form>
+<mat-dialog-actions align="end">
+  <button
+    mat-button
+    type="button"
+    [mat-dialog-close]="false"
+    [disabled]="isSubmitting()">
+    Fechar
+  </button>
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
+    [disabled]="isFormInvalidOrPending || isSubmitting()"
+    (click)="onSubmit()">
+    <div class="waiting">
+      @if (isSubmitting()) {
+        <mat-spinner [diameter]="20"></mat-spinner>
+      }
+      Criar laudo
+    </div>
+  </button>
+</mat-dialog-actions>

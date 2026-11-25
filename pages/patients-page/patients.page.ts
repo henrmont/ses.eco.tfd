@@ -1,11 +1,21 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnDestroy, OnInit, effect, inject, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { finalize } from 'rxjs';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
-// Angular CDK & Material
-import { Overlay } from '@angular/cdk/overlay';
-import { ComponentType } from '@angular/cdk/portal';
+// Angular Material Modules
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
@@ -18,13 +28,14 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core & Models
+// Core & Models (Padrão alias "as User")
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
-import { PatientCare } from '../../models/patient-care.model';
-import { Patient } from '../../models/patient.model';
 import { Permission } from '../../../core/models/permission.model';
 import { Role } from '../../../core/models/role.model';
-import { TfdUser } from '../../models/user.model';
+import { PatientCare } from '../../models/patient-care.model';
+import { Patient } from '../../models/patient.model';
+import { TfdUser as User } from '../../models/user.model';
+import { AuthService } from '../../services/auth.service';
 import { PatientService } from '../../services/patient.service';
 
 // Dialog Components
@@ -34,14 +45,22 @@ import { PatientEscortsComponent } from '../../components/patients/patient-escor
 import { PatientFinishBackComponent } from '../../components/patients/patient-finish-back/patient-finish-back.component';
 import { PatientMoveFromOthersComponent } from '../../components/patients/patient-move-from-others/patient-move-from-others.component';
 import { PatientReportsComponent } from '../../components/patients/patient-reports/patient-reports.component';
+import { PatientRequirementComponent } from '../../components/patients/patient-requirement/patient-requirement.component';
 import { PatientUpdateComponent } from '../../components/patients/patient-update/patient-update.component';
 import { PatientValidateComponent } from '../../components/patients/patient-validate/patient-validate.component';
-import { PatientRequirementComponent } from '../../components/patients/patient-requirement/patient-requirement.component';
-import { AuthService } from '../../services/auth.service';
+
+// ============================================================================
+// CONFIGURAÇÃO DO MÓDULO (Único bloco a ajustar ao replicar para outro módulo)
+// ============================================================================
+const PAGE_CONFIG = {
+  channelName: 'tfd-patients-channel',
+  permissionPrefix: 'tfd/',
+} as const;
 
 // Estrutura dos dados para exibição das tabelas
 interface OwnerPatientTableRow extends PatientCare {
   name: string;
+  fullName: string;
   cns: string;
   document: string;
   document_type: string;
@@ -49,16 +68,18 @@ interface OwnerPatientTableRow extends PatientCare {
 
 interface OthersPatientTableRow extends PatientCare {
   name: string;
+  fullName: string;
   cns: string;
   document: string;
   document_type: string;
   professional: string;
+  fullProfessional: string;
 }
 
-type PatientDialogData = {
+interface PatientDialogData {
   patient?: Patient;
   patient_care?: PatientCare;
-};
+}
 
 @Component({
   selector: 'app-patients-page',
@@ -74,54 +95,81 @@ type PatientDialogData = {
     MatTableModule,
     MatTabsModule,
     MatTooltipModule,
-    NgxMaskPipe
+    NgxMaskPipe,
   ],
   providers: [provideNgxMask()],
   templateUrl: './patients.page.html',
   styleUrl: './patients.page.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PatientsPage implements OnInit, OnDestroy {
-  // ==========================================
-  // Instância própria do canal
-  // ==========================================
-  private readonly patientsChannel = new BroadcastChannel('tfd-patients-channel');
+  // Canais de Comunicação Externa
+  private readonly patientsChannel = new BroadcastChannel(PAGE_CONFIG.channelName);
 
-  // ==========================================
   // Injeção de Dependências
-  // ==========================================
   private readonly patientService = inject(PatientService);
   private readonly authService = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
-  // ==========================================
-  // ViewChildren / Elementos da View
-  // ==========================================
+  // Queries Reativas da View
   private readonly ownerSort = viewChild<MatSort>('ownerSort');
   private readonly othersSort = viewChild<MatSort>('othersSort');
   private readonly ownerPaginator = viewChild<MatPaginator>('ownerPaginator');
   private readonly othersPaginator = viewChild<MatPaginator>('othersPaginator');
 
-  // ==========================================
-  // Propriedades e Estado Reativo
-  // ==========================================
-  private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser: TfdUser | null = this.authService.getCurrentUser();
+  // Estado e Controle Reativo
+  private loadingDialog?: MatDialogRef<LoadingComponent>;
+  private readonly currentUser = computed(() => this.authService.currentUser() as User | null);
 
-  protected readonly displayedOwnerColumns: string[] = ['name', 'cns', 'document', 'status', 'actions'];
-  protected readonly displayedOthersColumns: string[] = ['name', 'cns', 'document', 'responsible', 'status', 'actions'];
+  private readonly userPermissions = computed<Set<string>>(() => {
+    const roles = this.currentUser()?.roles || [];
+    return new Set<string>(
+      roles
+        .flatMap((role: Role) => role.permissions || [])
+        .map((perm: Permission) => perm.name?.trim().toLowerCase())
+        .filter((name): name is string => Boolean(name))
+    );
+  });
+
+  protected readonly displayedOwnerColumns: string[] = [
+    'name',
+    'cns',
+    'document',
+    'status',
+    'actions',
+  ];
+
+  protected readonly displayedOthersColumns: string[] = [
+    'name',
+    'cns',
+    'document',
+    'responsible',
+    'status',
+    'actions',
+  ];
 
   protected readonly ownerDataSource = new MatTableDataSource<OwnerPatientTableRow>([]);
   protected readonly othersDataSource = new MatTableDataSource<OthersPatientTableRow>([]);
 
-  // ==========================================
-  // Ciclo de Vida (Hooks)
-  // ==========================================
+  constructor() {
+    effect(() => {
+      const ownerSort = this.ownerSort();
+      const ownerPaginator = this.ownerPaginator();
+
+      if (ownerSort) this.ownerDataSource.sort = ownerSort;
+      if (ownerPaginator) this.ownerDataSource.paginator = ownerPaginator;
+
+      const othersSort = this.othersSort();
+      const othersPaginator = this.othersPaginator();
+
+      if (othersSort) this.othersDataSource.sort = othersSort;
+      if (othersPaginator) this.othersDataSource.paginator = othersPaginator;
+    });
+  }
+
   ngOnInit(): void {
-    this.setupTableBindings();
     this.fetchPatients(true);
     this.listenToBroadcastChannel();
   }
@@ -131,7 +179,7 @@ export class PatientsPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Métodos Acessíveis no Template
   // ==========================================
   protected applyOwnerFilter(event: Event): void {
     const filterValue = (event.target as HTMLInputElement).value;
@@ -151,12 +199,17 @@ export class PatientsPage implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Retorna `true` quando o botão deve ficar DESABILITADO (`[disabled]="checkPermissions('...')"`)
+   */
   protected checkPermissions(permissionName: string): boolean {
-    if (!this.currentUser?.roles) return true;
+    const permissions = this.userPermissions();
+    if (permissions.size === 0) return true;
 
-    const hasPermission = this.currentUser.roles.some((role: Role) =>
-      role.permissions?.some((perm: Permission) => perm.name === permissionName)
-    );
+    const target = permissionName.trim().toLowerCase();
+    const hasPermission =
+      permissions.has(target) ||
+      permissions.has(`${PAGE_CONFIG.permissionPrefix}${target}`);
 
     return !hasPermission;
   }
@@ -199,28 +252,13 @@ export class PatientsPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Privados / Auxiliares
+  // Métodos Privados
   // ==========================================
-  private setupTableBindings(): void {
-    effect(() => {
-      const ownerSort = this.ownerSort();
-      const ownerPaginator = this.ownerPaginator();
-
-      if (ownerSort) this.ownerDataSource.sort = ownerSort;
-      if (ownerPaginator) this.ownerDataSource.paginator = ownerPaginator;
-
-      const othersSort = this.othersSort();
-      const othersPaginator = this.othersPaginator();
-
-      if (othersSort) this.othersDataSource.sort = othersSort;
-      if (othersPaginator) this.othersDataSource.paginator = othersPaginator;
-    }, { injector: this.injector });
-  }
-
   private fetchPatients(showLoading = false): void {
     if (showLoading) this.openLoading();
 
-    this.patientService.getPatients()
+    this.patientService
+      .getPatients()
       .pipe(
         finalize(() => {
           if (showLoading && this.loadingDialog) {
@@ -233,21 +271,18 @@ export class PatientsPage implements OnInit, OnDestroy {
         next: (response: PatientCare[]) => {
           const rawData = response || [];
 
-          const owners = rawData
+          this.ownerDataSource.data = rawData
             .filter((item) => item.owner)
             .map((item) => this.mapOwnerPatientRow(item));
 
-          const others = rawData
+          this.othersDataSource.data = rawData
             .filter((item) => !item.owner)
             .map((item) => this.mapOthersPatientRow(item));
-
-          this.ownerDataSource.data = owners;
-          this.othersDataSource.data = others;
         },
         error: () => {
           this.ownerDataSource.data = [];
           this.othersDataSource.data = [];
-        }
+        },
       });
   }
 
@@ -260,24 +295,43 @@ export class PatientsPage implements OnInit, OnDestroy {
   }
 
   private mapOwnerPatientRow(item: PatientCare): OwnerPatientTableRow {
+    const rawName = item.patient?.name?.trim() || '-';
+
     return {
       ...item,
-      name: item.patient?.name || '-',
+      name: this.formatPatientName(rawName),
+      fullName: rawName,
       cns: item.patient?.cns || '-',
       document: item.patient?.document || '-',
-      document_type: item.patient?.document_type || '-'
+      document_type: item.patient?.document_type || '-',
     };
   }
 
   private mapOthersPatientRow(item: PatientCare): OthersPatientTableRow {
+    const rawName = item.patient?.name?.trim() || '-';
+    const rawProfessional = item.user?.professional?.name?.trim() || '-';
+
     return {
       ...item,
-      name: item.patient?.name || '-',
+      name: this.formatPatientName(rawName),
+      fullName: rawName,
       cns: item.patient?.cns || '-',
       document: item.patient?.document || '-',
       document_type: item.patient?.document_type || '-',
-      professional: item.user?.professional?.name || '-'
+      professional: this.formatResponsibleName(rawProfessional),
+      fullProfessional: rawProfessional,
     };
+  }
+
+  private formatPatientName(name: string): string {
+    if (name === '-' || name.length <= 40) return name;
+    return `${name.slice(0, 32)} ...${name.slice(-5)}`;
+  }
+
+  private formatResponsibleName(name: string): string {
+    if (name === '-') return name;
+    const parts = name.split(/\s+/);
+    return parts.length <= 1 ? parts[0] : `${parts[0]} ${parts[parts.length - 1]}`;
   }
 
   private openLoading(): void {
@@ -295,14 +349,15 @@ export class PatientsPage implements OnInit, OnDestroy {
     height = 'auto',
     requiresRefresh = true
   ): void {
-    this.dialog.open(component, {
-      width,
-      height,
-      disableClose: true,
-      autoFocus: false,
-      scrollStrategy: this.overlay.scrollStrategies.noop(),
-      data
-    })
+    this.dialog
+      .open(component, {
+        width,
+        height,
+        disableClose: true,
+        autoFocus: false,
+        scrollStrategy: this.overlay.scrollStrategies.noop(),
+        data,
+      })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {

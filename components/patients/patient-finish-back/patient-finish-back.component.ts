@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -15,10 +23,17 @@ import { PatientCare } from '../../../models/patient-care.model';
 // Services
 import { PatientService } from '../../../services/patient.service';
 
-type PatientFinishBackDialogData = {
-  patient_care?: PatientCare, 
-  back_to_user?: string
-};
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patients-channel',
+} as const;
+
+interface PatientFinishBackDialogData {
+  patient_care?: PatientCare;
+  back_to_user?: string;
+}
 
 @Component({
   selector: 'app-patient-finish-back',
@@ -26,17 +41,22 @@ type PatientFinishBackDialogData = {
   imports: [
     MatButtonModule,
     MatDialogModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
   ],
   templateUrl: './patient-finish-back.component.html',
   styleUrl: './patient-finish-back.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientFinishBackComponent {
+export class PatientFinishBackComponent implements OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly patientsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientFinishBackDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientFinishBackDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientFinishBackComponent>);
@@ -46,12 +66,18 @@ export class PatientFinishBackComponent {
   // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly backToUser = computed<string>(
+    () =>
+      this.data?.patient_care?.back_to_user?.trim() ||
+      this.data?.back_to_user?.trim() ||
+      'Informação de retorno não disponível.'
+  );
 
   // ==========================================
-  // Getters para Facilitação do Template
+  // Ciclo de Vida (Hooks)
   // ==========================================
-  protected get backToUser(): string {
-    return this.data?.patient_care?.back_to_user || 'Informação de retorno não disponível.';
+  ngOnDestroy(): void {
+    this.patientsChannel.close();
   }
 
   // ==========================================
@@ -67,20 +93,24 @@ export class PatientFinishBackComponent {
 
     this.isSubmitting.set(true);
 
-    this.patientService.finishBackPatient(patientCareId)
+    this.patientService
+      .finishBackPatient(patientCareId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Retorno do paciente finalizado com sucesso!');
+          this.patientsChannel.postMessage('update');
+          this.messageService.showMessage(
+            response?.message || 'Retorno do paciente finalizado com sucesso!'
+          );
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao tentar finalizar o retorno do paciente.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 }

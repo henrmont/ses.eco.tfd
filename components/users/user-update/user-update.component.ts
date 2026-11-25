@@ -37,13 +37,14 @@ import { ProfessionalType } from '../../../models/professional-type.model';
 import { TfdUser as User } from '../../../models/user.model';
 import { UserService } from '../../../services/user.service';
 import { ProfessionalTypesComponent } from '../professional-types/professional-types.component';
+import { CustomValidators } from '../../../../core/validators/custom.validator';
 
 interface ProfessionalTypesDialogData {
   selectedTypes: string[];
 }
 
 interface UserUpdateDialogData {
-  user?: User 
+  user?: User
 }
 
 interface ErrorMessage {
@@ -110,6 +111,7 @@ export class UserUpdateComponent implements OnInit {
     ],
     cns: [
       { type: 'required', message: 'O CNS é obrigatório.' },
+      { type: 'cnsInvalid', message: 'Número de CNS inválido.' },
       { type: 'cnsExists', message: 'O CNS informado já está em uso.' },
     ],
     registration: [
@@ -194,8 +196,8 @@ export class UserUpdateComponent implements OnInit {
 
     const initialTypes: string[] = professional?.types
       ? professional.types.map((t: ProfessionalType | string) =>
-          typeof t === 'string' ? t : t.type
-        )
+        typeof t === 'string' ? t : t.type
+      )
       : [];
 
     this.userForm = this.fb.group<UserUpdateForm>({
@@ -207,7 +209,7 @@ export class UserUpdateComponent implements OnInit {
       types: this.fb.control<string[]>(initialTypes, [Validators.required]),
       cns: this.fb.control(
         initialCns,
-        [Validators.required],
+        [Validators.required, CustomValidators.cnsValidator()],
         [this.userService.cnsUserExistsValidator(initialCns || null)]
       ),
       registration: this.fb.control(professional?.registration ?? '', [

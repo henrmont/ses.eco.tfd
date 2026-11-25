@@ -46,10 +46,6 @@ export class UserService {
     return this.http.put<ApiResponse>(`${this.apiUrl}/${userId}`, data);
   }
 
-  patchUser(userId: number, partialData: Partial<User>): Observable<ApiResponse> {
-    return this.http.patch<ApiResponse>(`${this.apiUrl}/${userId}`, partialData);
-  }
-
   deleteUser(userId: number): Observable<ApiResponse> {
     return this.http.delete<ApiResponse>(`${this.apiUrl}/${userId}`);
   }
@@ -57,12 +53,12 @@ export class UserService {
   // ==========================================
   // Ações de Estado e Sub-recursos
   // ==========================================
-  lockUser(userId: number, isEditable: boolean): Observable<ApiResponse> {
-    return this.patchUser(userId, { is_editable: isEditable } as Partial<User>);
+  lockUser(userId: number): Observable<ApiResponse> {
+    return this.http.patch<ApiResponse>(`${this.apiUrl}/${userId}/lock`, {});
   }
 
-  validateUser(userId: number, isValid: boolean): Observable<ApiResponse> {
-    return this.patchUser(userId, { is_valid: isValid } as Partial<User>);
+  validateUser(userId: number): Observable<ApiResponse> {
+    return this.http.patch<ApiResponse>(`${this.apiUrl}/${userId}/validate`, {});
   }
 
   rolesUser(userId: number, data: Role[]): Observable<ApiResponse> {

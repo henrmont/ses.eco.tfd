@@ -21,21 +21,22 @@
             </mat-form-field>
 
             <div class="file-actions-cell">
-              <button 
-                class="btn-archive" 
-                type="button" 
-                mat-icon-button 
-                [disabled]="!data?.patient_escort?.file_cns_id || isSubmitting()" 
+              <button
+                class="btn-archive"
+                type="button"
+                mat-icon-button
+                matTooltip="Baixar CNS anexado"
+                [disabled]="!data?.patient_escort?.file_cns_id || isSubmitting()"
                 (click)="download(data?.patient_escort?.file_cns_id, 'cns')">
                 <mat-icon>download</mat-icon>
               </button>
               <input type="file" hidden (change)="onFileSelected($event, 'cns')" #fileCNS [disabled]="isSubmitting()">
-              <button 
-                mat-raised-button 
-                type="button" 
-                [class.attached]="files.cns.hasFile()" 
-                (click)="fileCNS.click()" 
-                [matTooltip]="files.cns.label()" 
+              <button
+                mat-raised-button
+                type="button"
+                [class.attached]="files.cns.hasFile()"
+                (click)="fileCNS.click()"
+                [matTooltip]="files.cns.label()"
                 [disabled]="isSubmitting()">
                 <mat-icon>attach_file</mat-icon>
                 Anexar CNS
@@ -55,21 +56,22 @@
             </mat-form-field>
 
             <div class="file-actions-cell">
-              <button 
-                class="btn-archive" 
-                type="button" 
-                mat-icon-button 
-                [disabled]="!data?.patient_escort?.file_document_id || isSubmitting()" 
+              <button
+                class="btn-archive"
+                type="button"
+                mat-icon-button
+                matTooltip="Baixar documento anexado"
+                [disabled]="!data?.patient_escort?.file_document_id || isSubmitting()"
                 (click)="download(data?.patient_escort?.file_document_id, 'document')">
                 <mat-icon>download</mat-icon>
               </button>
               <input type="file" hidden (change)="onFileSelected($event, 'document')" #fileDocument [disabled]="isSubmitting()">
-              <button 
-                mat-raised-button 
-                type="button" 
-                [class.attached]="files.document.hasFile()" 
-                (click)="fileDocument.click()" 
-                [matTooltip]="files.document.label()" 
+              <button
+                mat-raised-button
+                type="button"
+                [class.attached]="files.document.hasFile()"
+                (click)="fileDocument.click()"
+                [matTooltip]="files.document.label()"
                 [disabled]="isSubmitting()">
                 <mat-icon>attach_file</mat-icon>
                 Anexar documento
@@ -92,11 +94,13 @@
           <div class="line cols-1-1">
             <mat-form-field appearance="outline">
               <mat-label>Data de Nascimento</mat-label>
-              <input 
-                matInput 
-                [matDatepicker]="picker" 
+              <input
+                matInput
+                maxlength="10"
+                [matDatepicker]="picker"
                 formControlName="birth_date"
                 placeholder="DD/MM/AAAA"
+                (input)="onBirthDateInput($event)"
                 (keypress)="onlyNumbersAndSlashes($event)"
                 (dateChange)="setBirthDate($event)">
               <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
@@ -156,22 +160,23 @@
             </mat-form-field>
 
             <div class="file-actions-cell">
-              <button 
-                class="btn-archive" 
-                type="button" 
-                mat-icon-button 
-                [disabled]="!(data?.patient_escort?.file_address_id || (isSameAddressSignal() && data?.patient_care?.patient?.file_address_id)) || isSubmitting()" 
+              <button
+                class="btn-archive"
+                type="button"
+                mat-icon-button
+                matTooltip="Baixar comprovante de endereço"
+                [disabled]="!(data?.patient_escort?.file_address_id || (isSameAddress() && data?.patient_care?.patient?.file_address_id)) || isSubmitting()"
                 (click)="download(data?.patient_escort?.file_address_id || data?.patient_care?.patient?.file_address_id, 'address')">
                 <mat-icon>download</mat-icon>
               </button>
-              <input type="file" hidden (change)="onFileSelected($event, 'address')" #fileAddress [disabled]="isSameAddressSignal() || isSubmitting()">
-              <button 
-                mat-raised-button 
-                type="button" 
-                [class.attached]="files.address.hasFile()" 
-                (click)="fileAddress.click()" 
-                [matTooltip]="files.address.label()" 
-                [disabled]="isSameAddressSignal() || isSubmitting()">
+              <input type="file" hidden (change)="onFileSelected($event, 'address')" #fileAddress [disabled]="isSameAddress() || isSubmitting()">
+              <button
+                mat-raised-button
+                type="button"
+                [class.attached]="files.address.hasFile()"
+                (click)="fileAddress.click()"
+                [matTooltip]="files.address.label()"
+                [disabled]="isSameAddress() || isSubmitting()">
                 <mat-icon>attach_file</mat-icon>
                 Comprovante de endereço
               </button>
@@ -215,7 +220,7 @@
             </mat-form-field>
           </div>
 
-          <div class="line cols-1-1">
+          <div class="line cols-2-1">
             <mat-form-field appearance="outline">
               <mat-label>Cidade</mat-label>
               <input matInput type="text" formControlName="city">
@@ -225,7 +230,7 @@
               <mat-label>UF</mat-label>
               <input type="text" matInput formControlName="state" [matAutocomplete]="state">
               <mat-autocomplete autoActiveFirstOption #state="matAutocomplete">
-                @for (option of filteredUfsOptions | async; track $index) {
+                @for (option of filteredUfsOptions(); track option) {
                   <mat-option [value]="option">{{ option }}</mat-option>
                 }
               </mat-autocomplete>
@@ -241,11 +246,11 @@
 
 <mat-dialog-actions align="end">
   <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
-  <button 
-    mat-flat-button 
-    color="primary" 
-    type="button" 
-    [disabled]="personalForm.invalid || (addressForm.invalid && !isSameAddressSignal()) || personalForm.pending || isFormsPristine() || isSubmitting()" 
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
+    [disabled]="isFormInvalidOrPending || isFormsPristine() || isSubmitting()"
     (click)="onSubmit()">
     <div class="waiting">
       @if (isSubmitting()) {

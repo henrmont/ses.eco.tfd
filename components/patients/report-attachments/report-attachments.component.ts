@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { saveAs } from 'file-saver';
@@ -26,37 +35,45 @@ import { ReportAttachmentCreateComponent } from '../report-attachment-create/rep
 import { ReportAttachmentDeleteComponent } from '../report-attachment-delete/report-attachment-delete.component';
 import { ReportAttachmentUpdateComponent } from '../report-attachment-update/report-attachment-update.component';
 
-type ReportAttachmentDialogData = {
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patients-channel',
+  defaultDialogWidth: '400px',
+} as const;
+
+interface ReportAttachmentDialogData {
   patient_care?: PatientCare;
   patient_report?: PatientReport;
   report_attachment?: ReportAttachment;
-};
+}
 
 @Component({
   selector: 'app-report-attachments',
   standalone: true,
   imports: [
-    MatDialogModule,
     MatButtonModule,
-    MatTableModule,
+    MatDialogModule,
     MatIconModule,
+    MatProgressSpinnerModule,
+    MatTableModule,
     MatTooltipModule,
-    MatProgressSpinnerModule
   ],
   templateUrl: './report-attachments.component.html',
   styleUrl: './report-attachments.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ReportAttachmentsComponent implements OnInit {
-  // ==========================================
-  // Instância do Broadcast Channel
-  // ==========================================
-  private readonly patientsChannel = new BroadcastChannel('tfd-patients-channel');
+export class ReportAttachmentsComponent implements OnInit, OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly patientsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
 
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<ReportAttachmentDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<ReportAttachmentDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly patientService = inject(PatientService);
@@ -69,10 +86,11 @@ export class ReportAttachmentsComponent implements OnInit {
   // ==========================================
   protected readonly displayedColumns: string[] = ['name', 'actions'];
   protected readonly dataSource = new MatTableDataSource<ReportAttachment>([]);
+
   protected readonly isLoading = signal<boolean>(true);
+  protected readonly downloadingArchiveId = signal<number | null>(null);
 
   private readonly patientCareId = computed(() => this.data?.patient_care?.id ?? null);
-
   private readonly reportId = computed(() => this.data?.patient_report?.id ?? null);
 
   // ==========================================
@@ -83,33 +101,58 @@ export class ReportAttachmentsComponent implements OnInit {
     this.fetchReportAttachments(true);
   }
 
+  ngOnDestroy(): void {
+    this.patientsChannel.close();
+  }
+
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected download(archiveId: number | null | undefined, name: string): void {
-    if (!archiveId) return;
+  protected download(archiveId: number | null | undefined, name?: string): void {
+    if (!archiveId || this.downloadingArchiveId() === archiveId) return;
 
-    this.storageService.download('tfd', archiveId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+    this.downloadingArchiveId.set(archiveId);
+
+    this.storageService
+      .download('tfd', archiveId)
+      .pipe(
+        finalize(() => this.downloadingArchiveId.set(null)),
+        takeUntilDestroyed(this.destroyRef)
+      )
       .subscribe({
         next: (response) => {
           if (response?.archive) {
-            saveAs(response.archive, name);
+            saveAs(response.archive, name || `anexo-${archiveId}`);
           }
-        }
+        },
+        error: (err) => {
+          const fallbackError = 'Erro ao realizar o download do arquivo.';
+          this.messageService.showMessage(err?.error?.message || fallbackError);
+        },
       });
   }
 
   protected reportAttachmentCreate(): void {
-    this.openDialog(ReportAttachmentCreateComponent, { patient_care: this.data?.patient_care, patient_report: this.data?.patient_report});
+    this.openDialog(ReportAttachmentCreateComponent, {
+      patient_care: this.data?.patient_care,
+      patient_report: this.data?.patient_report,
+    });
   }
 
   protected reportAttachmentUpdate(reportAttachment: ReportAttachment): void {
-    this.openDialog(ReportAttachmentUpdateComponent, { patient_care: this.data?.patient_care, patient_report: this.data?.patient_report, report_attachment: reportAttachment });
+    this.openDialog(ReportAttachmentUpdateComponent, {
+      patient_care: this.data?.patient_care,
+      patient_report: this.data?.patient_report,
+      report_attachment: reportAttachment,
+    });
   }
 
   protected reportAttachmentDelete(reportAttachment: ReportAttachment): void {
-    this.openDialog(ReportAttachmentDeleteComponent, { patient_care: this.data?.patient_care, patient_report: this.data?.patient_report, report_attachment: reportAttachment }, '400px', 'auto', true);
+    this.openDialog(ReportAttachmentDeleteComponent, {
+      patient_care: this.data?.patient_care,
+      patient_report: this.data?.patient_report,
+      report_attachment: reportAttachment,
+    });
   }
 
   // ==========================================
@@ -128,7 +171,8 @@ export class ReportAttachmentsComponent implements OnInit {
       this.isLoading.set(true);
     }
 
-    this.patientService.getReportAttachments(careId, repId)
+    this.patientService
+      .getReportAttachments(careId, repId)
       .pipe(
         finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
@@ -141,7 +185,7 @@ export class ReportAttachmentsComponent implements OnInit {
           this.dataSource.data = [];
           const fallbackError = 'Não foi possível carregar os anexos do laudo.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 
@@ -151,27 +195,24 @@ export class ReportAttachmentsComponent implements OnInit {
         this.fetchReportAttachments(false);
       }
     };
-
-    this.destroyRef.onDestroy(() => {
-      this.patientsChannel.close();
-    });
   }
 
   private openDialog<T>(
     component: ComponentType<T>,
     data: ReportAttachmentDialogData,
-    width = '400px',
+    width: string = COMPONENT_CONFIG.defaultDialogWidth,
     height = 'auto',
     requiresRefresh = true
   ): void {
-    this.dialog.open(component, {
-      width,
-      height,
-      disableClose: true,
-      autoFocus: false,
-      scrollStrategy: this.overlay.scrollStrategies.noop(),
-      data
-    })
+    this.dialog
+      .open(component, {
+        width,
+        height,
+        disableClose: true,
+        autoFocus: false,
+        scrollStrategy: this.overlay.scrollStrategies.noop(),
+        data,
+      })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {

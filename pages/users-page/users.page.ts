@@ -51,6 +51,7 @@ const PAGE_CONFIG = {
 } as const;
 
 interface UserTableRow extends User {
+  fullName: string;
   is_editable: boolean;
   cns: string;
 }
@@ -227,10 +228,11 @@ export class UsersPage implements OnInit, OnDestroy {
   private mapUserToRow(
     item: Partial<User> & { professional?: { name?: string; cns?: string } }
   ): UserTableRow {
+    const rawName = (item.professional?.name || item.name || '').trim();
     const userObj: User = {
       id: item.id!,
       email: item.email || '',
-      name: item.professional?.name || item.name || '',
+      name: this.formatUserName(rawName),
       module: item.module,
       professional: item.professional,
       roles: item.roles,
@@ -238,9 +240,15 @@ export class UsersPage implements OnInit, OnDestroy {
 
     return {
       ...userObj,
+      fullName: rawName || '-',
       cns: item.professional?.cns || '-',
       is_editable: this.calculateEditable(userObj),
     };
+  }
+
+  private formatUserName(name: string): string {
+    if (!name || name === '-' || name.length <= 40) return name || '-';
+    return `${name.slice(0, 32)} ...${name.slice(-5)}`;
   }
 
   private calculateEditable(user: User): boolean {

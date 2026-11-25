@@ -12,16 +12,16 @@
       <mat-card-content>
         <div class="line cols-1-1">
           <div>
-            <strong>Protocolo:</strong> {{ report?.protocol || 'Não informado' }}
+            <strong>Protocolo:</strong> {{ report()?.protocol || 'Não informado' }}
           </div>
           <div>
-            <strong>Ação judicial:</strong> {{ report?.lawsuit ? 'Sim' : 'Não' }}
+            <strong>Ação judicial:</strong> {{ report()?.lawsuit ? 'Sim' : 'Não' }}
           </div>
         </div>
 
         <div class="line cols-1-col">
           <div>
-            <strong>Especialidade:</strong> {{ specialtyLabel }}
+            <strong>Especialidade:</strong> {{ specialtyLabel() }}
           </div>
         </div>
 
@@ -29,7 +29,7 @@
           <div>
             <strong>CID:</strong>
             <span>
-              @if (report?.cid; as cidVal) {
+              @if (report()?.cid; as cidVal) {
                 {{ cidVal.code }} - {{ cidVal.name }}
               } @else {
                 Não informado
@@ -40,7 +40,7 @@
 
         <div class="line cols-1-col">
           <div>
-            <strong>Diagnóstico:</strong> {{ report?.diagnosis || 'Não informado' }}
+            <strong>Diagnóstico:</strong> {{ report()?.diagnosis || 'Não informado' }}
           </div>
         </div>
       </mat-card-content>
@@ -53,18 +53,22 @@
       </mat-card-header>
 
       <mat-card-content>
-        @for (item of report?.attachments; track item.archive_id ?? item.name) {
+        @for (item of report()?.attachments; track item.archive_id ?? $index) {
           <div class="line cols-1-col">
             <div class="action-cell">
               <strong>Nome do Arquivo:</strong>
               <span>{{ item?.name || 'Sem nome' }}</span>
-              <button 
-                mat-icon-button 
-                type="button" 
-                matTooltip="Download do arquivo" 
-                [disabled]="!item?.archive_id" 
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Download do arquivo"
+                [disabled]="!item?.archive_id || downloadingArchiveId() === item.archive_id"
                 (click)="download(item.archive_id, item.name)">
-                <mat-icon>download</mat-icon>
+                @if (downloadingArchiveId() === item.archive_id) {
+                  <mat-spinner [diameter]="20"></mat-spinner>
+                } @else {
+                  <mat-icon>download</mat-icon>
+                }
               </button>
             </div>
           </div>
@@ -80,9 +84,9 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button 
-    mat-button 
-    type="button" 
+  <button
+    mat-button
+    type="button"
     [mat-dialog-close]="false">
     Fechar
   </button>

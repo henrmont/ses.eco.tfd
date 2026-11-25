@@ -2,7 +2,7 @@
 
 <mat-dialog-content>
   <p>
-    Você deseja realmente arquivar o paciente <strong>{{ patientName }}</strong>?
+    Você deseja realmente arquivar o paciente <strong>{{ patientName() }}</strong>?
   </p>
   <p class="warning-text">
     Esta ação ocultará o paciente da listagem ativa do sistema.
@@ -10,19 +10,19 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button 
-    mat-button 
-    type="button" 
-    [mat-dialog-close]="false" 
+  <button
+    mat-button
+    type="button"
+    [mat-dialog-close]="false"
     [disabled]="isSubmitting()">
     Cancelar
   </button>
 
-  <button 
-    mat-flat-button 
-    color="primary" 
-    type="button" 
-    [disabled]="isSubmitting()" 
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
+    [disabled]="isSubmitting()"
     (click)="onSubmit()">
     <div class="waiting">
       @if (isSubmitting()) {

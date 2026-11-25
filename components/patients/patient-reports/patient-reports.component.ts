@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -9,7 +18,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTableDataSource, MatTableModule } from '@angular/material/table';
+import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Core, Services & Models
@@ -26,36 +35,43 @@ import { PatientReportDetailComponent } from '../patient-report-detail/patient-r
 import { PatientReportUpdateComponent } from '../patient-report-update/patient-report-update.component';
 import { ReportAttachmentsComponent } from '../report-attachments/report-attachments.component';
 
-type PatientReportDialogData = {
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patients-channel',
+} as const;
+
+interface PatientReportDialogData {
   patient_care?: PatientCare;
   patient_report?: PatientReport;
-};
+}
 
 @Component({
   selector: 'app-patient-reports',
   standalone: true,
   imports: [
-    MatDialogModule,
     MatButtonModule,
-    MatTableModule,
+    MatDialogModule,
     MatIconModule,
+    MatProgressSpinnerModule,
+    MatTableModule,
     MatTooltipModule,
-    MatProgressSpinnerModule
   ],
   templateUrl: './patient-reports.component.html',
   styleUrl: './patient-reports.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientReportsComponent implements OnInit {
-  // ==========================================
-  // Instância do Broadcast Channel
-  // ==========================================
-  private readonly patientsChannel = new BroadcastChannel('tfd-patients-channel');
+export class PatientReportsComponent implements OnInit, OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly patientsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
 
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientReportDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientReportDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly patientService = inject(PatientService);
@@ -65,8 +81,14 @@ export class PatientReportsComponent implements OnInit {
   // ==========================================
   // Propriedades e Estado Reativo
   // ==========================================
-  protected readonly displayedColumns: string[] = ['protocol', 'specialty', 'cid', 'lawsuit', 'actions'];
-  protected readonly dataSource = new MatTableDataSource<PatientReport>([]);
+  protected readonly displayedColumns: readonly string[] = [
+    'protocol',
+    'specialty',
+    'cid',
+    'lawsuit',
+    'actions',
+  ];
+  protected readonly reports = signal<PatientReport[]>([]);
   protected readonly isLoading = signal<boolean>(true);
 
   private readonly patientCareId = computed(() => this.data?.patient_care?.id ?? null);
@@ -79,6 +101,10 @@ export class PatientReportsComponent implements OnInit {
     this.fetchPatientReports(true);
   }
 
+  ngOnDestroy(): void {
+    this.patientsChannel.close();
+  }
+
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
@@ -88,7 +114,13 @@ export class PatientReportsComponent implements OnInit {
   }
 
   protected patientReportDetail(patientReport: PatientReport): void {
-    this.openDialog(PatientReportDetailComponent, { patient_care: this.data?.patient_care, patient_report: patientReport }, '800px', 'auto', false);
+    this.openDialog(
+      PatientReportDetailComponent,
+      { patient_care: this.data?.patient_care, patient_report: patientReport },
+      '800px',
+      'auto',
+      false
+    );
   }
 
   protected patientReportCreate(): void {
@@ -96,15 +128,30 @@ export class PatientReportsComponent implements OnInit {
   }
 
   protected patientReportUpdate(patientReport: PatientReport): void {
-    this.openDialog(PatientReportUpdateComponent, { patient_care: this.data?.patient_care, patient_report: patientReport });
+    this.openDialog(PatientReportUpdateComponent, {
+      patient_care: this.data?.patient_care,
+      patient_report: patientReport,
+    });
   }
 
   protected patientReportDelete(patientReport: PatientReport): void {
-    this.openDialog(PatientReportDeleteComponent, { patient_care: this.data?.patient_care, patient_report: patientReport }, '400px', 'auto', true);
+    this.openDialog(
+      PatientReportDeleteComponent,
+      { patient_care: this.data?.patient_care, patient_report: patientReport },
+      '400px',
+      'auto',
+      true
+    );
   }
 
   protected reportAttachments(patientReport: PatientReport): void {
-    this.openDialog(ReportAttachmentsComponent, { patient_care: this.data?.patient_care, patient_report: patientReport}, '600px', 'auto', false);
+    this.openDialog(
+      ReportAttachmentsComponent,
+      { patient_care: this.data?.patient_care, patient_report: patientReport },
+      '600px',
+      'auto',
+      false
+    );
   }
 
   // ==========================================
@@ -122,20 +169,21 @@ export class PatientReportsComponent implements OnInit {
       this.isLoading.set(true);
     }
 
-    this.patientService.getPatientReports(careId)
+    this.patientService
+      .getPatientReports(careId)
       .pipe(
         finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: PatientReport[]) => {
-          this.dataSource.data = response || [];
+          this.reports.set(response || []);
         },
         error: (err) => {
-          this.dataSource.data = [];
+          this.reports.set([]);
           const fallbackError = 'Não foi possível carregar os laudos do paciente.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 
@@ -145,10 +193,6 @@ export class PatientReportsComponent implements OnInit {
         this.fetchPatientReports(false);
       }
     };
-
-    this.destroyRef.onDestroy(() => {
-      this.patientsChannel.close();
-    });
   }
 
   private openDialog<T>(
@@ -158,14 +202,15 @@ export class PatientReportsComponent implements OnInit {
     height = 'auto',
     requiresRefresh = true
   ): void {
-    this.dialog.open(component, {
-      width,
-      height,
-      disableClose: true,
-      autoFocus: false,
-      scrollStrategy: this.overlay.scrollStrategies.noop(),
-      data
-    })
+    this.dialog
+      .open(component, {
+        width,
+        height,
+        disableClose: true,
+        autoFocus: false,
+        scrollStrategy: this.overlay.scrollStrategies.noop(),
+        data,
+      })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {

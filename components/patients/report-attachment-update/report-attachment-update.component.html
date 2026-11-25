@@ -3,7 +3,7 @@
 <mat-dialog-content>
   <form [formGroup]="attachmentForm">
     <div class="stepper">
-      
+
       <!-- Linha 1: Nome do Anexo -->
       <div class="line cols-1-col">
         <mat-form-field appearance="outline">
@@ -20,32 +20,36 @@
       <!-- Linha 2: Ações de Arquivo (Download e Anexo) -->
       <div class="line cols-1-col">
         <div class="file-actions-cell">
-          <button 
-            class="btn-archive" 
-            type="button" 
-            mat-icon-button 
-            [disabled]="!data?.report_attachment?.archive_id || isSubmitting()" 
-            (click)="download(data?.report_attachment?.archive_id, attachmentForm.get('name')?.value)"
-            matTooltip="Baixar arquivo atual">
-            <mat-icon>download</mat-icon>
+          <button
+            class="btn-archive"
+            type="button"
+            mat-icon-button
+            matTooltip="Baixar arquivo atual"
+            [disabled]="!data?.report_attachment?.archive_id || isSubmitting() || isDownloading()"
+            (click)="download(data?.report_attachment?.archive_id, attachmentForm.controls.name.value)">
+            @if (isDownloading()) {
+              <mat-spinner [diameter]="20"></mat-spinner>
+            } @else {
+              <mat-icon>download</mat-icon>
+            }
           </button>
 
-          <input 
-            type="file" 
-            hidden 
-            (change)="onFileSelected($event)" 
-            #fileInput 
-            [disabled]="isSubmitting()">
+          <input
+            type="file"
+            hidden
+            #fileInput
+            [disabled]="isSubmitting()"
+            (change)="onFileSelected($event)">
 
-          <button 
-            mat-raised-button 
-            type="button" 
-            [class.attached]="attachmentFile.file !== null"
-            (click)="fileInput.click()" 
-            [matTooltip]="attachmentFile.label()" 
-            [disabled]="isSubmitting()">
+          <button
+            mat-raised-button
+            type="button"
+            [class.attached]="hasFile()"
+            [matTooltip]="fileLabel()"
+            [disabled]="isSubmitting()"
+            (click)="fileInput.click()">
             <mat-icon>attach_file</mat-icon>
-            Anexar arquivo
+            {{ hasFile() ? 'Substituir arquivo' : 'Anexar arquivo' }}
           </button>
         </div>
       </div>
@@ -55,12 +59,18 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
-  <button 
-    mat-flat-button 
-    color="primary" 
-    type="button" 
-    [disabled]="attachmentForm.invalid || attachmentForm.pending || isFormsPristine() || isSubmitting()" 
+  <button
+    mat-button
+    type="button"
+    [mat-dialog-close]="false"
+    [disabled]="isSubmitting()">
+    Fechar
+  </button>
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
+    [disabled]="isFormInvalidOrPending || isFormPristine() || isSubmitting()"
     (click)="onSubmit()">
     <div class="waiting">
       @if (isSubmitting()) {

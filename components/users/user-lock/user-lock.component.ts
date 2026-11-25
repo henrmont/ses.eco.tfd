@@ -71,7 +71,7 @@ export class UserLockComponent {
     this.isSubmitting.set(true);
 
     this.userService
-      .lockUser(userId, !this.isEditable)
+      .lockUser(userId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)

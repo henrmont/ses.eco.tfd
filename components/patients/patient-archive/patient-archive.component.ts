@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -15,9 +23,16 @@ import { PatientCare } from '../../../models/patient-care.model';
 // Services
 import { PatientService } from '../../../services/patient.service';
 
-type PatientArchiveDialogData = {
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patients-channel',
+} as const;
+
+interface PatientArchiveDialogData {
   patient_care?: PatientCare;
-};
+}
 
 @Component({
   selector: 'app-patient-archive',
@@ -25,17 +40,22 @@ type PatientArchiveDialogData = {
   imports: [
     MatButtonModule,
     MatDialogModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
   ],
   templateUrl: './patient-archive.component.html',
   styleUrl: './patient-archive.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientArchiveComponent {
+export class PatientArchiveComponent implements OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly patientsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientArchiveDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientArchiveDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientArchiveComponent>);
@@ -45,12 +65,15 @@ export class PatientArchiveComponent {
   // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly patientName = computed<string>(
+    () => this.data?.patient_care?.patient?.name?.trim() || 'Paciente'
+  );
 
   // ==========================================
-  // Getters para Facilitação do Template
+  // Ciclo de Vida (Hooks)
   // ==========================================
-  protected get patientName(): string {
-    return this.data?.patient_care?.patient?.name || 'Paciente';
+  ngOnDestroy(): void {
+    this.patientsChannel.close();
   }
 
   // ==========================================
@@ -66,20 +89,24 @@ export class PatientArchiveComponent {
 
     this.isSubmitting.set(true);
 
-    this.patientService.archivePatient(patientCareId)
+    this.patientService
+      .archivePatient(patientCareId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Paciente arquivado com sucesso!');
+          this.patientsChannel.postMessage('update');
+          this.messageService.showMessage(
+            response?.message || 'Paciente arquivado com sucesso!'
+          );
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao tentar arquivar o paciente.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 }

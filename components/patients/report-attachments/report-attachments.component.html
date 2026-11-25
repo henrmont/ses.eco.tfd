@@ -10,7 +10,7 @@
     } @else {
       <div class="table">
         <table mat-table [dataSource]="dataSource">
-            
+
           <!-- Nome -->
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef> Nome </th>
@@ -23,36 +23,40 @@
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef class="center"> Ações </th>
             <td mat-cell *matCellDef="let element" class="center actions-cell">
-              <button 
-                mat-icon-button 
-                type="button" 
-                matTooltip="Download do arquivo" 
-                [disabled]="!element.archive_id"
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Download do arquivo"
+                [disabled]="!element.archive_id || downloadingArchiveId() === element.archive_id"
                 (click)="download(element.archive_id, element.name)">
-                <mat-icon color="primary">download</mat-icon>
+                @if (downloadingArchiveId() === element.archive_id) {
+                  <mat-spinner [diameter]="20"></mat-spinner>
+                } @else {
+                  <mat-icon color="primary">download</mat-icon>
+                }
               </button>
 
-              <button 
-                mat-icon-button 
-                type="button" 
-                matTooltip="Atualizar arquivo" 
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Atualizar arquivo"
                 (click)="reportAttachmentUpdate(element)">
                 <mat-icon>drive_file_rename_outline</mat-icon>
               </button>
 
-              <button 
-                mat-icon-button 
-                type="button" 
-                matTooltip="Deletar arquivo" 
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Excluir arquivo"
                 (click)="reportAttachmentDelete(element)">
                 <mat-icon color="warn">delete</mat-icon>
               </button>
             </td>
           </ng-container>
-  
+
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-  
+
           <!-- Estado Vazio -->
           <tr class="mat-row" *matNoDataRow>
             <td class="mat-cell center" [attr.colspan]="displayedColumns.length">
@@ -67,11 +71,16 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" [mat-dialog-close]="false">Fechar</button>
-  <button 
-    mat-flat-button 
-    color="primary" 
-    type="button" 
+  <button
+    mat-button
+    type="button"
+    [mat-dialog-close]="false">
+    Fechar
+  </button>
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
     (click)="reportAttachmentCreate()">
     <mat-icon>add</mat-icon>
     Novo arquivo

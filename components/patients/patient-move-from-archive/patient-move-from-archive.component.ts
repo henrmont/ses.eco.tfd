@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -15,9 +23,16 @@ import { PatientCare } from '../../../models/patient-care.model';
 // Services
 import { PatientService } from '../../../services/patient.service';
 
-type PatientMoveFromArchiveDialogData = {
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patients-channel',
+} as const;
+
+interface PatientMoveFromArchiveDialogData {
   patient_care?: PatientCare;
-};
+}
 
 @Component({
   selector: 'app-patient-move-from-archive',
@@ -25,17 +40,22 @@ type PatientMoveFromArchiveDialogData = {
   imports: [
     MatButtonModule,
     MatDialogModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
   ],
   templateUrl: './patient-move-from-archive.component.html',
   styleUrl: './patient-move-from-archive.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientMoveFromArchiveComponent {
+export class PatientMoveFromArchiveComponent implements OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly patientsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientMoveFromArchiveDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientMoveFromArchiveDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientMoveFromArchiveComponent>);
@@ -45,12 +65,15 @@ export class PatientMoveFromArchiveComponent {
   // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly patientName = computed<string>(
+    () => this.data?.patient_care?.patient?.name?.trim() || 'Paciente'
+  );
 
   // ==========================================
-  // Getters para Facilitação do Template
+  // Ciclo de Vida (Hooks)
   // ==========================================
-  protected get patientName(): string {
-    return this.data?.patient_care?.patient?.name || 'Paciente';
+  ngOnDestroy(): void {
+    this.patientsChannel.close();
   }
 
   // ==========================================
@@ -66,20 +89,24 @@ export class PatientMoveFromArchiveComponent {
 
     this.isSubmitting.set(true);
 
-    this.patientService.movePatientFromArchive(patientCareId)
+    this.patientService
+      .movePatientFromArchive(patientCareId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Paciente desalocado do arquivo com sucesso!');
+          this.patientsChannel.postMessage('update');
+          this.messageService.showMessage(
+            response?.message || 'Paciente desalocado do arquivo com sucesso!'
+          );
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao tentar desalocar o paciente do arquivo.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 }

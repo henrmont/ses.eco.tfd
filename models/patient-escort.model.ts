@@ -24,4 +24,5 @@ export interface PatientEscort {
     state?: Ufs,
     patient_care?: PatientCare,
     status?: boolean,
+    pivot?: any,
 }

@@ -9,11 +9,11 @@
       </div>
     } @else {
       <div class="table">
-        <table mat-table [dataSource]="dataSource">
-            
+        <table mat-table [dataSource]="reports()">
+
           <!-- Protocolo -->
           <ng-container matColumnDef="protocol">
-            <th mat-header-cell *matHeaderCellDef> Protocolo </th>
+            <th mat-header-cell *matHeaderCellDef>Protocolo</th>
             <td mat-cell *matCellDef="let element">
               {{ element.protocol || 'Não informado' }}
             </td>
@@ -21,15 +21,15 @@
 
           <!-- Especialidade -->
           <ng-container matColumnDef="specialty">
-            <th mat-header-cell *matHeaderCellDef> Especialidade </th>
+            <th mat-header-cell *matHeaderCellDef>Especialidade</th>
             <td mat-cell *matCellDef="let element">
               {{ getSpecialtyLabel(element.specialty) }}
             </td>
           </ng-container>
-  
+
           <!-- CID -->
           <ng-container matColumnDef="cid">
-            <th mat-header-cell *matHeaderCellDef> CID </th>
+            <th mat-header-cell *matHeaderCellDef>CID</th>
             <td mat-cell *matCellDef="let element">
               {{ element.cid?.code ? (element.cid.code + ' - ' + element.cid.name) : 'Não informado' }}
             </td>
@@ -37,59 +37,59 @@
 
           <!-- Judicial -->
           <ng-container matColumnDef="lawsuit">
-            <th mat-header-cell *matHeaderCellDef class="center"> Judicial </th>
+            <th mat-header-cell *matHeaderCellDef class="center">Judicial</th>
             <td mat-cell *matCellDef="let element" class="center">
               <span class="lawsuit-badge">
                 @if (element.lawsuit) {
-                  <mat-icon class="warning">gavel</mat-icon>
-                } 
+                  <mat-icon class="warning" matTooltip="Processo judicial">gavel</mat-icon>
+                }
               </span>
             </td>
           </ng-container>
-  
+
           <!-- Ações -->
           <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef class="center"> Ações </th>
+            <th mat-header-cell *matHeaderCellDef class="center">Ações</th>
             <td mat-cell *matCellDef="let element" class="center actions-cell">
-              <button 
-                mat-icon-button 
-                type="button" 
-                matTooltip="Detalhes do laudo" 
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Detalhes do laudo"
                 (click)="patientReportDetail(element)">
                 <mat-icon>visibility</mat-icon>
               </button>
 
-              <button 
-                mat-icon-button 
-                type="button" 
-                matTooltip="Anexos" 
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Anexos"
                 (click)="reportAttachments(element)">
                 <mat-icon>attach_file</mat-icon>
               </button>
 
-              <button 
-                mat-icon-button 
-                type="button" 
-                matTooltip="Atualizar laudo" 
-                [disabled]="!element.is_editable" 
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Atualizar laudo"
+                [disabled]="!element.is_editable"
                 (click)="patientReportUpdate(element)">
                 <mat-icon>drive_file_rename_outline</mat-icon>
               </button>
 
-              <button 
-                mat-icon-button 
-                type="button" 
-                matTooltip="Deletar laudo" 
-                [disabled]="element.has_patient_request" 
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Excluir laudo"
+                [disabled]="element.has_patient_request"
                 (click)="patientReportDelete(element)">
                 <mat-icon>delete</mat-icon>
               </button>
             </td>
           </ng-container>
-  
+
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-  
+
           <!-- Estado Vazio -->
           <tr class="mat-row" *matNoDataRow>
             <td class="mat-cell center" [attr.colspan]="displayedColumns.length">

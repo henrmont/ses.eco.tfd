@@ -1,20 +1,25 @@
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
-  ChangeDetectorRef,
   Component,
   DestroyRef,
-  Injector,
+  OnDestroy,
   OnInit,
+  computed,
   inject,
-  signal
+  signal,
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import {
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { finalize } from 'rxjs';
 import { saveAs } from 'file-saver';
 
-// Material Modules
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -32,69 +37,85 @@ import { PatientReport } from '../../../models/patient-report.model';
 import { ReportAttachment } from '../../../models/report-attachment.model';
 import { PatientService } from '../../../services/patient.service';
 
-// Types & Interfaces
-interface AttachedFileState {
-  file: File | null;
-  label: ReturnType<typeof signal<string>>;
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patients-channel',
+} as const;
+
+interface ReportAttachmentUpdateDialogData {
+  patient_care?: PatientCare;
+  patient_report?: PatientReport;
+  report_attachment?: ReportAttachment;
 }
 
-type ReportAttachmentUpdateDialogData = {
-  patient_care: PatientCare;
-  patient_report: PatientReport;
-  report_attachment: ReportAttachment;
-};
+interface AttachmentForm {
+  name: FormControl<string>;
+}
+
+interface ErrorMessage {
+  type: string;
+  message: string;
+}
 
 @Component({
   selector: 'app-report-attachment-update',
   standalone: true,
   imports: [
-    CommonModule,
-    FormsModule,
-    ReactiveFormsModule,
-    MatDialogModule,
     MatButtonModule,
+    MatDialogModule,
     MatFormFieldModule,
-    MatInputModule,
     MatIconModule,
+    MatInputModule,
+    MatProgressSpinnerModule,
     MatTooltipModule,
-    MatProgressSpinnerModule
+    ReactiveFormsModule,
   ],
   templateUrl: './report-attachment-update.component.html',
   styleUrl: './report-attachment-update.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ReportAttachmentUpdateComponent implements OnInit {
+export class ReportAttachmentUpdateComponent implements OnInit, OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly patientsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<ReportAttachmentUpdateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
-  private readonly fb = inject(FormBuilder);
+  protected readonly data = inject<ReportAttachmentUpdateDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
+  private readonly fb = inject(FormBuilder).nonNullable;
   private readonly patientService = inject(PatientService);
   private readonly messageService = inject(MessageService);
   private readonly storageService = inject(StorageService);
   private readonly dialogRef = inject(MatDialogRef<ReportAttachmentUpdateComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
   // ==========================================
-  protected attachmentForm!: FormGroup;
+  protected attachmentForm!: FormGroup<AttachmentForm>;
 
   protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly isDownloading = signal<boolean>(false);
+  protected readonly selectedFile = signal<File | null>(null);
+
+  protected readonly hasFile = computed<boolean>(() => this.selectedFile() !== null);
+  protected readonly fileLabel = computed<string>(
+    () => this.selectedFile()?.name ?? 'Nenhum arquivo selecionado'
+  );
+
+  private readonly patientCareId = computed(() => this.data?.patient_care?.id ?? null);
+  private readonly reportId = computed(() => this.data?.patient_report?.id ?? null);
+  private readonly attachmentId = computed(() => this.data?.report_attachment?.id ?? null);
 
   // Mapeamento de Mensagens de Erro
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     name: [
-      { type: 'required', message: 'O nome do anexo é obrigatório.' }
-    ]
-  };
-
-  // Gerenciamento de Anexos/Arquivos
-  protected readonly attachmentFile: AttachedFileState = {
-    file: null,
-    label: signal('Nenhum arquivo selecionado')
+      { type: 'required', message: 'O nome do anexo é obrigatório.' },
+    ],
   };
 
   // ==========================================
@@ -102,85 +123,109 @@ export class ReportAttachmentUpdateComponent implements OnInit {
   // ==========================================
   ngOnInit(): void {
     this.initForm();
-    this.setupFormSubmittingHandler();
+  }
+
+  ngOnDestroy(): void {
+    this.patientsChannel.close();
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-
-    if (input.files && input.files.length > 0) {
-      const file = input.files[0];
-      this.attachmentFile.file = file;
-      this.attachmentFile.label.set(file.name);
-
-      const currentName = this.attachmentForm.get('name')?.value;
-      if (!currentName) {
-        const sanitizedName = file.name.split('.').slice(0, -1).join('.');
-        this.attachmentForm.get('name')?.setValue(sanitizedName);
-      }
-
-      this.attachmentForm.markAsDirty();
-      this.cdr.markForCheck();
-    }
+  protected get isFormInvalidOrPending(): boolean {
+    return this.attachmentForm.invalid || this.attachmentForm.pending;
   }
 
-  protected download(archiveId: number | null | undefined, name: string): void {
-    if (!archiveId) return;
+  protected isFormPristine(): boolean {
+    return this.attachmentForm.pristine && !this.hasFile();
+  }
 
-    this.storageService.download('tfd', archiveId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+  protected onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+
+    if (!file) return;
+
+    this.selectedFile.set(file);
+
+    const currentName = this.attachmentForm.controls.name.value.trim();
+    if (!currentName) {
+      const lastDotIndex = file.name.lastIndexOf('.');
+      const sanitizedName = lastDotIndex > 0 ? file.name.slice(0, lastDotIndex) : file.name;
+      this.attachmentForm.controls.name.setValue(sanitizedName);
+    }
+
+    this.attachmentForm.markAsDirty();
+  }
+
+  protected download(archiveId: number | null | undefined, name?: string): void {
+    if (!archiveId || this.isDownloading()) return;
+
+    this.isDownloading.set(true);
+
+    this.storageService
+      .download('tfd', archiveId)
+      .pipe(
+        finalize(() => this.isDownloading.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
       .subscribe({
         next: (response) => {
           if (response?.archive) {
-            saveAs(response.archive, name);
+            saveAs(response.archive, name || `anexo-${archiveId}`);
           }
-        }
+        },
+        error: (err) => {
+          const fallbackError = 'Erro ao realizar o download do arquivo.';
+          this.messageService.showMessage(err?.error?.message || fallbackError);
+        },
       });
   }
 
-  protected isFormsPristine(): boolean {
-    return this.attachmentForm.pristine && this.attachmentFile.file === null;
-  }
-
   protected onSubmit(): void {
-    const patientCareId = this.data?.patient_care?.id;
-    const reportId = this.data?.patient_report?.id;
-    const attachmentId = this.data?.report_attachment?.id;
+    const careId = this.patientCareId();
+    const repId = this.reportId();
+    const attId = this.attachmentId();
 
-    if (!patientCareId || !reportId || !attachmentId) {
-      this.messageService.showMessage('Identificadores do atendimento, laudo ou anexo não encontrados.');
+    if (!careId || !repId || !attId) {
+      this.messageService.showMessage(
+        'Identificadores do atendimento, laudo ou anexo não encontrados.'
+      );
       return;
     }
 
-    if (this.attachmentForm.invalid) {
+    if (this.isFormInvalidOrPending) {
       this.attachmentForm.markAllAsTouched();
       return;
     }
 
     this.isSubmitting.set(true);
+    this.attachmentForm.disable({ emitEvent: false });
 
     const payload = {
-      ...this.attachmentForm.getRawValue(),
-      file: this.attachmentFile.file
-    };
+      name: this.attachmentForm.controls.name.getRawValue().trim(),
+      file: this.selectedFile(),
+    } as unknown as ReportAttachment;
 
-    this.patientService.updateReportAttachment(patientCareId, reportId, attachmentId, payload)
+    this.patientService
+      .updateReportAttachment(careId, repId, attId, payload)
       .pipe(
-        finalize(() => this.isSubmitting.set(false)),
+        finalize(() => {
+          this.isSubmitting.set(false);
+          this.attachmentForm.enable({ emitEvent: false });
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
+          this.patientsChannel.postMessage('update');
           this.messageService.showMessage(response?.message || 'Anexo atualizado com sucesso!');
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao processar a atualização do anexo.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 
@@ -188,22 +233,9 @@ export class ReportAttachmentUpdateComponent implements OnInit {
   // Métodos Privados / Auxiliares
   // ==========================================
   private initForm(): void {
-    const currentName = this.data?.report_attachment?.name || null;
-    this.attachmentForm = this.fb.group({
-      name: [currentName, [Validators.required]]
+    const currentName = this.data?.report_attachment?.name ?? '';
+    this.attachmentForm = this.fb.group<AttachmentForm>({
+      name: this.fb.control(currentName, [Validators.required]),
     });
-  }
-
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.attachmentForm.disable({ emitEvent: false });
-        } else {
-          this.attachmentForm.enable({ emitEvent: false });
-        }
-        this.cdr.markForCheck();
-      });
   }
 }

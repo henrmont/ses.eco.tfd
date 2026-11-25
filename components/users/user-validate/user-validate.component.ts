@@ -71,7 +71,7 @@ export class UserValidateComponent {
     this.isSubmitting.set(true);
 
     this.userService
-      .validateUser(userId, !this.isValid)
+      .validateUser(userId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)

@@ -21,12 +21,12 @@
 
             <div class="file-upload-cell">
               <input type="file" hidden (change)="onFileSelected($event, 'cns')" #fileCNS [disabled]="isSubmitting()">
-              <button 
-                mat-raised-button 
-                type="button" 
+              <button
+                mat-raised-button
+                type="button"
                 [class.attached]="files.cns.hasFile()"
-                (click)="fileCNS.click()" 
-                [matTooltip]="files.cns.label()" 
+                (click)="fileCNS.click()"
+                [matTooltip]="files.cns.label()"
                 [disabled]="isSubmitting()">
                 <mat-icon>attach_file</mat-icon>
                 Anexar CNS
@@ -50,10 +50,10 @@
 
             <mat-form-field appearance="outline">
               <mat-label>Documento</mat-label>
-              <input 
-                matInput 
-                type="text" 
-                [mask]="identificationForm.get('document_type')?.value === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00'" 
+              <input
+                matInput
+                type="text"
+                [mask]="identificationForm.get('document_type')?.value === 'CPF' ? '000.000.000-00' : '000000 00 00 0000 0 00000 000 0000000 00'"
                 formControlName="document">
               @for (item of errorMessages['document']; track $index) {
                 <mat-error [hidden]="!identificationForm.get('document')?.hasError(item.type)">
@@ -64,12 +64,12 @@
 
             <div class="file-upload-cell">
               <input type="file" hidden (change)="onFileSelected($event, 'document')" #fileDocument [disabled]="isSubmitting()">
-              <button 
-                mat-raised-button 
-                type="button" 
+              <button
+                mat-raised-button
+                type="button"
                 [class.attached]="files.document.hasFile()"
-                (click)="fileDocument.click()" 
-                [matTooltip]="files.document.label()" 
+                (click)="fileDocument.click()"
+                [matTooltip]="files.document.label()"
                 [disabled]="isSubmitting()">
                 <mat-icon>attach_file</mat-icon>
                 Anexar documento
@@ -98,11 +98,14 @@
 
             <mat-form-field appearance="outline">
               <mat-label>Data de Nascimento</mat-label>
-              <input 
-                matInput 
-                [matDatepicker]="picker" 
+              <input
+                matInput
+                maxlength="10"
+                [matDatepicker]="picker"
                 formControlName="birth_date"
                 placeholder="DD/MM/AAAA"
+                (input)="onBirthDateInput($event)"
+                (keypress)="onlyNumbersAndSlashes($event)"
                 (dateChange)="setBirthDate($event)">
               <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
               <mat-datepicker #picker></mat-datepicker>
@@ -149,21 +152,22 @@
 
             <mat-form-field appearance="outline">
               <mat-label>Naturalidade</mat-label>
-              <input 
-                type="text" 
-                matInput 
-                [formControl]="naturalnessControl" 
+              <input
+                type="text"
+                matInput
+                formControlName="naturalness"
+                [readonly]="naturalnessLoading()"
                 [matAutocomplete]="naturalness">
               @if (naturalnessLoading()) {
                 <mat-spinner matSuffix [diameter]="20" class="spinner-suffix"></mat-spinner>
               }
               <mat-autocomplete #naturalness="matAutocomplete" (optionSelected)="onNaturalnessSelected($event.option.value)">
-                @for (option of filteredNaturalnessOptions | async; track $index) {
+                @for (option of filteredNaturalnessOptions(); track $index) {
                   <mat-option [value]="option">{{ option }}</mat-option>
                 }
               </mat-autocomplete>
               @for (item of errorMessages['naturalness']; track $index) {
-                <mat-error [hidden]="!naturalnessControl.hasError(item.type)">
+                <mat-error [hidden]="!personalForm.get('naturalness')?.hasError(item.type)">
                   {{ item.message }}
                 </mat-error>
               }
@@ -189,7 +193,7 @@
               <mat-label>Profissão</mat-label>
               <input type="text" matInput formControlName="profession" [matAutocomplete]="profession">
               <mat-autocomplete autoActiveFirstOption #profession="matAutocomplete">
-                @for (option of filteredProfessionsOptions | async; track $index) {
+                @for (option of filteredProfessionsOptions(); track $index) {
                   <mat-option [value]="option">{{ option }}</mat-option>
                 }
               </mat-autocomplete>
@@ -239,12 +243,12 @@
 
             <div class="file-upload-cell">
               <input type="file" hidden (change)="onFileSelected($event, 'deficiency')" #fileDeficiency [disabled]="isSubmitting()">
-              <button 
-                mat-raised-button 
-                type="button" 
+              <button
+                mat-raised-button
+                type="button"
                 [class.attached]="files.deficiency.hasFile()"
-                (click)="fileDeficiency.click()" 
-                [matTooltip]="files.deficiency.label()" 
+                (click)="fileDeficiency.click()"
+                [matTooltip]="files.deficiency.label()"
                 [disabled]="isSubmitting()">
                 <mat-icon>attach_file</mat-icon>
                 Anexar laudo
@@ -273,12 +277,12 @@
 
             <div class="file-upload-cell">
               <input type="file" hidden (change)="onFileSelected($event, 'address')" #fileAddress [disabled]="isSubmitting()">
-              <button 
-                mat-raised-button 
-                type="button" 
+              <button
+                mat-raised-button
+                type="button"
                 [class.attached]="files.address.hasFile()"
-                (click)="fileAddress.click()" 
-                [matTooltip]="files.address.label()" 
+                (click)="fileAddress.click()"
+                [matTooltip]="files.address.label()"
                 [disabled]="isSubmitting()">
                 <mat-icon>attach_file</mat-icon>
                 Anexar comprovante de endereço
@@ -329,11 +333,11 @@
               <input matInput type="text" formControlName="city">
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="uf-field">
+            <mat-form-field appearance="outline">
               <mat-label>UF</mat-label>
               <input type="text" matInput formControlName="state" [matAutocomplete]="state">
               <mat-autocomplete autoActiveFirstOption #state="matAutocomplete">
-                @for (option of filteredUfsOptions | async; track $index) {
+                @for (option of filteredUfsOptions(); track option) {
                   <mat-option [value]="option">{{ option }}</mat-option>
                 }
               </mat-autocomplete>
@@ -343,18 +347,11 @@
       </form>
     </mat-step>
 
-    <!-- ETAPA 4: DADOS ADICIONAIS -->
+    <!-- ETAPA 4: INFORMAÇÕES COMPLEMENTARES -->
     <mat-step [stepControl]="infoForm">
-      <ng-template matStepLabel>Dados adicionais</ng-template>
+      <ng-template matStepLabel>Informações complementares</ng-template>
       <form [formGroup]="infoForm">
         <div class="stepper">
-          <div class="line cols-1-col">
-            <mat-form-field appearance="outline">
-              <mat-label>Observação</mat-label>
-              <input matInput type="text" formControlName="observation">
-            </mat-form-field>
-          </div>
-
           <div class="line cols-1-1-2">
             <mat-form-field appearance="outline">
               <mat-label>Número de controle</mat-label>
@@ -362,8 +359,8 @@
             </mat-form-field>
 
             <mat-form-field appearance="outline">
-              <mat-label>Sigadoc</mat-label>
-              <input matInput type="text" placeholder="SES-PRO-0000/00000" formControlName="sigadoc">
+              <mat-label>SigaDoc</mat-label>
+              <input matInput type="text" formControlName="sigadoc">
               @for (item of errorMessages['sigadoc']; track $index) {
                 <mat-error [hidden]="!infoForm.get('sigadoc')?.hasError(item.type)">
                   {{ item.message }}
@@ -373,18 +370,23 @@
 
             <div class="file-upload-cell">
               <input type="file" hidden (change)="onFileSelected($event, 'sigadoc')" #fileSigadoc [disabled]="isSubmitting()">
-              <button 
-                mat-raised-button 
-                type="button" 
+              <button
+                mat-raised-button
+                type="button"
                 [class.attached]="files.sigadoc.hasFile()"
-                (click)="fileSigadoc.click()" 
-                [matTooltip]="files.sigadoc.label()" 
+                (click)="fileSigadoc.click()"
+                [matTooltip]="files.sigadoc.label()"
                 [disabled]="isSubmitting()">
                 <mat-icon>attach_file</mat-icon>
-                Anexar sigadoc
+                Anexar SigaDoc
               </button>
             </div>
           </div>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Observação</mat-label>
+            <textarea matInput rows="4" formControlName="observation"></textarea>
+          </mat-form-field>
         </div>
       </form>
     </mat-step>
@@ -394,11 +396,11 @@
 
 <mat-dialog-actions align="end">
   <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
-  <button 
-    mat-flat-button 
-    color="primary" 
-    type="button" 
-    [disabled]="identificationForm.invalid || personalForm.invalid || addressForm.invalid || infoForm.invalid || identificationForm.pending || isSubmitting()" 
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
+    [disabled]="isFormInvalidOrPending || isSubmitting()"
     (click)="onSubmit()">
     <div class="waiting">
       @if (isSubmitting()) {

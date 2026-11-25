@@ -3,7 +3,7 @@
 <mat-dialog-content>
   <form [formGroup]="attachmentForm">
     <div class="stepper">
-      
+
       <!-- Linha 1: Nome do arquivo -->
       <div class="line cols-1-col">
         <mat-form-field appearance="outline">
@@ -20,21 +20,21 @@
       <!-- Linha 2: Seletor de Arquivo Anexo -->
       <div class="line cols-1-col">
         <div class="file-upload-cell">
-          <input 
-            type="file" 
-            hidden 
-            (change)="onFileSelected($event)" 
-            #fileInput 
-            [disabled]="isSubmitting()">
-          <button 
-            mat-raised-button 
-            type="button" 
-            [class.attached]="attachmentFile.hasFile()"
-            (click)="fileInput.click()" 
-            [matTooltip]="attachmentFile.label()" 
-            [disabled]="isSubmitting()">
+          <input
+            type="file"
+            hidden
+            #fileInput
+            [disabled]="isSubmitting()"
+            (change)="onFileSelected($event)">
+          <button
+            mat-raised-button
+            type="button"
+            [class.attached]="hasFile()"
+            [matTooltip]="fileLabel()"
+            [disabled]="isSubmitting()"
+            (click)="fileInput.click()">
             <mat-icon>attach_file</mat-icon>
-            {{ attachmentFile.hasFile() ? 'Substituir arquivo' : 'Anexar arquivo' }}
+            {{ hasFile() ? 'Substituir arquivo' : 'Anexar arquivo' }}
           </button>
         </div>
       </div>
@@ -44,12 +44,18 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" [mat-dialog-close]="false" [disabled]="isSubmitting()">Fechar</button>
-  <button 
-    mat-flat-button 
-    color="primary" 
-    type="button" 
-    [disabled]="attachmentForm.invalid || !attachmentFile.hasFile() || attachmentForm.pending || isSubmitting()" 
+  <button
+    mat-button
+    type="button"
+    [mat-dialog-close]="false"
+    [disabled]="isSubmitting()">
+    Fechar
+  </button>
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
+    [disabled]="isFormInvalidOrPending || !hasFile() || isSubmitting()"
     (click)="onSubmit()">
     <div class="waiting">
       @if (isSubmitting()) {

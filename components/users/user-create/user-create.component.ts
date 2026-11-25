@@ -36,6 +36,7 @@ import { MessageService } from '../../../../core/services/message-service';
 import { Professionals } from '../../../enums/professionals';
 import { UserService } from '../../../services/user.service';
 import { ProfessionalTypesComponent } from '../professional-types/professional-types.component';
+import { CustomValidators } from '../../../../core/validators/custom.validator';
 
 // ============================================================================
 // CONFIGURAÇÃO DO COMPONENTE
@@ -115,6 +116,7 @@ export class UserCreateComponent implements OnInit, OnDestroy {
     ],
     cns: [
       { type: 'required', message: 'O CNS é obrigatório.' },
+      { type: 'cnsInvalid', message: 'Número de CNS inválido.' },
       { type: 'cnsExists', message: 'O CNS informado já está em uso.' },
     ],
     registration: [
@@ -198,7 +200,7 @@ export class UserCreateComponent implements OnInit, OnDestroy {
       types: this.fb.control<string[]>([], [Validators.required]),
       cns: this.fb.control(
         '',
-        [Validators.required],
+        [Validators.required, CustomValidators.cnsValidator()],
         [this.userService.cnsUserExistsValidator()]
       ),
       registration: this.fb.control('', [
