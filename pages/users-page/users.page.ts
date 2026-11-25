@@ -51,7 +51,6 @@ const PAGE_CONFIG = {
 } as const;
 
 interface UserTableRow extends User {
-  fullName: string;
   is_editable: boolean;
   cns: string;
 }
@@ -240,7 +239,6 @@ export class UsersPage implements OnInit, OnDestroy {
 
     return {
       ...userObj,
-      fullName: rawName || '-',
       cns: item.professional?.cns || '-',
       is_editable: this.calculateEditable(userObj),
     };

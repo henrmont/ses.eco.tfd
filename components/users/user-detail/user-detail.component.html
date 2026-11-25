@@ -10,10 +10,12 @@
       </mat-card-header>
       
       <mat-card-content>
-        <div class="line cols-1-1">
+        <div class="line cols-1-col">
           <div>
             <strong>Nome:</strong> {{ professional?.name || user?.name || 'Não informado' }}
           </div>
+        </div>
+        <div class="line cols-1-col">
           <div>
             <strong>E-mail:</strong> {{ user?.email || 'Não informado' }}
           </div>
