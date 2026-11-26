@@ -9,30 +9,76 @@ mat-dialog-content {
 }
 
 mat-list {
-  padding-top: 0;
+  padding: 0;
+  --mdc-list-list-item-one-line-container-height: 32px;
+  --mdc-list-list-item-leading-icon-size: 20px;
 }
 
 mat-list-item {
   display: flex;
-  margin: 10px 0;
-  // Requisito Cumprido (Verde)
-  &.fulfilled {
-    mat-icon {
-      color: $color-success;; // Verde escuro legível
+  align-items: center;
+  min-height: 32px !important;
+  height: 32px !important;
+  margin: 2px 0;
+
+  ::ng-deep {
+    .mdc-list-item__content {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      padding: 0;
     }
 
-    .requirement-title {
-      color: $color-success;;
+    .mdc-list-item__primary-text {
+      display: flex;
+      align-items: center;
+      line-height: 20px;
+    }
+
+    .mat-mdc-list-item-icon,
+    .mdc-list-item__start {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 8px 0 0 !important;
+      padding: 0 !important;
+      width: 20px;
+      height: 20px;
     }
   }
 
-  // Requisito Pendente (Vermelho)
-  &.unfulfilled {
-    mat-icon {
-      color: $color-danger; // Vermelho
-    }
+  mat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+    font-size: 20px;
+    line-height: 20px;
+    width: 20px;
+    height: 20px;
+  }
 
-    .requirement-title {
+  .requirement-title {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.9rem;
+    line-height: 20px;
+  }
+
+  // Requisito Cumprido
+  &.fulfilled {
+    mat-icon,
+    .requirement-title,
+    ::ng-deep .mdc-list-item__primary-text {
+      color: $color-success;
+    }
+  }
+
+  // Requisito Pendente
+  &.unfulfilled {
+    mat-icon,
+    .requirement-title,
+    ::ng-deep .mdc-list-item__primary-text {
       color: $color-danger;
     }
   }
@@ -46,4 +92,3 @@ mat-list-item {
   color: #757575;
   font-style: italic;
 }
-

@@ -1,16 +1,21 @@
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
-  ChangeDetectorRef,
   Component,
   DestroyRef,
-  Injector,
+  OnDestroy,
   OnInit,
+  computed,
   inject,
-  signal
+  signal,
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import {
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { finalize } from 'rxjs';
 
 // Angular Material
@@ -25,70 +30,87 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 // Core, Services & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
-import { PatientRequestService } from '../../../services/patient-request.service';
 import { PatientRequest } from '../../../models/patient-request.model';
+import { PatientRequestAttachment } from '../../../models/patient-request-attachment.model';
+import { PatientRequestService } from '../../../services/patient-request.service';
 
-type PatientRequestAttachmentCreateDialogData = {
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patient-requests-channel',
+} as const;
+
+export interface PatientRequestAttachmentCreateDialogData {
   patient_request?: PatientRequest;
-};
+}
 
-interface AttachedFileState {
-  file: File | null;
-  label: ReturnType<typeof signal<string>>;
-  hasFile: ReturnType<typeof signal<boolean>>;
+interface AttachmentForm {
+  name: FormControl<string>;
+}
+
+interface ErrorMessage {
+  type: string;
+  message: string;
 }
 
 @Component({
   selector: 'app-patient-request-attachment-create',
   standalone: true,
   imports: [
-    CommonModule,
-    FormsModule,
-    ReactiveFormsModule,
-    MatDialogModule,
     MatButtonModule,
+    MatDialogModule,
     MatFormFieldModule,
-    MatInputModule,
     MatIconModule,
+    MatInputModule,
+    MatProgressSpinnerModule,
     MatTooltipModule,
-    MatProgressSpinnerModule
+    ReactiveFormsModule,
   ],
   templateUrl: './patient-request-attachment-create.component.html',
   styleUrl: './patient-request-attachment-create.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientRequestAttachmentCreateComponent implements OnInit {
+export class PatientRequestAttachmentCreateComponent implements OnInit, OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly requestsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientRequestAttachmentCreateDialogData | null>(MAT_DIALOG_DATA, { optional: true });
-  private readonly fb = inject(FormBuilder);
+  protected readonly data = inject<PatientRequestAttachmentCreateDialogData | null>(
+    MAT_DIALOG_DATA,
+    { optional: true }
+  );
+  private readonly fb = inject(FormBuilder).nonNullable;
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestAttachmentCreateComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
   // ==========================================
-  protected attachmentForm!: FormGroup;
+  protected attachmentForm!: FormGroup<AttachmentForm>;
 
   protected readonly isSubmitting = signal<boolean>(false);
+  protected readonly selectedFile = signal<File | null>(null);
 
-  // Gerenciamento de Anexos/Arquivos
-  protected readonly attachmentFile: AttachedFileState = {
-    file: null,
-    label: signal('Nenhum arquivo selecionado'),
-    hasFile: signal(false)
-  };
+  protected readonly hasFile = computed<boolean>(() => this.selectedFile() !== null);
+  protected readonly fileLabel = computed<string>(
+    () => this.selectedFile()?.name ?? 'Nenhum arquivo selecionado'
+  );
 
-  // Mapeamento de Mensagens de Erro Tipado
-  protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
+  private readonly patientRequestId = computed<number | null>(() => {
+    const id = this.data?.patient_request?.id;
+    return typeof id === 'number' && Number.isFinite(id) ? id : null;
+  });
+
+  // Mapeamento de Mensagens de Erro
+  protected readonly errorMessages: Record<string, ErrorMessage[]> = {
     name: [
-      { type: 'required', message: 'O nome do anexo é obrigatório.' }
-    ]
+      { type: 'required', message: 'O nome do anexo é obrigatório.' },
+    ],
   };
 
   // ==========================================
@@ -96,70 +118,79 @@ export class PatientRequestAttachmentCreateComponent implements OnInit {
   // ==========================================
   ngOnInit(): void {
     this.initForm();
-    this.setupFormSubmittingHandler();
+  }
+
+  ngOnDestroy(): void {
+    this.requestsChannel.close();
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
+  protected get isFormInvalidOrPending(): boolean {
+    return this.attachmentForm.invalid || this.attachmentForm.pending;
+  }
+
   protected onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
 
-    if (input.files && input.files.length > 0) {
-      const file = input.files[0];
-      this.attachmentFile.file = file;
-      this.attachmentFile.label.set(file.name);
-      this.attachmentFile.hasFile.set(true);
+    if (!file) return;
 
-      const currentName = this.attachmentForm.get('name')?.value;
-      if (!currentName) {
-        const sanitizedName = file.name.split('.').slice(0, -1).join('.');
-        this.attachmentForm.get('name')?.setValue(sanitizedName);
-        this.attachmentForm.get('name')?.markAsDirty();
-      }
+    this.selectedFile.set(file);
 
-      this.cdr.markForCheck();
+    const currentName = this.attachmentForm.controls.name.value.trim();
+    if (!currentName) {
+      const lastDotIndex = file.name.lastIndexOf('.');
+      const sanitizedName = lastDotIndex > 0 ? file.name.slice(0, lastDotIndex) : file.name;
+      this.attachmentForm.controls.name.setValue(sanitizedName);
+      this.attachmentForm.controls.name.markAsDirty();
     }
+
+    input.value = '';
   }
 
   protected onSubmit(): void {
-    const patientRequestId = this.data?.patient_request?.id;
+    const requestId = this.patientRequestId();
 
-    if (!patientRequestId) {
+    if (!requestId) {
       this.messageService.showMessage('Identificador da solicitação não encontrado.');
       return;
     }
 
-    if (this.attachmentForm.invalid || !this.attachmentFile.file) {
+    const file = this.selectedFile();
+    if (this.isFormInvalidOrPending || !file) {
       this.attachmentForm.markAllAsTouched();
-
-      if (!this.attachmentFile.file) {
+      if (!file) {
         this.messageService.showMessage('A seleção de um arquivo anexo é obrigatória.');
       }
       return;
     }
 
     this.isSubmitting.set(true);
+    this.attachmentForm.disable({ emitEvent: false });
 
-    const attachmentPayload = {
-      ...this.attachmentForm.getRawValue(),
-      file: this.attachmentFile.file
-    };
+    const payload = this.getCreatePayload(file);
 
-    this.patientRequestService.createPatientRequestAttachment(patientRequestId, attachmentPayload)
+    this.patientRequestService
+      .createPatientRequestAttachment(requestId, payload)
       .pipe(
-        finalize(() => this.isSubmitting.set(false)),
+        finalize(() => {
+          this.isSubmitting.set(false);
+          this.attachmentForm.enable({ emitEvent: false });
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
+          this.requestsChannel.postMessage('update');
           this.messageService.showMessage(response?.message || 'Arquivo anexado com sucesso!');
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = err?.error?.message || 'Erro ao processar o upload do anexo.';
           this.messageService.showMessage(fallbackError);
-        }
+        },
       });
   }
 
@@ -167,21 +198,15 @@ export class PatientRequestAttachmentCreateComponent implements OnInit {
   // Métodos Privados / Auxiliares
   // ==========================================
   private initForm(): void {
-    this.attachmentForm = this.fb.group({
-      name: [null, [Validators.required]]
+    this.attachmentForm = this.fb.group<AttachmentForm>({
+      name: this.fb.control('', [Validators.required]),
     });
   }
 
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.attachmentForm.disable({ emitEvent: false });
-        } else {
-          this.attachmentForm.enable({ emitEvent: false });
-        }
-        this.cdr.markForCheck();
-      });
+  private getCreatePayload(file: File): PatientRequestAttachment {
+    return {
+      name: this.attachmentForm.controls.name.getRawValue().trim(),
+      file,
+    } as unknown as PatientRequestAttachment;
   }
 }

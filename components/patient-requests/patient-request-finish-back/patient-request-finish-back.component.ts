@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -7,13 +15,20 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Core, Services & Models
+// Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequest } from '../../../models/patient-request.model';
 
 // Services
 import { PatientRequestService } from '../../../services/patient-request.service';
+
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patient-requests-channel',
+} as const;
 
 export type PatientRequestFinishBackDialogData = {
   patient_request?: PatientRequest;
@@ -26,17 +41,22 @@ export type PatientRequestFinishBackDialogData = {
   imports: [
     MatButtonModule,
     MatDialogModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
   ],
   templateUrl: './patient-request-finish-back.component.html',
   styleUrl: './patient-request-finish-back.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientRequestFinishBackComponent {
+export class PatientRequestFinishBackComponent implements OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly requestsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientRequestFinishBackDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestFinishBackDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestFinishBackComponent>);
@@ -47,11 +67,18 @@ export class PatientRequestFinishBackComponent {
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
 
+  protected readonly backToOwner = computed(
+    () =>
+      this.data?.patient_request?.back_to_owner ||
+      this.data?.back_to_owner ||
+      'Informação de retorno não disponível.'
+  );
+
   // ==========================================
-  // Getters para Facilitação do Template
+  // Ciclo de Vida (Hooks)
   // ==========================================
-  protected get backToOwner(): string {
-    return this.data?.patient_request?.back_to_owner || 'Informação de retorno não disponível.';
+  ngOnDestroy(): void {
+    this.requestsChannel.close();
   }
 
   // ==========================================
@@ -67,20 +94,24 @@ export class PatientRequestFinishBackComponent {
 
     this.isSubmitting.set(true);
 
-    this.patientRequestService.finishBackPatientRequest(requestId)
+    this.patientRequestService
+      .finishBackPatientRequest(requestId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Retorno da solicitação finalizado com sucesso!');
+          this.messageService.showMessage(
+            response?.message || 'Retorno da solicitação finalizado com sucesso!'
+          );
+          this.requestsChannel.postMessage('update');
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao tentar finalizar o retorno da solicitação.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 }

@@ -1,9 +1,17 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
-// Material Modules
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -14,7 +22,14 @@ import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestService } from '../../../services/patient-request.service';
 
-type PatientRequestHaltedDialogData = {
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patient-requests-channel',
+} as const;
+
+export type PatientRequestHaltedDialogData = {
   patient_request?: PatientRequest;
 };
 
@@ -25,30 +40,49 @@ type PatientRequestHaltedDialogData = {
     CommonModule,
     MatDialogModule,
     MatButtonModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
   ],
   templateUrl: './patient-request-halted.component.html',
   styleUrl: './patient-request-halted.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientRequestHaltedComponent {
+export class PatientRequestHaltedComponent implements OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly requestsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientRequestHaltedDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestHaltedDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestHaltedComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
 
   // ==========================================
-  // Estados Reativos via Signals
+  // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
 
+  protected readonly isMarkedHalted = computed(
+    () => Boolean(this.data?.patient_request?.is_owner_bookmark)
+  );
+
+  protected readonly patientName = computed(
+    () => this.data?.patient_request?.report?.patient_care?.patient?.name ?? 'Não informado'
+  );
+
   // ==========================================
-  // Métodos de Ação
+  // Ciclo de Vida (Hooks)
+  // ==========================================
+  ngOnDestroy(): void {
+    this.requestsChannel.close();
+  }
+
+  // ==========================================
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected onSubmit(): void {
     const patientRequestId = this.data?.patient_request?.id;
@@ -59,25 +93,27 @@ export class PatientRequestHaltedComponent {
     }
 
     this.isSubmitting.set(true);
-    this.cdr.markForCheck();
 
-    this.patientRequestService.haltedPatientRequest(patientRequestId)
+    this.patientRequestService
+      .haltedPatientRequest(patientRequestId)
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);
-          this.cdr.markForCheck();
         }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Solicitação paralisada com sucesso!');
+          this.messageService.showMessage(
+            response?.message || 'Solicitação paralisada com sucesso!'
+          );
+          this.requestsChannel.postMessage('update');
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao tentar paralisar a solicitação.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 }

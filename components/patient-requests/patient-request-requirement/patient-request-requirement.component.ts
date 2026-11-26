@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
 // Angular Material
 import { MatButtonModule } from '@angular/material/button';
@@ -6,7 +6,7 @@ import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 
-// Core, Services & Models
+// Models
 import { PatientRequest } from '../../../models/patient-request.model';
 
 export type PatientRequestRequirementDialogData = {
@@ -15,7 +15,7 @@ export type PatientRequestRequirementDialogData = {
 
 interface RequirementItem {
   label: string;
-  fulfilled?: boolean;
+  fulfilled: boolean;
 }
 
 @Component({
@@ -25,25 +25,29 @@ interface RequirementItem {
     MatButtonModule,
     MatDialogModule,
     MatIconModule,
-    MatListModule
+    MatListModule,
   ],
   templateUrl: './patient-request-requirement.component.html',
   styleUrl: './patient-request-requirement.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PatientRequestRequirementComponent {
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientRequestRequirementDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestRequirementDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
 
   // ==========================================
-  // Computed Properties (Consolidação de Dados)
+  // Propriedades e Estado Reativo
   // ==========================================
-  private readonly rawData = computed(() => this.data?.patient_request || null);
+  private readonly patientRequestState = signal<PatientRequest | null>(
+    this.data?.patient_request ?? null
+  );
 
   protected readonly requirements = computed<RequirementItem[]>(() => {
-    const request = this.rawData();
+    const request = this.patientRequestState();
     if (!request) return [];
 
     const isEntranceType = request.type?.toLowerCase() === 'entrada';
@@ -51,12 +55,12 @@ export class PatientRequestRequirementComponent {
     const items: RequirementItem[] = [
       {
         label: 'Avaliação Médica',
-        fulfilled: request.medical_status
+        fulfilled: Boolean(request.medical_status),
       },
       {
         label: 'Avaliação Social',
-        fulfilled: request.social_status
-      }
+        fulfilled: Boolean(request.social_status),
+      },
     ];
 
     // Exibe Viagem e Ajuda de Custo apenas se NÃO for solicitação do tipo Entrada
@@ -64,25 +68,15 @@ export class PatientRequestRequirementComponent {
       items.push(
         {
           label: 'TFD / Viagem',
-          fulfilled: request.travel_status
+          fulfilled: Boolean(request.travel_status),
         },
         {
           label: 'Ajuda de Custo',
-          fulfilled: request.cost_assistance_status
+          fulfilled: Boolean(request.cost_assistance_status),
         }
       );
     }
 
     return items;
   });
-
-  // ==========================================
-  // Métodos Auxiliares Privados
-  // ==========================================
-  private hasValue(value?: unknown): boolean {
-    if (value == null) return false;
-    if (typeof value === 'string') return value.trim() !== '';
-    if (typeof value === 'number') return !isNaN(value);
-    return true;
-  }
 }

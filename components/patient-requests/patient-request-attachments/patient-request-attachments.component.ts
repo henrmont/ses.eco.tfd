@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { saveAs } from 'file-saver';
@@ -25,42 +34,52 @@ import { PatientRequestAttachmentCreateComponent } from '../patient-request-atta
 import { PatientRequestAttachmentDeleteComponent } from '../patient-request-attachment-delete/patient-request-attachment-delete.component';
 import { PatientRequestAttachmentUpdateComponent } from '../patient-request-attachment-update/patient-request-attachment-update.component';
 
-type PatientRequestAttachmentDialogData = {
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelNames: [
+    'tfd-patient-requests-channel',
+    'tfd-opinions-channel',
+    'tfd-travels-channel',
+    'tfd-cost-assistances-channel',
+    'tfd-accountabilities-channel',
+  ] as const,
+  defaultDialogWidth: '400px',
+} as const;
+
+export interface PatientRequestAttachmentDialogData {
   patient_request?: PatientRequest;
   patient_request_attachment?: PatientRequestAttachment;
-};
+}
 
 @Component({
   selector: 'app-patient-request-attachments',
   standalone: true,
   imports: [
-    MatDialogModule,
     MatButtonModule,
-    MatTableModule,
+    MatDialogModule,
     MatIconModule,
+    MatProgressSpinnerModule,
+    MatTableModule,
     MatTooltipModule,
-    MatProgressSpinnerModule
   ],
   templateUrl: './patient-request-attachments.component.html',
   styleUrl: './patient-request-attachments.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientRequestAttachmentsComponent implements OnInit {
-  // ==========================================
-  // Instâncias dos Broadcast Channels
-  // ==========================================
-  private readonly channels: BroadcastChannel[] = [
-    new BroadcastChannel('tfd-patient-requests-channel'),
-    new BroadcastChannel('tfd-opinions-channel'),
-    new BroadcastChannel('tfd-travels-channel'),
-    new BroadcastChannel('tfd-cost-assistances-channel'),
-    new BroadcastChannel('tfd-accountabilities-channel')
-  ];
+export class PatientRequestAttachmentsComponent implements OnInit, OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly channels: BroadcastChannel[] = COMPONENT_CONFIG.channelNames.map(
+    (name) => new BroadcastChannel(name)
+  );
 
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientRequestAttachmentDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestAttachmentDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly patientRequestService = inject(PatientRequestService);
@@ -73,7 +92,9 @@ export class PatientRequestAttachmentsComponent implements OnInit {
   // ==========================================
   protected readonly displayedColumns: string[] = ['name', 'actions'];
   protected readonly dataSource = new MatTableDataSource<PatientRequestAttachment>([]);
+
   protected readonly isLoading = signal<boolean>(true);
+  protected readonly downloadingArchiveId = signal<number | null>(null);
 
   private readonly patientRequestId = computed(() => this.data?.patient_request?.id ?? null);
 
@@ -85,46 +106,75 @@ export class PatientRequestAttachmentsComponent implements OnInit {
     this.fetchPatientRequestAttachments(true);
   }
 
+  ngOnDestroy(): void {
+    this.channels.forEach((channel) => channel.close());
+  }
+
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected download(archiveId: number | null | undefined, name: string): void {
-    if (!archiveId) return;
+  protected download(archiveId: number | null | undefined, name?: string): void {
+    if (!archiveId || this.downloadingArchiveId() === archiveId) return;
 
-    this.storageService.download('tfd', archiveId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+    this.downloadingArchiveId.set(archiveId);
+
+    const fileName = name?.trim() || `anexo-${archiveId}`;
+
+    this.storageService
+      .download('tfd', archiveId)
+      .pipe(
+        finalize(() => this.downloadingArchiveId.set(null)),
+        takeUntilDestroyed(this.destroyRef)
+      )
       .subscribe({
         next: (response) => {
           if (response?.archive) {
-            saveAs(response.archive, name);
+            saveAs(response.archive, fileName);
           }
-        }
+        },
+        error: (err) => {
+          const fallbackError = 'Erro ao realizar o download do arquivo.';
+          this.messageService.showMessage(err?.error?.message || fallbackError);
+        },
       });
   }
 
   protected patientRequestAttachmentCreate(): void {
-    this.openDialog(PatientRequestAttachmentCreateComponent, {
-      patient_request: this.data?.patient_request
-    });
+    this.openDialog(PatientRequestAttachmentCreateComponent, this.getBaseDialogData());
   }
 
   protected patientRequestAttachmentUpdate(patientRequestAttachment: PatientRequestAttachment): void {
-    this.openDialog(PatientRequestAttachmentUpdateComponent, {
-      patient_request: this.data?.patient_request,
-      patient_request_attachment: patientRequestAttachment
-    });
+    this.openDialog(
+      PatientRequestAttachmentUpdateComponent,
+      this.getAttachmentDialogData(patientRequestAttachment)
+    );
   }
 
   protected patientRequestAttachmentDelete(patientRequestAttachment: PatientRequestAttachment): void {
-    this.openDialog(PatientRequestAttachmentDeleteComponent, {
-      patient_request: this.data?.patient_request,
-      patient_request_attachment: patientRequestAttachment
-    }, '400px', 'auto', true);
+    this.openDialog(
+      PatientRequestAttachmentDeleteComponent,
+      this.getAttachmentDialogData(patientRequestAttachment)
+    );
   }
 
   // ==========================================
   // Métodos Privados / Auxiliares
   // ==========================================
+  private getBaseDialogData(): PatientRequestAttachmentDialogData {
+    return {
+      patient_request: this.data?.patient_request,
+    };
+  }
+
+  private getAttachmentDialogData(
+    patientRequestAttachment: PatientRequestAttachment
+  ): PatientRequestAttachmentDialogData {
+    return {
+      ...this.getBaseDialogData(),
+      patient_request_attachment: patientRequestAttachment,
+    };
+  }
+
   private fetchPatientRequestAttachments(showLoading = false): void {
     const requestId = this.patientRequestId();
 
@@ -137,7 +187,8 @@ export class PatientRequestAttachmentsComponent implements OnInit {
       this.isLoading.set(true);
     }
 
-    this.patientRequestService.getPatientRequestAttachments(requestId)
+    this.patientRequestService
+      .getPatientRequestAttachments(requestId)
       .pipe(
         finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
@@ -150,39 +201,36 @@ export class PatientRequestAttachmentsComponent implements OnInit {
           this.dataSource.data = [];
           const fallbackError = 'Não foi possível carregar os anexos da solicitação.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 
   private setupBroadcastChannels(): void {
-    this.channels.forEach(channel => {
+    this.channels.forEach((channel) => {
       channel.onmessage = (message: MessageEvent<string>) => {
         if (message.data === 'update') {
           this.fetchPatientRequestAttachments(false);
         }
       };
     });
-
-    this.destroyRef.onDestroy(() => {
-      this.channels.forEach(channel => channel.close());
-    });
   }
 
   private openDialog<T>(
     component: ComponentType<T>,
     data: PatientRequestAttachmentDialogData,
-    width = '400px',
+    width: string = COMPONENT_CONFIG.defaultDialogWidth,
     height = 'auto',
     requiresRefresh = true
   ): void {
-    this.dialog.open(component, {
-      width,
-      height,
-      disableClose: true,
-      autoFocus: false,
-      scrollStrategy: this.overlay.scrollStrategies.noop(),
-      data
-    })
+    this.dialog
+      .open(component, {
+        width,
+        height,
+        disableClose: true,
+        autoFocus: false,
+        scrollStrategy: this.overlay.scrollStrategies.noop(),
+        data,
+      })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
@@ -198,6 +246,6 @@ export class PatientRequestAttachmentsComponent implements OnInit {
   }
 
   private notifyAllChannels(message: string): void {
-    this.channels.forEach(channel => channel.postMessage(message));
+    this.channels.forEach((channel) => channel.postMessage(message));
   }
 }

@@ -86,19 +86,19 @@
 
     // --- Larguras das Colunas: Aba 1 (Minha caixa - Owner) ---
     th.mat-column-bookmark          { width: 4%; }
-    th.mat-column-name              { width: 24%; }
-    th.mat-column-cns               { width: 16%; }
-    th.mat-column-type              { width: 14%; }
-    th.mat-column-consultation_date { width: 16%; }
+    th.mat-column-name              { width: 30%; }
+    th.mat-column-cns               { width: 14%; }
+    th.mat-column-type              { width: 12%; }
+    th.mat-column-consultation_date { width: 14%; }
     th.mat-column-status            { width: 8%; }
     th.mat-column-actions           { width: 18%; }
 
     // --- Larguras das Colunas: Aba 2 (Outras caixas - Others) ---
     &.others-table {
-      th.mat-column-name              { width: 24%; }
-      th.mat-column-cns               { width: 16%; }
-      th.mat-column-type              { width: 14%; }
-      th.mat-column-consultation_date { width: 16%; }
+      th.mat-column-name              { width: 30%; }
+      th.mat-column-cns               { width: 14%; }
+      th.mat-column-type              { width: 12%; }
+      th.mat-column-consultation_date { width: 14%; }
       th.mat-column-responsible       { width: 16%; }
       th.mat-column-status            { width: 5%; }
       th.mat-column-actions           { width: 8%; }

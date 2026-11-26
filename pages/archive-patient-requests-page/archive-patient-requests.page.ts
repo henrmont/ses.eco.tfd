@@ -2,20 +2,20 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  Injector,
   OnDestroy,
   OnInit,
+  computed,
   effect,
   inject,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { finalize } from 'rxjs';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
-// Angular Material & CDK
-import { ComponentType, Overlay } from '@angular/cdk/overlay';
+// Angular Material Modules
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
@@ -27,24 +27,27 @@ import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core & Models
+// Core & Models (Padrão alias "as User")
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
-import { PatientRequest } from '../../models/patient-request.model';
 import { Permission } from '../../../core/models/permission.model';
 import { Role } from '../../../core/models/role.model';
-import { TfdUser } from '../../models/user.model';
+import { PatientRequest } from '../../models/patient-request.model';
+import { TfdUser as User } from '../../models/user.model';
+import { AuthService } from '../../services/auth.service';
 import { PatientRequestService } from '../../services/patient-request.service';
 
 // Dialog Components
 import { PatientRequestDetailComponent } from '../../components/patient-requests/patient-request-detail/patient-request-detail.component';
 import { PatientRequestMoveFromArchiveComponent } from '../../components/patient-requests/patient-request-move-from-archive/patient-request-move-from-archive.component';
 import { PatientRequestRequirementComponent } from '../../components/patient-requests/patient-request-requirement/patient-request-requirement.component';
-import { AuthService } from '../../services/auth.service';
 
-// Interfaces/Tipos estruturados para Dialogs e Tabelas
-type PatientRequestDialogData = {
-  patient_request?: PatientRequest;
-};
+// ============================================================================
+// CONFIGURAÇÃO DO MÓDULO (Único bloco a ajustar ao replicar para outro módulo)
+// ============================================================================
+const PAGE_CONFIG = {
+  channelName: 'tfd-patient-requests-channel',
+  permissionPrefix: 'tfd/',
+} as const;
 
 interface ArchivePatientRequestTableRow extends PatientRequest {
   name: string;
@@ -52,6 +55,11 @@ interface ArchivePatientRequestTableRow extends PatientRequest {
   document: string;
   document_type: string;
   responsible: string;
+  fullResponsible: string;
+}
+
+interface PatientRequestDialogData {
+  patient_request?: PatientRequest;
 }
 
 @Component({
@@ -75,51 +83,67 @@ interface ArchivePatientRequestTableRow extends PatientRequest {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ArchivePatientRequestsPage implements OnInit, OnDestroy {
-  // ==========================================
-  // Instância própria do canal
-  // ==========================================
-  private readonly requestsChannel = new BroadcastChannel('tfd-patient-requests-channel');
+  // Canais de Comunicação Externa
+  private readonly requestsChannel = new BroadcastChannel(PAGE_CONFIG.channelName);
 
-  // ==========================================
   // Injeção de Dependências
-  // ==========================================
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly authService = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
-  // ==========================================
-  // ViewChildren / Elementos da View
-  // ==========================================
+  // Queries Reativas da View
   private readonly archiveSort = viewChild<MatSort>('archiveSort');
   private readonly archivePaginator = viewChild<MatPaginator>('archivePaginator');
 
-  // ==========================================
-  // Propriedades e Estado Reativo
-  // ==========================================
-  private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser: TfdUser | null = this.authService.getCurrentUser();
+  // Estado e Controle Reativo
+  private loadingDialog?: MatDialogRef<LoadingComponent>;
+  private readonly currentUser = computed(() => this.authService.currentUser() as User | null);
 
-  protected readonly displayedColumns: string[] = ['name', 'cns', 'document', 'responsible', 'status', 'actions'];
+  private readonly userPermissions = computed<Set<string>>(() => {
+    const roles = this.currentUser()?.roles || [];
+    return new Set<string>(
+      roles
+        .flatMap((role: Role) => role.permissions || [])
+        .map((perm: Permission) => perm.name?.trim().toLowerCase())
+        .filter((name): name is string => Boolean(name))
+    );
+  });
+
+  protected readonly displayedColumns: string[] = [
+    'name',
+    'cns',
+    'document',
+    'responsible',
+    'status',
+    'actions',
+  ];
+
   protected readonly archivedDataSource = new MatTableDataSource<ArchivePatientRequestTableRow>([]);
 
-  // ==========================================
-  // Ciclo de Vida (Hooks)
-  // ==========================================
+  constructor() {
+    effect(() => {
+      const archiveSort = this.archiveSort();
+      const archivePaginator = this.archivePaginator();
+
+      if (archiveSort) this.archivedDataSource.sort = archiveSort;
+      if (archivePaginator) this.archivedDataSource.paginator = archivePaginator;
+    });
+  }
+
   ngOnInit(): void {
-    this.setupTableBindings();
     this.fetchArchivePatientRequests(true);
     this.listenToBroadcastChannel();
   }
 
   ngOnDestroy(): void {
+    this.loadingDialog?.close();
     this.requestsChannel.close();
   }
 
   // ==========================================
-  // Métodos Acessíveis pelo Template (Protected)
+  // Métodos Acessíveis no Template
   // ==========================================
   protected applyFilter(event: Event): void {
     const filterValue = (event.target as HTMLInputElement).value;
@@ -130,12 +154,17 @@ export class ArchivePatientRequestsPage implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Retorna `true` quando o botão deve ficar DESABILITADO (`[disabled]="checkPermissions('...')"`)
+   */
   protected checkPermissions(permissionName: string): boolean {
-    if (!this.currentUser?.roles) return true;
+    const permissions = this.userPermissions();
+    if (permissions.size === 0) return true;
 
-    const hasPermission = this.currentUser.roles.some((role: Role) =>
-      role.permissions?.some((perm: Permission) => perm.name === permissionName)
-    );
+    const target = permissionName.trim().toLowerCase();
+    const hasPermission =
+      permissions.has(target) ||
+      permissions.has(`${PAGE_CONFIG.permissionPrefix}${target}`);
 
     return !hasPermission;
   }
@@ -154,22 +183,13 @@ export class ArchivePatientRequestsPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Privados / Auxiliares
+  // Métodos Privados
   // ==========================================
-  private setupTableBindings(): void {
-    effect(() => {
-      const archiveSort = this.archiveSort();
-      const archivePaginator = this.archivePaginator();
-
-      if (archiveSort) this.archivedDataSource.sort = archiveSort;
-      if (archivePaginator) this.archivedDataSource.paginator = archivePaginator;
-    }, { injector: this.injector });
-  }
-
   private fetchArchivePatientRequests(showLoading = false): void {
     if (showLoading) this.openLoading();
 
-    this.patientRequestService.getArchivePatientRequests()
+    this.patientRequestService
+      .getArchivePatientRequests()
       .pipe(
         finalize(() => {
           if (showLoading && this.loadingDialog) {
@@ -181,12 +201,11 @@ export class ArchivePatientRequestsPage implements OnInit, OnDestroy {
       .subscribe({
         next: (response: PatientRequest[]) => {
           const rawData = response || [];
-          const archivedRequests = rawData.map((item) => this.mapArchivedRequestRow(item));
-          this.archivedDataSource.data = archivedRequests;
+          this.archivedDataSource.data = rawData.map((item) => this.mapArchivedRequestRow(item));
         },
         error: () => {
           this.archivedDataSource.data = [];
-        }
+        },
       });
   }
 
@@ -199,14 +218,30 @@ export class ArchivePatientRequestsPage implements OnInit, OnDestroy {
   }
 
   private mapArchivedRequestRow(item: PatientRequest): ArchivePatientRequestTableRow {
+    const patient = item.report?.patient_care?.patient;
+    const rawName = patient?.name?.trim() || '-';
+    const rawResponsible = item.owner_professional?.name?.trim() || '-';
+
     return {
       ...item,
-      name: item.report?.patient_care?.patient?.name || '-',
-      cns: item.report?.patient_care?.patient?.cns || '-',
-      document: item.report?.patient_care?.patient?.document || '-',
-      document_type: item.report?.patient_care?.patient?.document_type || '-',
-      responsible: item.owner_professional?.name || '-'
+      name: this.formatPatientName(rawName),
+      cns: patient?.cns || '-',
+      document: patient?.document || '-',
+      document_type: patient?.document_type || '-',
+      responsible: this.formatResponsibleName(rawResponsible),
+      fullResponsible: rawResponsible,
     };
+  }
+
+  private formatPatientName(name: string): string {
+    if (name === '-' || name.length <= 40) return name;
+    return `${name.slice(0, 32)}...${name.slice(-5)}`;
+  }
+
+  private formatResponsibleName(name: string): string {
+    if (name === '-') return name;
+    const parts = name.split(/\s+/);
+    return parts.length <= 1 ? parts[0] : `${parts[0]} ${parts[parts.length - 1]}`;
   }
 
   private openLoading(): void {
@@ -224,14 +259,15 @@ export class ArchivePatientRequestsPage implements OnInit, OnDestroy {
     height = 'auto',
     requiresRefresh = true
   ): void {
-    this.dialog.open(component, {
-      width,
-      height,
-      disableClose: true,
-      autoFocus: false,
-      scrollStrategy: this.overlay.scrollStrategies.noop(),
-      data
-    })
+    this.dialog
+      .open(component, {
+        width,
+        height,
+        disableClose: true,
+        autoFocus: false,
+        scrollStrategy: this.overlay.scrollStrategies.noop(),
+        data,
+      })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {

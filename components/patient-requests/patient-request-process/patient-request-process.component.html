@@ -6,7 +6,7 @@
 
       <!-- Linha 1: Profissional Médico e Assistente Social (Sempre Visíveis) -->
       <div class="line cols-1-col">
-        
+
         <!-- Profissional Médico -->
         <mat-form-field appearance="outline">
           <mat-label>Profissional Médico</mat-label>
@@ -22,7 +22,7 @@
             <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
           }
           <mat-autocomplete #autoMedical="matAutocomplete" [displayWith]="displayProfessionalFn">
-            @for (option of (filteredMedicalOptions | async) ?? []; track option.id) {
+            @for (option of filteredMedicalOptions(); track option.id) {
               <mat-option [value]="option">
                 <span class="margin-right-20">{{ option.name }}</span>
                 @if (option.requests_count !== undefined) {
@@ -56,7 +56,7 @@
             <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
           }
           <mat-autocomplete #autoSocial="matAutocomplete" [displayWith]="displayProfessionalFn">
-            @for (option of (filteredSocialOptions | async) ?? []; track option.id) {
+            @for (option of filteredSocialOptions(); track option.id) {
               <mat-option [value]="option">
                 <span class="margin-right-20">{{ option.name }}</span>
                 @if (option.requests_count !== undefined) {
@@ -80,7 +80,7 @@
       <!-- Linha 2: Responsável por Passagem e Ajuda de Custo (Ocultos se type === 'Entrada') -->
       @if (!isEntranceType()) {
         <div class="line cols-1-col">
-          
+
           <!-- Profissional de Passagens -->
           <mat-form-field appearance="outline">
             <mat-label>Profissional de Passagens</mat-label>
@@ -96,7 +96,7 @@
               <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
             }
             <mat-autocomplete #autoTravel="matAutocomplete" [displayWith]="displayProfessionalFn">
-              @for (option of (filteredTravelOptions | async) ?? []; track option.id) {
+              @for (option of filteredTravelOptions(); track option.id) {
                 <mat-option [value]="option">
                   <span class="margin-right-20">{{ option.name }}</span>
                   @if (option.requests_count !== undefined) {
@@ -130,7 +130,7 @@
               <mat-spinner matSuffix [diameter]="20" class="field-spinner"></mat-spinner>
             }
             <mat-autocomplete #autoCost="matAutocomplete" [displayWith]="displayProfessionalFn">
-              @for (option of (filteredCostAssistanceOptions | async) ?? []; track option.id) {
+              @for (option of filteredCostAssistanceOptions(); track option.id) {
                 <mat-option [value]="option">
                   <span class="margin-right-20">{{ option.name }}</span>
                   @if (option.requests_count !== undefined) {
@@ -157,18 +157,18 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button 
-    mat-button 
-    type="button" 
-    [mat-dialog-close]="false" 
+  <button
+    mat-button
+    type="button"
+    [mat-dialog-close]="false"
     [disabled]="isSubmitting()">
     Cancelar
   </button>
 
-  <button 
-    mat-flat-button 
-    color="primary" 
-    type="button" 
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
     [disabled]="isFormInvalid()"
     (click)="onSubmit()">
     <div class="waiting">

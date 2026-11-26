@@ -1,8 +1,17 @@
-import { AsyncPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnInit, effect, inject, signal } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Observable, finalize, map, startWith } from 'rxjs';
+import { finalize, map, startWith } from 'rxjs';
 
 // Angular Material
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
@@ -19,6 +28,14 @@ import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestService } from '../../../services/patient-request.service';
+
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patient-requests-channel',
+  maxAutocompleteResults: 10,
+} as const;
 
 export type PatientRequestProcessDialogData = {
   patient_request?: PatientRequest;
@@ -41,7 +58,6 @@ export interface GroupedProfessionalsResponse {
   selector: 'app-patient-request-process',
   standalone: true,
   imports: [
-    AsyncPipe,
     ReactiveFormsModule,
     MatAutocompleteModule,
     MatButtonModule,
@@ -50,90 +66,137 @@ export interface GroupedProfessionalsResponse {
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
   ],
   templateUrl: './patient-request-process.component.html',
   styleUrl: './patient-request-process.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientRequestProcessComponent implements OnInit {
+export class PatientRequestProcessComponent implements OnInit, OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly requestsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientRequestProcessDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestProcessDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly fb = inject(FormBuilder);
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestProcessComponent>);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
   // ==========================================
   // Propriedades e Estado Reativo
   // ==========================================
   protected processForm!: FormGroup;
 
-  // Form Controls específicos para Autocomplete UI
-  protected medicalProfessionalControl = new FormControl<string | ProfessionalOption>('');
-  protected socialProfessionalControl = new FormControl<string | ProfessionalOption>('');
-  protected travelProfessionalControl = new FormControl<string | ProfessionalOption>('');
-  protected costAssistanceProfessionalControl = new FormControl<string | ProfessionalOption>('');
+  protected readonly medicalProfessionalControl = new FormControl<string | ProfessionalOption>(
+    '',
+    { nonNullable: true }
+  );
+  protected readonly socialProfessionalControl = new FormControl<string | ProfessionalOption>(
+    '',
+    { nonNullable: true }
+  );
+  protected readonly travelProfessionalControl = new FormControl<string | ProfessionalOption>(
+    '',
+    { nonNullable: true }
+  );
+  protected readonly costAssistanceProfessionalControl = new FormControl<string | ProfessionalOption>(
+    '',
+    { nonNullable: true }
+  );
 
   protected readonly isSubmitting = signal<boolean>(false);
   protected readonly isLoadingProfessionals = signal<boolean>(false);
   protected readonly isReadOnly = signal<boolean>(false);
 
-  // Mensagens de Erro por Controle
+  private readonly requestType = signal<string | null>(
+    this.data?.patient_request?.type ?? null
+  );
+
+  protected readonly isEntranceType = computed(
+    () => this.requestType()?.toLowerCase() === 'entrada'
+  );
+
+  private readonly medicalPool = signal<ProfessionalOption[]>([]);
+  private readonly socialPool = signal<ProfessionalOption[]>([]);
+  private readonly travelPool = signal<ProfessionalOption[]>([]);
+  private readonly costAssistancePool = signal<ProfessionalOption[]>([]);
+
+  private readonly medicalQuery = toSignal(
+    this.medicalProfessionalControl.valueChanges.pipe(
+      startWith(this.medicalProfessionalControl.value ?? ''),
+      map((value) => (typeof value === 'string' ? value : value?.name ?? ''))
+    ),
+    { initialValue: '' }
+  );
+
+  private readonly socialQuery = toSignal(
+    this.socialProfessionalControl.valueChanges.pipe(
+      startWith(this.socialProfessionalControl.value ?? ''),
+      map((value) => (typeof value === 'string' ? value : value?.name ?? ''))
+    ),
+    { initialValue: '' }
+  );
+
+  private readonly travelQuery = toSignal(
+    this.travelProfessionalControl.valueChanges.pipe(
+      startWith(this.travelProfessionalControl.value ?? ''),
+      map((value) => (typeof value === 'string' ? value : value?.name ?? ''))
+    ),
+    { initialValue: '' }
+  );
+
+  private readonly costAssistanceQuery = toSignal(
+    this.costAssistanceProfessionalControl.valueChanges.pipe(
+      startWith(this.costAssistanceProfessionalControl.value ?? ''),
+      map((value) => (typeof value === 'string' ? value : value?.name ?? ''))
+    ),
+    { initialValue: '' }
+  );
+
+  protected readonly filteredMedicalOptions = computed(() =>
+    this.filterOptions(this.medicalQuery(), this.medicalPool())
+  );
+
+  protected readonly filteredSocialOptions = computed(() =>
+    this.filterOptions(this.socialQuery(), this.socialPool())
+  );
+
+  protected readonly filteredTravelOptions = computed(() =>
+    this.filterOptions(this.travelQuery(), this.travelPool())
+  );
+
+  protected readonly filteredCostAssistanceOptions = computed(() =>
+    this.filterOptions(this.costAssistanceQuery(), this.costAssistancePool())
+  );
+
   protected readonly errorMessages: Record<string, Array<{ type: string; message: string }>> = {
     medical_professional_id: [
-      { type: 'required', message: 'A seleção do profissional médico é obrigatória.' }
+      { type: 'required', message: 'A seleção do profissional médico é obrigatória.' },
     ],
     social_professional_id: [
-      { type: 'required', message: 'A seleção do assistente social é obrigatória.' }
+      { type: 'required', message: 'A seleção do assistente social é obrigatória.' },
     ],
     travel_professional_id: [
-      { type: 'required', message: 'A seleção do responsável por passagens é obrigatória.' }
+      { type: 'required', message: 'A seleção do responsável por passagens é obrigatória.' },
     ],
     cost_assistance_professional_id: [
-      { type: 'required', message: 'A seleção do responsável por ajuda de custo é obrigatória.' }
-    ]
+      { type: 'required', message: 'A seleção do responsável por ajuda de custo é obrigatória.' },
+    ],
   };
-
-  // Autocomplete e Observables
-  private medicalOptions: ProfessionalOption[] = [];
-  protected filteredMedicalOptions!: Observable<ProfessionalOption[]>;
-
-  private socialOptions: ProfessionalOption[] = [];
-  protected filteredSocialOptions!: Observable<ProfessionalOption[]>;
-
-  private travelOptions: ProfessionalOption[] = [];
-  protected filteredTravelOptions!: Observable<ProfessionalOption[]>;
-
-  private costAssistanceOptions: ProfessionalOption[] = [];
-  protected filteredCostAssistanceOptions!: Observable<ProfessionalOption[]>;
 
   // ==========================================
   // Construtor
   // ==========================================
   constructor() {
-    // Efeito para desabilitar/habilitar controles durante o carregamento de profissionais
     effect(() => {
-      const loading = this.isLoadingProfessionals();
-      const submitting = this.isSubmitting();
-
-      if (loading || submitting) {
-        this.processForm?.disable({ emitEvent: false });
-        this.medicalProfessionalControl.disable({ emitEvent: false });
-        this.socialProfessionalControl.disable({ emitEvent: false });
-        this.travelProfessionalControl.disable({ emitEvent: false });
-        this.costAssistanceProfessionalControl.disable({ emitEvent: false });
-      } else {
-        this.processForm?.enable({ emitEvent: false });
-        this.medicalProfessionalControl.enable({ emitEvent: false });
-        this.socialProfessionalControl.enable({ emitEvent: false });
-        this.travelProfessionalControl.enable({ emitEvent: false });
-        this.costAssistanceProfessionalControl.enable({ emitEvent: false });
-      }
+      const disabled = this.isLoadingProfessionals() || this.isSubmitting();
+      this.setControlsDisabled(disabled);
     });
   }
 
@@ -143,23 +206,32 @@ export class PatientRequestProcessComponent implements OnInit {
   ngOnInit(): void {
     this.initForm();
     this.setupTypeChangeListener();
+    this.setupAutocompleteSelectionSync();
     this.fetchAllProfessionals();
-    this.setupFormSubmittingHandler();
+  }
+
+  ngOnDestroy(): void {
+    this.requestsChannel.close();
   }
 
   // ==========================================
   // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
-  protected displayProfessionalFn(professional: ProfessionalOption): string {
-    return professional?.name || '';
-  }
-
-  protected isEntranceType(): boolean {
-    return this.processForm.get('type')?.value === 'Entrada';
+  protected displayProfessionalFn(professional: ProfessionalOption | string | null): string {
+    if (!professional || typeof professional === 'string') {
+      return professional ?? '';
+    }
+    return professional.name || '';
   }
 
   protected isFormInvalid(): boolean {
-    return this.processForm.invalid || this.processForm.pending || this.isSubmitting() || this.isLoadingProfessionals();
+    return (
+      !this.processForm ||
+      this.processForm.invalid ||
+      this.processForm.pending ||
+      this.isSubmitting() ||
+      this.isLoadingProfessionals()
+    );
   }
 
   protected onSubmit(): void {
@@ -179,20 +251,24 @@ export class PatientRequestProcessComponent implements OnInit {
 
     const payload = this.processForm.getRawValue();
 
-    this.patientRequestService.processPatientRequest(requestId, payload)
+    this.patientRequestService
+      .processPatientRequest(requestId, payload)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Solicitação processada com sucesso!');
+          this.messageService.showMessage(
+            response?.message || 'Solicitação processada com sucesso!'
+          );
+          this.requestsChannel.postMessage('update');
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Houve um erro operacional ao processar a solicitação.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 
@@ -200,27 +276,30 @@ export class PatientRequestProcessComponent implements OnInit {
   // Métodos Privados / Auxiliares
   // ==========================================
   private initForm(): void {
-    const initialType = this.data?.patient_request?.type;
+    const initialType = this.data?.patient_request?.type ?? null;
+    this.requestType.set(initialType);
 
     this.processForm = this.fb.group({
       type: [initialType],
       medical_professional_id: [null, [Validators.required]],
       social_professional_id: [null, [Validators.required]],
       travel_professional_id: [null],
-      cost_assistance_professional_id: [null]
+      cost_assistance_professional_id: [null],
     });
 
-    if (initialType !== 'Entrada') {
+    if (initialType?.toLowerCase() !== 'entrada') {
       this.processForm.get('travel_professional_id')?.setValidators([Validators.required]);
       this.processForm.get('cost_assistance_professional_id')?.setValidators([Validators.required]);
     }
   }
 
   private setupTypeChangeListener(): void {
-    this.processForm.get('type')?.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((typeValue: string) => {
-        const isEntrada = typeValue === 'Entrada';
+    this.processForm
+      .get('type')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((typeValue: string | null) => {
+        this.requestType.set(typeValue);
+        const isEntrada = typeValue?.toLowerCase() === 'entrada';
 
         const travelCtrl = this.processForm.get('travel_professional_id');
         const costCtrl = this.processForm.get('cost_assistance_professional_id');
@@ -244,10 +323,33 @@ export class PatientRequestProcessComponent implements OnInit {
       });
   }
 
+  private setupAutocompleteSelectionSync(): void {
+    this.bindProfessionalControl(this.medicalProfessionalControl, 'medical_professional_id');
+    this.bindProfessionalControl(this.socialProfessionalControl, 'social_professional_id');
+    this.bindProfessionalControl(this.travelProfessionalControl, 'travel_professional_id');
+    this.bindProfessionalControl(
+      this.costAssistanceProfessionalControl,
+      'cost_assistance_professional_id'
+    );
+  }
+
+  private bindProfessionalControl(
+    control: FormControl<string | ProfessionalOption | null>,
+    formControlName: string
+  ): void {
+    control.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((val) => {
+        const id = typeof val === 'object' && val !== null ? val.id : null;
+        this.processForm.get(formControlName)?.setValue(id);
+      });
+  }
+
   private fetchAllProfessionals(): void {
     this.isLoadingProfessionals.set(true);
 
-    this.patientRequestService.getProfessionals()
+    this.patientRequestService
+      .getProfessionals()
       .pipe(
         finalize(() => this.isLoadingProfessionals.set(false)),
         takeUntilDestroyed(this.destroyRef)
@@ -255,131 +357,63 @@ export class PatientRequestProcessComponent implements OnInit {
       .subscribe({
         next: (response: unknown) => {
           if (Array.isArray(response)) {
-            this.medicalOptions = response;
-            this.socialOptions = response;
-            this.travelOptions = response;
-            this.costAssistanceOptions = response;
+            this.medicalPool.set(response);
+            this.socialPool.set(response);
+            this.travelPool.set(response);
+            this.costAssistancePool.set(response);
           } else if (response && typeof response === 'object') {
             const grouped = response as GroupedProfessionalsResponse;
-            this.medicalOptions = grouped.medical_professionals || [];
-            this.socialOptions = grouped.social_professionals || [];
-            this.travelOptions = grouped.travel_professionals || [];
-            this.costAssistanceOptions = grouped.cost_assistance_professionals || [];
+            this.medicalPool.set(grouped.medical_professionals ?? []);
+            this.socialPool.set(grouped.social_professionals ?? []);
+            this.travelPool.set(grouped.travel_professionals ?? []);
+            this.costAssistancePool.set(grouped.cost_assistance_professionals ?? []);
           } else {
             this.clearAllOptions();
           }
 
-          this.configureFilters();
           this.isReadOnly.set(false);
         },
         error: () => {
           this.isReadOnly.set(true);
           this.clearAllOptions();
-          this.configureFilters();
-        }
+        },
       });
   }
 
-  private configureFilters(): void {
-    this.filteredMedicalOptions = this.medicalProfessionalControl.valueChanges.pipe(
-      startWith(''),
-      map(value => {
-        const term = typeof value === 'string' ? value : value?.name || '';
-        return term ? this._filterOptions(term, this.medicalOptions) : this.medicalOptions;
-      }),
-      takeUntilDestroyed(this.destroyRef)
-    );
+  private setControlsDisabled(disabled: boolean): void {
+    const controls = [
+      this.medicalProfessionalControl,
+      this.socialProfessionalControl,
+      this.travelProfessionalControl,
+      this.costAssistanceProfessionalControl,
+    ];
 
-    this.filteredSocialOptions = this.socialProfessionalControl.valueChanges.pipe(
-      startWith(''),
-      map(value => {
-        const term = typeof value === 'string' ? value : value?.name || '';
-        return term ? this._filterOptions(term, this.socialOptions) : this.socialOptions;
-      }),
-      takeUntilDestroyed(this.destroyRef)
-    );
-
-    this.filteredTravelOptions = this.travelProfessionalControl.valueChanges.pipe(
-      startWith(''),
-      map(value => {
-        const term = typeof value === 'string' ? value : value?.name || '';
-        return term ? this._filterOptions(term, this.travelOptions) : this.travelOptions;
-      }),
-      takeUntilDestroyed(this.destroyRef)
-    );
-
-    this.filteredCostAssistanceOptions = this.costAssistanceProfessionalControl.valueChanges.pipe(
-      startWith(''),
-      map(value => {
-        const term = typeof value === 'string' ? value : value?.name || '';
-        return term ? this._filterOptions(term, this.costAssistanceOptions) : this.costAssistanceOptions;
-      }),
-      takeUntilDestroyed(this.destroyRef)
-    );
-
-    this.medicalProfessionalControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(val => {
-        const id = typeof val === 'object' && val !== null ? val.id : null;
-        this.processForm.get('medical_professional_id')?.setValue(id);
-      });
-
-    this.socialProfessionalControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(val => {
-        const id = typeof val === 'object' && val !== null ? val.id : null;
-        this.processForm.get('social_professional_id')?.setValue(id);
-      });
-
-    this.travelProfessionalControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(val => {
-        const id = typeof val === 'object' && val !== null ? val.id : null;
-        this.processForm.get('travel_professional_id')?.setValue(id);
-      });
-
-    this.costAssistanceProfessionalControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(val => {
-        const id = typeof val === 'object' && val !== null ? val.id : null;
-        this.processForm.get('cost_assistance_professional_id')?.setValue(id);
-      });
-  }
-
-  private setupFormSubmittingHandler(): void {
-    toObservable(this.isSubmitting, { injector: this.injector })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(isSubmitting => {
-        if (isSubmitting) {
-          this.processForm.disable({ emitEvent: false });
-          this.medicalProfessionalControl.disable({ emitEvent: false });
-          this.socialProfessionalControl.disable({ emitEvent: false });
-          this.travelProfessionalControl.disable({ emitEvent: false });
-          this.costAssistanceProfessionalControl.disable({ emitEvent: false });
-        } else if (!this.isLoadingProfessionals()) {
-          this.processForm.enable({ emitEvent: false });
-          this.medicalProfessionalControl.enable({ emitEvent: false });
-          this.socialProfessionalControl.enable({ emitEvent: false });
-          this.travelProfessionalControl.enable({ emitEvent: false });
-          this.costAssistanceProfessionalControl.enable({ emitEvent: false });
-        }
-      });
+    if (disabled) {
+      this.processForm?.disable({ emitEvent: false });
+      controls.forEach((ctrl) => ctrl.disable({ emitEvent: false }));
+    } else {
+      this.processForm?.enable({ emitEvent: false });
+      controls.forEach((ctrl) => ctrl.enable({ emitEvent: false }));
+    }
   }
 
   private clearAllOptions(): void {
-    this.medicalOptions = [];
-    this.socialOptions = [];
-    this.travelOptions = [];
-    this.costAssistanceOptions = [];
+    this.medicalPool.set([]);
+    this.socialPool.set([]);
+    this.travelPool.set([]);
+    this.costAssistancePool.set([]);
   }
 
-  private _filterOptions(term: string, options: ProfessionalOption[]): ProfessionalOption[] {
+  private filterOptions(term: string, options: ProfessionalOption[]): ProfessionalOption[] {
     if (!Array.isArray(options)) {
       return [];
     }
-    const filterValue = term.toLowerCase();
-    return options.filter(option =>
-      option?.name?.toLowerCase().includes(filterValue)
-    );
+
+    const normalizedTerm = term.trim().toLowerCase();
+    const list = normalizedTerm
+      ? options.filter((option) => option?.name?.toLowerCase().includes(normalizedTerm))
+      : options;
+
+    return list.slice(0, COMPONENT_CONFIG.maxAutocompleteResults);
   }
 }

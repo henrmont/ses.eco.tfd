@@ -3,20 +3,20 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  Injector,
   OnDestroy,
   OnInit,
+  computed,
   effect,
   inject,
-  viewChild
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { Overlay } from '@angular/cdk/overlay';
+import { ComponentType } from '@angular/cdk/portal';
 import { finalize } from 'rxjs';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
-// Angular Material & CDK
-import { ComponentType, Overlay } from '@angular/cdk/overlay';
+// Angular Material Modules
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -28,12 +28,13 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Core & Models
+// Core & Models (Padrão alias "as User")
 import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
-import { PatientRequest } from '../../models/patient-request.model';
 import { Permission } from '../../../core/models/permission.model';
 import { Role } from '../../../core/models/role.model';
-import { TfdUser } from '../../models/user.model';
+import { PatientRequest } from '../../models/patient-request.model';
+import { TfdUser as User } from '../../models/user.model';
+import { AuthService } from '../../services/auth.service';
 import { PatientRequestService } from '../../services/patient-request.service';
 
 // Dialog Components
@@ -48,12 +49,14 @@ import { PatientRequestMoveFromProcessesComponent } from '../../components/patie
 import { PatientRequestProcessComponent } from '../../components/patient-requests/patient-request-process/patient-request-process.component';
 import { PatientRequestRequirementComponent } from '../../components/patient-requests/patient-request-requirement/patient-request-requirement.component';
 import { PatientRequestUpdateComponent } from '../../components/patient-requests/patient-request-update/patient-request-update.component';
-import { AuthService } from '../../services/auth.service';
 
-// Interfaces/Tipos estruturados para Dialogs e Tabelas
-type PatientRequestDialogData = {
-  patient_request?: PatientRequest;
-};
+// ============================================================================
+// CONFIGURAÇÃO DO MÓDULO (Único bloco a ajustar ao replicar para outro módulo)
+// ============================================================================
+const PAGE_CONFIG = {
+  channelName: 'tfd-patient-requests-channel',
+  permissionPrefix: 'tfd/',
+} as const;
 
 interface OwnerPatientRequestTableRow extends PatientRequest {
   name: string;
@@ -64,6 +67,11 @@ interface OthersPatientRequestTableRow extends PatientRequest {
   name: string;
   cns: string;
   responsible: string;
+  fullResponsible: string;
+}
+
+interface PatientRequestDialogData {
+  patient_request?: PatientRequest;
 }
 
 @Component({
@@ -80,64 +88,95 @@ interface OthersPatientRequestTableRow extends PatientRequest {
     MatTableModule,
     MatTabsModule,
     MatTooltipModule,
-    NgxMaskPipe
+    NgxMaskPipe,
   ],
   providers: [provideNgxMask()],
   templateUrl: './patient-requests.page.html',
   styleUrl: './patient-requests.page.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PatientRequestsPage implements OnInit, OnDestroy {
-  // ==========================================
-  // Instância do Canal Broadcast
-  // ==========================================
-  private readonly patientRequestsChannel = new BroadcastChannel('tfd-patient-requests-channel');
+  // Canais de Comunicação Externa
+  private readonly patientRequestsChannel = new BroadcastChannel(PAGE_CONFIG.channelName);
 
-  // ==========================================
   // Injeção de Dependências
-  // ==========================================
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly authService = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly overlay = inject(Overlay);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
 
-  // ==========================================
-  // ViewChildren / Elementos da View
-  // ==========================================
+  // Queries Reativas da View
   private readonly ownerSort = viewChild<MatSort>('ownerSort');
   private readonly othersSort = viewChild<MatSort>('othersSort');
   private readonly ownerPaginator = viewChild<MatPaginator>('ownerPaginator');
   private readonly othersPaginator = viewChild<MatPaginator>('othersPaginator');
 
-  // ==========================================
-  // Propriedades e Estado
-  // ==========================================
-  private loadingDialog!: MatDialogRef<LoadingComponent>;
-  private readonly currentUser: TfdUser | null = this.authService.getCurrentUser();
+  // Estado e Controle Reativo
+  private loadingDialog?: MatDialogRef<LoadingComponent>;
+  private readonly currentUser = computed(() => this.authService.currentUser() as User | null);
 
-  protected readonly displayedOwnerColumns: string[] = ['bookmark', 'name', 'cns', 'type', 'consultation_date', 'status', 'actions'];
-  protected readonly displayedOthersColumns: string[] = ['name', 'cns', 'type', 'consultation_date', 'responsible', 'status', 'actions'];
+  private readonly userPermissions = computed<Set<string>>(() => {
+    const roles = this.currentUser()?.roles || [];
+    return new Set<string>(
+      roles
+        .flatMap((role: Role) => role.permissions || [])
+        .map((perm: Permission) => perm.name?.trim().toLowerCase())
+        .filter((name): name is string => Boolean(name))
+    );
+  });
+
+  protected readonly displayedOwnerColumns: string[] = [
+    'bookmark',
+    'name',
+    'cns',
+    'type',
+    'consultation_date',
+    'status',
+    'actions',
+  ];
+
+  protected readonly displayedOthersColumns: string[] = [
+    'name',
+    'cns',
+    'type',
+    'consultation_date',
+    'responsible',
+    'status',
+    'actions',
+  ];
 
   protected readonly ownerDataSource = new MatTableDataSource<OwnerPatientRequestTableRow>([]);
   protected readonly othersDataSource = new MatTableDataSource<OthersPatientRequestTableRow>([]);
 
-  // ==========================================
-  // Ciclo de Vida
-  // ==========================================
+  constructor() {
+    effect(() => {
+      const ownerSort = this.ownerSort();
+      const ownerPaginator = this.ownerPaginator();
+
+      if (ownerSort) this.ownerDataSource.sort = ownerSort;
+      if (ownerPaginator) this.ownerDataSource.paginator = ownerPaginator;
+
+      const othersSort = this.othersSort();
+      const othersPaginator = this.othersPaginator();
+
+      if (othersSort) this.othersDataSource.sort = othersSort;
+      if (othersPaginator) this.othersDataSource.paginator = othersPaginator;
+    });
+  }
+
   ngOnInit(): void {
-    this.setupTableBindings();
     this.fetchPatientRequests(true);
     this.listenToBroadcastChannel();
   }
 
   ngOnDestroy(): void {
+    this.loadingDialog?.close();
     this.patientRequestsChannel.close();
   }
 
   // ==========================================
-  // Filtros e Permissões
+  // Métodos Acessíveis no Template
   // ==========================================
   protected applyOwnerFilter(event: Event): void {
     const filterValue = (event.target as HTMLInputElement).value;
@@ -157,19 +196,22 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Retorna `true` quando o botão deve ficar DESABILITADO (`[disabled]="checkPermissions('...')"`)
+   */
   protected checkPermissions(permissionName: string): boolean {
-    if (!this.currentUser?.roles) return true;
+    const permissions = this.userPermissions();
+    if (permissions.size === 0) return true;
 
-    const hasPermission = this.currentUser.roles.some((role: Role) =>
-      role.permissions?.some((perm: Permission) => perm.name === permissionName)
-    );
+    const target = permissionName.trim().toLowerCase();
+    const hasPermission =
+      permissions.has(target) ||
+      permissions.has(`${PAGE_CONFIG.permissionPrefix}${target}`);
 
     return !hasPermission;
   }
 
-  // ==========================================
-  // Ações Disparadas pela Tabela
-  // ==========================================
+  // Ações disparadas pelos botões da tabela
   protected patientRequestHalted(patientRequest: PatientRequest): void {
     this.openDialog(PatientRequestHaltedComponent, { patient_request: patientRequest }, '400px');
   }
@@ -215,28 +257,13 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // Métodos Privados Auxiliares
+  // Métodos Privados
   // ==========================================
-  private setupTableBindings(): void {
-    effect(() => {
-      const ownerSort = this.ownerSort();
-      const ownerPaginator = this.ownerPaginator();
-
-      if (ownerSort) this.ownerDataSource.sort = ownerSort;
-      if (ownerPaginator) this.ownerDataSource.paginator = ownerPaginator;
-
-      const othersSort = this.othersSort();
-      const othersPaginator = this.othersPaginator();
-
-      if (othersSort) this.othersDataSource.sort = othersSort;
-      if (othersPaginator) this.othersDataSource.paginator = othersPaginator;
-    }, { injector: this.injector });
-  }
-
   private fetchPatientRequests(showLoading = false): void {
     if (showLoading) this.openLoading();
 
-    this.patientRequestService.getPatientRequests()
+    this.patientRequestService
+      .getPatientRequests()
       .pipe(
         finalize(() => {
           if (showLoading && this.loadingDialog) {
@@ -249,21 +276,18 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
         next: (response: PatientRequest[]) => {
           const rawData = response || [];
 
-          const owners = rawData
+          this.ownerDataSource.data = rawData
             .filter((item) => item.owner)
             .map((item) => this.mapOwnerPatientRequestRow(item));
 
-          const others = rawData
+          this.othersDataSource.data = rawData
             .filter((item) => !item.owner)
             .map((item) => this.mapOthersPatientRequestRow(item));
-
-          this.ownerDataSource.data = owners;
-          this.othersDataSource.data = others;
         },
         error: () => {
           this.ownerDataSource.data = [];
           this.othersDataSource.data = [];
-        }
+        },
       });
   }
 
@@ -276,27 +300,44 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
   }
 
   private mapOwnerPatientRequestRow(item: PatientRequest): OwnerPatientRequestTableRow {
+    const rawName = item.report?.patient_care?.patient?.name?.trim() || '-';
+
     return {
       ...item,
-      name: item.report?.patient_care?.patient?.name || '-',
-      cns: item.report?.patient_care?.patient?.cns || '-'
+      name: this.formatPatientName(rawName),
+      cns: item.report?.patient_care?.patient?.cns || '-',
     };
   }
 
   private mapOthersPatientRequestRow(item: PatientRequest): OthersPatientRequestTableRow {
+    const rawName = item.report?.patient_care?.patient?.name?.trim() || '-';
+    const rawResponsible = item.owner_professional?.name?.trim() || '-';
+
     return {
       ...item,
-      name: item.report?.patient_care?.patient?.name || '-',
+      name: this.formatPatientName(rawName),
       cns: item.report?.patient_care?.patient?.cns || '-',
-      responsible: item.owner_professional?.name || '-'
+      responsible: this.formatResponsibleName(rawResponsible),
+      fullResponsible: rawResponsible,
     };
+  }
+
+  private formatPatientName(name: string): string {
+    if (name === '-' || name.length <= 40) return name;
+    return `${name.slice(0, 32)} ...${name.slice(-5)}`;
+  }
+
+  private formatResponsibleName(name: string): string {
+    if (name === '-') return name;
+    const parts = name.split(/\s+/);
+    return parts.length <= 1 ? parts[0] : `${parts[0]} ${parts[parts.length - 1]}`;
   }
 
   private openLoading(): void {
     this.loadingDialog = this.dialog.open(LoadingComponent, {
       height: '200px',
       disableClose: true,
-      autoFocus: false
+      autoFocus: false,
     });
   }
 
@@ -307,14 +348,15 @@ export class PatientRequestsPage implements OnInit, OnDestroy {
     height = 'auto',
     requiresRefresh = true
   ): void {
-    this.dialog.open(component, {
-      width,
-      height,
-      disableClose: true,
-      autoFocus: false,
-      scrollStrategy: this.overlay.scrollStrategies.noop(),
-      data
-    })
+    this.dialog
+      .open(component, {
+        width,
+        height,
+        disableClose: true,
+        autoFocus: false,
+        scrollStrategy: this.overlay.scrollStrategies.noop(),
+        data,
+      })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {

@@ -1,8 +1,16 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
-// Material Modules
+// Angular Material
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -13,6 +21,13 @@ import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestService } from '../../../services/patient-request.service';
 
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patient-requests-channel',
+} as const;
+
 export type PatientRequestDeleteDialogData = {
   patient_request?: PatientRequest;
 };
@@ -21,32 +36,47 @@ export type PatientRequestDeleteDialogData = {
   selector: 'app-patient-request-delete',
   standalone: true,
   imports: [
-    MatDialogModule, 
-    MatButtonModule, 
-    MatProgressSpinnerModule
+    MatDialogModule,
+    MatButtonModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './patient-request-delete.component.html',
   styleUrl: './patient-request-delete.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientRequestDeleteComponent {
+export class PatientRequestDeleteComponent implements OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly requestsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientRequestDeleteDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestDeleteDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestDeleteComponent>);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
 
   // ==========================================
-  // Estados Reativos via Signals
+  // Propriedades e Estado Reativo
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
 
+  protected readonly patientName = computed(
+    () => this.data?.patient_request?.report?.patient_care?.patient?.name ?? 'Não informado'
+  );
+
   // ==========================================
-  // Métodos de Ação
+  // Ciclo de Vida (Hooks)
+  // ==========================================
+  ngOnDestroy(): void {
+    this.requestsChannel.close();
+  }
+
+  // ==========================================
+  // Métodos Acessíveis pelo Template (Protected)
   // ==========================================
   protected onSubmit(): void {
     const patientRequestId = this.data?.patient_request?.id;
@@ -57,25 +87,28 @@ export class PatientRequestDeleteComponent {
     }
 
     this.isSubmitting.set(true);
-    this.cdr.markForCheck();
 
-    this.patientRequestService.deletePatientRequest(patientRequestId)
+    this.patientRequestService
+      .deletePatientRequest(patientRequestId)
       .pipe(
         finalize(() => {
           this.isSubmitting.set(false);
-          this.cdr.markForCheck();
         }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Solicitação removida com sucesso!');
+          this.messageService.showMessage(
+            response?.message || 'Solicitação removida com sucesso!'
+          );
+          this.requestsChannel.postMessage('update');
           this.dialogRef.close(true);
         },
         error: (err) => {
-          const fallbackError = err?.error?.message || 'Ocorreu um erro ao tentar remover a solicitação.';
+          const fallbackError =
+            err?.error?.message || 'Ocorreu um erro ao tentar remover a solicitação.';
           this.messageService.showMessage(fallbackError);
-        }
+        },
       });
   }
 }

@@ -1,12 +1,14 @@
 <h2 mat-dialog-title>Requisitos da Solicitação</h2>
 
-<mat-dialog-content>
+<mat-dialog-content class="requirements-dialog-content">
   @if (requirements().length > 0) {
-    <mat-list>
-      @for (item of requirements(); track $index) {
+    <mat-list class="requirements-list">
+      @for (item of requirements(); track item.label) {
         <mat-list-item
-          [className]="item.fulfilled ? 'fulfilled' : 'unfulfilled'">
-          <mat-icon matListItemIcon>
+          class="requirement-item"
+          [class.fulfilled]="item.fulfilled"
+          [class.unfulfilled]="!item.fulfilled">
+          <mat-icon matListItemIcon class="requirement-icon">
             {{ item.fulfilled ? 'check_circle' : 'cancel' }}
           </mat-icon>
           <div matListItemTitle class="requirement-title">
@@ -23,9 +25,9 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button 
-    mat-button 
-    type="button" 
+  <button
+    mat-button
+    type="button"
     [mat-dialog-close]="false">
     Fechar
   </button>

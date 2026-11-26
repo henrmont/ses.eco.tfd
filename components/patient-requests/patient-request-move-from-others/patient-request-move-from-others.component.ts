@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -7,13 +15,18 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Core & Models
+// Core, Services & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { MessageService } from '../../../../core/services/message-service';
 import { PatientRequest } from '../../../models/patient-request.model';
-
-// Services
 import { PatientRequestService } from '../../../services/patient-request.service';
+
+// ============================================================================
+// CONFIGURAÇÃO DO COMPONENTE
+// ============================================================================
+const COMPONENT_CONFIG = {
+  channelName: 'tfd-patient-requests-channel',
+} as const;
 
 export type PatientRequestMoveFromOthersDialogData = {
   patient_request?: PatientRequest;
@@ -25,17 +38,23 @@ export type PatientRequestMoveFromOthersDialogData = {
   imports: [
     MatButtonModule,
     MatDialogModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
   ],
   templateUrl: './patient-request-move-from-others.component.html',
   styleUrl: './patient-request-move-from-others.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PatientRequestMoveFromOthersComponent {
+export class PatientRequestMoveFromOthersComponent implements OnDestroy {
+  // Canais de Comunicação Externa
+  private readonly requestsChannel = new BroadcastChannel(COMPONENT_CONFIG.channelName);
+
   // ==========================================
   // Injeção de Dependências
   // ==========================================
-  protected readonly data = inject<PatientRequestMoveFromOthersDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+  protected readonly data = inject<PatientRequestMoveFromOthersDialogData | null>(
+    MAT_DIALOG_DATA,
+    { optional: true }
+  );
   private readonly patientRequestService = inject(PatientRequestService);
   private readonly messageService = inject(MessageService);
   private readonly dialogRef = inject(MatDialogRef<PatientRequestMoveFromOthersComponent>);
@@ -46,11 +65,15 @@ export class PatientRequestMoveFromOthersComponent {
   // ==========================================
   protected readonly isSubmitting = signal<boolean>(false);
 
+  protected readonly patientName = computed(
+    () => this.data?.patient_request?.report?.patient_care?.patient?.name || 'Não informado'
+  );
+
   // ==========================================
-  // Getters para Facilitação do Template
+  // Ciclo de Vida (Hooks)
   // ==========================================
-  protected get patientName(): string {
-    return this.data?.patient_request?.report?.patient_care?.patient?.name || 'Não informado';
+  ngOnDestroy(): void {
+    this.requestsChannel.close();
   }
 
   // ==========================================
@@ -66,20 +89,24 @@ export class PatientRequestMoveFromOthersComponent {
 
     this.isSubmitting.set(true);
 
-    this.patientRequestService.movePatientRequestFromOthers(patientRequestId)
+    this.patientRequestService
+      .movePatientRequestFromOthers(patientRequestId)
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response: ApiResponse) => {
-          this.messageService.showMessage(response?.message || 'Solicitação movimentada com sucesso!');
+          this.messageService.showMessage(
+            response?.message || 'Solicitação movimentada com sucesso!'
+          );
+          this.requestsChannel.postMessage('update');
           this.dialogRef.close(true);
         },
         error: (err) => {
           const fallbackError = 'Erro ao tentar movimentar a solicitação.';
           this.messageService.showMessage(err?.error?.message || fallbackError);
-        }
+        },
       });
   }
 }
