@@ -17,7 +17,7 @@ import { MatCardModule } from '@angular/material/card';
 import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestOpinion } from '../../../models/patient-request-opinion.model';
 import { PatientRequestCostAssistanceService } from '../../../services/patient-request-cost-assistance.service';
-import { StorageService } from '../../../../core/services/storage-service';
+import { StorageService } from '../../../../core/services/storage.service';
 import { PatientRequestDetailComponent } from '../../patient-requests/patient-request-detail/patient-request-detail.component';
 import { PatientRequestMoveFromHistoryComponent } from '../patient-request-move-from-history/patient-request-move-from-history.component';
 import { PatientRequestOpinionDetailComponent } from '../../patient-request-opinions/patient-request-opinion-detail/patient-request-opinion-detail.component';

@@ -14,7 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { saveAs } from 'file-saver';
 
 // Services & Models
-import { StorageService } from '../../../../core/services/storage-service';
+import { StorageService } from '../../../../core/services/storage.service';
 import { PatientCare } from '../../../models/patient-care.model';
 import { PatientReport } from '../../../models/patient-report.model';
 import { PatientRequestOpinion } from '../../../models/patient-request-opinion.model';

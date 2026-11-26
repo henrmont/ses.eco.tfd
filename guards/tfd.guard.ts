@@ -3,7 +3,7 @@ import { CanActivateFn, Router, ActivatedRouteSnapshot, RouterStateSnapshot, Url
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
-import { MessageService } from '../../core/services/message-service';
+import { MessageService } from '../../core/services/message.service';
 import { TfdUser as User } from '../models/user.model';
 
 // ============================================================================

@@ -24,7 +24,7 @@ import { MatSelectModule } from '@angular/material/select';
 
 // Services, Models & Enums
 import { ApiResponse } from '../../../../core/models/api-response.model';
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestCostAssistanceService } from '../../../services/patient-request-cost-assistance.service';
 

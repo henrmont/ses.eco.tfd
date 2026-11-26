@@ -21,7 +21,7 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Core & Models
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { PatientCare } from '../../../models/patient-care.model';
 import { PatientEscort } from '../../../models/patient-escort.model';
 import { PatientService } from '../../../services/patient.service';

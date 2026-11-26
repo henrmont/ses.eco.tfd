@@ -30,8 +30,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Core, Services & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
-import { MessageService } from '../../../../core/services/message-service';
-import { StorageService } from '../../../../core/services/storage-service';
+import { MessageService } from '../../../../core/services/message.service';
+import { StorageService } from '../../../../core/services/storage.service';
 import { PatientCare } from '../../../models/patient-care.model';
 import { PatientReport } from '../../../models/patient-report.model';
 import { ReportAttachment } from '../../../models/report-attachment.model';

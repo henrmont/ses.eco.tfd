@@ -29,7 +29,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 // Core, Services & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { Specialty } from '../../../enums/specialties';
 import { PatientCare } from '../../../models/patient-care.model';
 import { PatientReport } from '../../../models/patient-report.model';

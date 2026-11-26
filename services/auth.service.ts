@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { TfdUser as User } from '../models/user.model';
-import { AuthService as CoreAuthService } from '../../core/services/auth-service';
+import { AuthService as CoreAuthService } from '../../core/services/auth.service';
 
 @Injectable({
   providedIn: 'root',

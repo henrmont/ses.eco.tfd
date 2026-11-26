@@ -34,7 +34,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { Permission } from '../../../../core/models/permission.model';
 import { Role } from '../../../../core/models/role.model';
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { CustomValidators } from '../../../../core/validators/custom.validator';
 
 // Services

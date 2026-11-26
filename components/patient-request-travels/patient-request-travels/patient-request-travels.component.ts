@@ -14,7 +14,7 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Core, Enums, Models e Serviços
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { TravelCompany } from '../../../enums/travel-company';
 import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestTravel } from '../../../models/patient-request-travel.model';

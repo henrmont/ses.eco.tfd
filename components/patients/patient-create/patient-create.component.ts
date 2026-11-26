@@ -52,8 +52,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
-import { MessageService } from '../../../../core/services/message-service';
-import { ViacepService } from '../../../../core/services/viacep-service';
+import { MessageService } from '../../../../core/services/message.service';
+import { ViacepService } from '../../../../core/services/viacep.service';
 import { CustomValidators } from '../../../../core/validators/custom.validator';
 
 // Services, Enums & Models

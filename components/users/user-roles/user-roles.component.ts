@@ -29,7 +29,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 // Core & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { Role } from '../../../../core/models/role.model';
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 
 // Services & Models
 import { TfdUser as User } from '../../../models/user.model';

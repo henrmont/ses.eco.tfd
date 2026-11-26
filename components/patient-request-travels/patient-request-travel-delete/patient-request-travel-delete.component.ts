@@ -9,7 +9,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 // Core, Services & Models
 import { ApiResponse } from '../../../../core/models/api-response.model';
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { PatientRequestTravel } from '../../../models/patient-request-travel.model';
 import { PatientRequestTravelService } from '../../../services/patient-request-travel.service';
 

@@ -6,7 +6,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import { PatientRequestTravelService } from '../../../services/patient-request-travel.service';
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({

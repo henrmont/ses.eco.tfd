@@ -13,7 +13,7 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Core, Services & Models
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { PatientRequestOpinion } from '../../../models/patient-request-opinion.model';
 import { PatientRequest } from '../../../models/patient-request.model';
 import { PatientRequestOpinionService } from '../../../services/patient-request-opinion.service';

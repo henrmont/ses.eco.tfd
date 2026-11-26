@@ -23,7 +23,7 @@ import { MatSelectModule } from '@angular/material/select';
 
 // Services, Models & Enums
 import { ApiResponse } from '../../../../core/models/api-response.model';
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { TravelGender } from '../../../enums/travel-gender';
 import { PatientRequestTravel } from '../../../models/patient-request-travel.model';
 import { TravelPassenger } from '../../../models/travel-passenger.model';
@@ -56,7 +56,6 @@ interface ErrorMessage {
   standalone: true,
   imports: [
     CommonModule,
-    CurrencyPipe,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,

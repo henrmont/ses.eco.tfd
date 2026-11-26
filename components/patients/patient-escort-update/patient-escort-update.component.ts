@@ -49,9 +49,9 @@ import { NgxMaskDirective, provideNgxMask } from 'ngx-mask';
 
 // Core, Services & Validators
 import { ApiResponse } from '../../../../core/models/api-response.model';
-import { MessageService } from '../../../../core/services/message-service';
-import { StorageService } from '../../../../core/services/storage-service';
-import { ViacepService } from '../../../../core/services/viacep-service';
+import { MessageService } from '../../../../core/services/message.service';
+import { StorageService } from '../../../../core/services/storage.service';
+import { ViacepService } from '../../../../core/services/viacep.service';
 import { CustomValidators } from '../../../../core/validators/custom.validator';
 
 // Enums & Models

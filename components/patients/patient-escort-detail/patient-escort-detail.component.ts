@@ -21,7 +21,7 @@ import { saveAs } from 'file-saver';
 import { NgxMaskPipe, provideNgxMask } from 'ngx-mask';
 
 // Core, Services & Models
-import { StorageService } from '../../../../core/services/storage-service';
+import { StorageService } from '../../../../core/services/storage.service';
 import { PatientEscort } from '../../../models/patient-escort.model';
 
 interface PatientEscortDetailDialogData {

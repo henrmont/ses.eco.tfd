@@ -24,7 +24,7 @@ import { NgxMaskDirective } from 'ngx-mask';
 
 // Core, Models & Serviços
 import { ApiResponse } from '../../../../core/models/api-response.model';
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { DailyCost } from '../../../models/daily-cost.model';
 import { PatientRequestAccountability } from '../../../models/patient-request-accountability.model';
 import { PatientRequestAccountabilityService } from '../../../services/patient-request-accountability.service';

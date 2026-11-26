@@ -30,7 +30,7 @@ const moment = (_moment as any).default || _moment;
 
 // Services, Enums, Models & Validators
 import { ApiResponse } from '../../../../core/models/api-response.model';
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { CustomValidators } from '../../../../core/validators/custom.validator';
 import { TravelCompany } from '../../../enums/travel-company';
 import { TravelTransportation } from '../../../enums/travel-transportation';

@@ -26,7 +26,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 // Core & Models
 import { Permission } from '../../../../core/models/permission.model';
 import { Role } from '../../../../core/models/role.model';
-import { AuthService } from '../../../../core/services/auth-service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { DailyCost } from '../../../models/daily-cost.model';
 import { TfdUser as User } from '../../../models/user.model';
 import { SettingService } from '../../../services/setting.service';

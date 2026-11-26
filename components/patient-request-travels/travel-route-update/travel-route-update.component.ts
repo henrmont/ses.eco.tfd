@@ -26,7 +26,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 // Core, Models, Validators & Serviços
 import { ApiResponse } from '../../../../core/models/api-response.model';
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { CustomValidators } from '../../../../core/validators/custom.validator';
 import { TravelRoute } from '../../../models/travel-route.model';
 import { PatientRequestTravelService } from '../../../services/patient-request-travel.service';

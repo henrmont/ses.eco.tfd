@@ -21,8 +21,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { saveAs } from 'file-saver';
 
 // Core, Services, Enums & Models
-import { MessageService } from '../../../../core/services/message-service';
-import { StorageService } from '../../../../core/services/storage-service';
+import { MessageService } from '../../../../core/services/message.service';
+import { StorageService } from '../../../../core/services/storage.service';
 import { Specialty } from '../../../enums/specialties';
 import { PatientReport } from '../../../models/patient-report.model';
 

@@ -19,7 +19,7 @@ import { MatStepperModule } from '@angular/material/stepper';
 
 // Core, Models e Serviços
 import { ApiResponse } from '../../../../core/models/api-response.model';
-import { MessageService } from '../../../../core/services/message-service';
+import { MessageService } from '../../../../core/services/message.service';
 import { PatientRequestAttachment } from '../../../models/patient-request-attachment.model';
 import { PatientRequestCostAssistanceService } from '../../../services/patient-request-cost-assistance.service';
 import { PatientRequest } from '../../../models/patient-request.model';
