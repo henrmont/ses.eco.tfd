@@ -1,199 +1,283 @@
-import { TestBed, ComponentFixture } from '@angular/core/testing';
+// src/app/tfd/components/patient-requests/patient-request-attachment-update/patient-request-attachment-update.component.spec.ts
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { of, throwError } from 'rxjs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { saveAs } from 'file-saver';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { UpdatePatientRequestAttachmentComponent } from './update-patient-request-attachment-component';
-import { PatientRequestService } from '../../../services/patient-request-service';
-import { MessageService } from '../../../../core/services/message-service';
-import { StorageService } from '../../../../core/services/storage-service';
+import {
+  PatientRequestAttachmentUpdateComponent,
+  PatientRequestAttachmentUpdateDialogData,
+} from './patient-request-attachment-update.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { StorageService } from '../../../../core/services/storage.service';
+import { PatientRequestAttachment } from '../../../models/patient-request-attachment.model';
+import { PatientRequestService } from '../../../services/patient-request.service';
 
-// Mock estável da biblioteca file-saver
 vi.mock('file-saver', () => ({
-  saveAs: vi.fn()
+  saveAs: vi.fn(),
 }));
 
-describe('UpdatePatientRequestAttachmentComponent', () => {
-  let component: UpdatePatientRequestAttachmentComponent;
-  let fixture: ComponentFixture<UpdatePatientRequestAttachmentComponent>;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  let patientRequestServiceMock: any;
-  let messageServiceMock: any;
-  let storageServiceMock: any;
-  let dialogRefMock: any;
+describe('PatientRequestAttachmentUpdateComponent', () => {
+  let component: PatientRequestAttachmentUpdateComponent;
+  let fixture: ComponentFixture<PatientRequestAttachmentUpdateComponent>;
 
-  const mockDialogData = {
-    patient_request_attachment: {
-      id: 777,
-      name: 'comprovante_antigo',
-      archive_id: 999
-    }
+  let broadcastChannelMock: MockBroadcastChannel;
+  let patientRequestServiceMock: {
+    updatePatientRequestAttachment: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let storageServiceMock: {
+    download: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
   };
 
+  const defaultDialogData: PatientRequestAttachmentUpdateDialogData = {
+    patient_request_attachment: {
+      id: 710,
+      name: 'Relatório Médico',
+      archive_id: 90,
+    } as unknown as PatientRequestAttachment,
+  };
+
+  async function createComponent(
+    dialogData: PatientRequestAttachmentUpdateDialogData | null = defaultDialogData
+  ): Promise<void> {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientRequestAttachmentUpdateComponent],
+        providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
+          { provide: PatientRequestService, useValue: patientRequestServiceMock },
+          { provide: MessageService, useValue: messageServiceMock },
+          { provide: StorageService, useValue: storageServiceMock },
+          { provide: MatDialogRef, useValue: dialogRefMock },
+          { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        ],
+      })
+      .overrideComponent(PatientRequestAttachmentUpdateComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
+
+    fixture = TestBed.createComponent(PatientRequestAttachmentUpdateComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
   beforeEach(async () => {
+    vi.mocked(saveAs).mockReset();
+
+    broadcastChannelMock = new MockBroadcastChannel();
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
     patientRequestServiceMock = {
-      updatePatientRequestAttachment: vi.fn()
+      updatePatientRequestAttachment: vi.fn().mockReturnValue(of({ message: 'Atualizado!' })),
     };
 
     messageServiceMock = {
-      showMessage: vi.fn()
+      showMessage: vi.fn(),
     };
 
     storageServiceMock = {
-      download: vi.fn()
+      download: vi.fn(),
     };
 
     dialogRefMock = {
-      close: vi.fn()
+      close: vi.fn(),
     };
 
-    await TestBed.configureTestingModule({
-      imports: [UpdatePatientRequestAttachmentComponent],
-      providers: [
-        provideAnimationsAsync('noop'),
-        { provide: PatientRequestService, useValue: patientRequestServiceMock },
-        { provide: MessageService, useValue: messageServiceMock },
-        { provide: StorageService, useValue: storageServiceMock },
-        { provide: MatDialogRef, useValue: dialogRefMock },
-        { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-      ]
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(UpdatePatientRequestAttachmentComponent);
-    component = fixture.componentInstance;
+    await createComponent();
   });
 
-  it('deve criar o componente com sucesso preenchendo o formulário com o estado inicial vindo da modal', () => {
-    fixture.detectChanges();
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('deve criar o componente, abrir BroadcastChannel, inicializar formulário e fechar ao destruir', async () => {
     expect(component).toBeTruthy();
-    expect(component['isSubmitting']()).toBe(false);
-    expect(component['isDownloading']()).toBe(false);
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patient-requests-channel');
+    expect(component['attachmentForm'].controls.name.value).toBe('Relatório Médico');
+    expect(component['isFormPristine']()).toBe(true);
+    expect(component['hasFile']()).toBe(false);
     expect(component['fileLabel']()).toBe('Nenhum arquivo selecionado');
-    expect(component['attachmentForm'].get('name')?.value).toBe('comprovante_antigo');
+
+    await createComponent(null);
+    expect(component['attachmentForm'].controls.name.value).toBe('');
+
+    broadcastChannelMock.close.mockClear();
+    fixture.destroy();
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
   });
 
-  describe('Upload e Seleção Substituta de Arquivo Local (onFileSelected)', () => {
-    beforeEach(() => {
-      fixture.detectChanges();
-    });
+  describe('Seleção de Arquivo (onFileSelected)', () => {
+    it('deve ignorar evento sem arquivo e atualizar selectedFile/nome quando aplicável', () => {
+      const emptyInput = { files: null, value: 'x.pdf' } as unknown as HTMLInputElement;
+      component['onFileSelected']({ target: emptyInput } as unknown as Event);
+      expect(component['hasFile']()).toBe(false);
+      expect(emptyInput.value).toBe('x.pdf');
 
-    it('deve atualizar o estado do componente ao selecionar um novo arquivo sem mexer no nome preenchido', () => {
-      const mockFile = new File(['binario_novo'], 'novo_comprovante.pdf', { type: 'application/pdf' });
-      const mockEvent = {
-        target: { files: [mockFile] }
-      } as unknown as Event;
+      const fileWithName = new File(['abc'], 'exame.novo.pdf', { type: 'application/pdf' });
+      const input1 = { files: [fileWithName], value: 'exame.novo.pdf' } as unknown as HTMLInputElement;
+      component['onFileSelected']({ target: input1 } as unknown as Event);
 
-      component['onFileSelected'](mockEvent);
-      fixture.detectChanges();
+      expect(component['hasFile']()).toBe(true);
+      expect(component['fileLabel']()).toBe('exame.novo.pdf');
+      expect(component['isFormPristine']()).toBe(false);
+      expect(component['attachmentForm'].controls.name.value).toBe('Relatório Médico');
+      expect(input1.value).toBe('');
 
-      expect(component['selectedFile']).toBe(mockFile);
-      expect(component['fileLabel']()).toBe('novo_comprovante.pdf');
-      expect(component['attachmentForm'].get('name')?.value).toBe('comprovante_antigo');
-    });
+      component['attachmentForm'].controls.name.setValue('');
+      const fileWithoutExt = new File(['abc'], 'semextensao', { type: 'text/plain' });
+      const input2 = { files: [fileWithoutExt], value: 'semextensao' } as unknown as HTMLInputElement;
+      component['onFileSelected']({ target: input2 } as unknown as Event);
+      expect(component['attachmentForm'].controls.name.value).toBe('semextensao');
 
-    it('deve sugerir o nome limpo do arquivo apenas se o campo nome estiver vazio', () => {
-      component['attachmentForm'].get('name')?.setValue('');
-
-      const mockFile = new File([''], 'rg_frente_verso.png', { type: 'image/png' });
-      const mockEvent = {
-        target: { files: [mockFile] }
-      } as unknown as Event;
-
-      component['onFileSelected'](mockEvent);
-      fixture.detectChanges();
-
-      expect(component['attachmentForm'].get('name')?.value).toBe('rg_frente_verso');
+      component['attachmentForm'].controls.name.setValue('');
+      const fileWithExt = new File(['abc'], 'laudo.final.pdf', { type: 'application/pdf' });
+      const input3 = { files: [fileWithExt], value: 'laudo.final.pdf' } as unknown as HTMLInputElement;
+      component['onFileSelected']({ target: input3 } as unknown as Event);
+      expect(component['attachmentForm'].controls.name.value).toBe('laudo.final');
     });
   });
 
-  describe('Fluxo do Botão de Download (download)', () => {
-    beforeEach(() => {
-      fixture.detectChanges();
-    });
-
-    it('deve abortar preventivamente caso o archiveId recebido seja nulo', () => {
-      component['download'](0, 'arquivo.pdf');
+  describe('Download de Anexo (download)', () => {
+    it('deve ignorar quando archiveId for inválido ou já estiver baixando', () => {
+      component['download'](null, 'Doc');
+      component['download'](undefined, 'Doc');
       expect(storageServiceMock.download).not.toHaveBeenCalled();
-    });
 
-    it('deve baixar o binário com sucesso e delegar o salvamento local para a biblioteca file-saver', async () => {
-      const mockBlob = new Blob(['dados_binarios'], { type: 'application/pdf' });
-      storageServiceMock.download.mockReturnValue(of({ archive: mockBlob }));
+      const pending$ = new Subject<{ archive?: Blob }>();
+      storageServiceMock.download.mockReturnValueOnce(pending$.asObservable());
 
-      component['download'](999, 'comprovante.pdf');
-      
-      // Espera as microtasks do RxJS resolverem e renderizarem as atualizações de Signals
-      await fixture.whenStable();
-      fixture.detectChanges();
+      component['download'](90, '  Meu Anexo  ');
+      expect(component['isDownloading']()).toBe(true);
+      expect(storageServiceMock.download).toHaveBeenCalledWith('tfd', 90);
 
-      expect(storageServiceMock.download).toHaveBeenCalledWith(999);
-      expect(saveAs).toHaveBeenCalledWith(mockBlob, 'comprovante.pdf');
-      expect(component['isDownloading']()).toBe(false);
-    });
+      component['download'](90, 'Outro');
+      expect(storageServiceMock.download).toHaveBeenCalledTimes(1);
 
-    it('deve exibir mensagem de erro amigável caso a API de storage falhe no download', async () => {
-      storageServiceMock.download.mockReturnValue(throwError(() => new Error('Falha de Rede')));
-
-      component['download'](999, 'comprovante.pdf');
-      
-      await fixture.whenStable();
-      fixture.detectChanges();
+      const blob = new Blob(['conteudo']);
+      pending$.next({ archive: blob });
+      pending$.complete();
 
       expect(component['isDownloading']()).toBe(false);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Falha ao tentar baixar o arquivo.');
+      expect(saveAs).toHaveBeenCalledWith(blob, 'Meu Anexo');
+    });
+
+    it('deve usar nome fallback quando name não for informado, ignorar sem archive e tratar erro', () => {
+      const blob = new Blob(['conteudo']);
+      storageServiceMock.download.mockReturnValueOnce(of({ archive: blob }));
+      component['download'](95);
+      expect(saveAs).toHaveBeenCalledWith(blob, 'anexo-95');
+
+      storageServiceMock.download.mockReturnValueOnce(of({}));
+      component['download'](96, 'Sem Arquivo');
+      expect(saveAs).toHaveBeenCalledTimes(1);
+
+      storageServiceMock.download.mockReturnValueOnce(
+        throwError(() => ({ error: { message: 'Arquivo indisponível.' } }))
+      );
+      component['download'](97, 'Erro API');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Arquivo indisponível.');
+      expect(component['isDownloading']()).toBe(false);
+
+      storageServiceMock.download.mockReturnValueOnce(throwError(() => new Error('Falha')));
+      component['download'](98, 'Erro Genérico');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao realizar o download do arquivo.'
+      );
     });
   });
 
-  describe('Fluxo de Submissão da Atualização (onSubmit)', () => {
-    beforeEach(() => {
-      fixture.detectChanges();
-    });
-
-    it('deve barrar a submissão se o formulário de nome estiver inválido', () => {
-      component['attachmentForm'].get('name')?.setValue('');
-      component['attachmentForm'].updateValueAndValidity();
+  describe('Atualização do Anexo (onSubmit)', () => {
+    it('deve exibir mensagem quando attachmentId não for encontrado', async () => {
+      await createComponent(null);
 
       component['onSubmit']();
 
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificador do anexo não encontrado.'
+      );
       expect(patientRequestServiceMock.updatePatientRequestAttachment).not.toHaveBeenCalled();
     });
 
-    it('deve atualizar com sucesso enviando o arquivo nulo caso mude apenas o nome', async () => {
-      component['attachmentForm'].patchValue({ name: 'Nome Corrigido Sem Substituir Arquivo' });
-      component['selectedFile'] = null;
-
-      patientRequestServiceMock.updatePatientRequestAttachment.mockReturnValue(of({ message: 'Anexo atualizado com sucesso!' }));
+    it('deve marcar formulário como touched e não enviar quando inválido', () => {
+      component['attachmentForm'].controls.name.setValue('');
 
       component['onSubmit']();
-      
-      await fixture.whenStable();
-      fixture.detectChanges();
+
+      expect(component['attachmentForm'].controls.name.touched).toBe(true);
+      expect(patientRequestServiceMock.updatePatientRequestAttachment).not.toHaveBeenCalled();
+    });
+
+    it('deve enviar payload sem file, gerenciar isSubmitting, notificar canal e fechar dialog', () => {
+      component['attachmentForm'].controls.name.setValue('  Nome Atualizado  ');
+
+      const pending$ = new Subject<{ message?: string }>();
+      patientRequestServiceMock.updatePatientRequestAttachment.mockReturnValueOnce(
+        pending$.asObservable()
+      );
+
+      component['onSubmit']();
+      expect(component['isSubmitting']()).toBe(true);
+      expect(component['attachmentForm'].disabled).toBe(true);
+      expect(patientRequestServiceMock.updatePatientRequestAttachment).toHaveBeenCalledWith(710, {
+        name: 'Nome Atualizado',
+      });
+
+      pending$.next({ message: 'Salvo com sucesso!' });
+      pending$.complete();
 
       expect(component['isSubmitting']()).toBe(false);
-      expect(patientRequestServiceMock.updatePatientRequestAttachment).toHaveBeenCalledWith(777, {
-        name: 'Nome Corrigido Sem Substituir Arquivo',
-        file: null
-      });
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Anexo atualizado com sucesso!');
+      expect(component['attachmentForm'].enabled).toBe(true);
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Salvo com sucesso!');
       expect(dialogRefMock.close).toHaveBeenCalledWith(true);
     });
 
-    it('deve tratar falhas do backend ao tentar atualizar o anexo mantendo a modal aberta', async () => {
-      component['attachmentForm'].patchValue({ name: 'Nova Tentativa com Erro' });
-      
-      const mockApiError = { error: { message: 'Erro interno ao processar a requisição de atualização.' } };
-      patientRequestServiceMock.updatePatientRequestAttachment.mockReturnValue(throwError(() => mockApiError));
+    it('deve incluir file no payload quando selecionado, usar mensagem padrão e tratar erros', () => {
+      const file = new File(['dados'], 'novo.pdf', { type: 'application/pdf' });
+      component['selectedFile'].set(file);
+      component['attachmentForm'].controls.name.setValue('Com Arquivo');
 
+      patientRequestServiceMock.updatePatientRequestAttachment.mockReturnValueOnce(of({}));
       component['onSubmit']();
-      
-      await fixture.whenStable();
-      fixture.detectChanges();
+      expect(patientRequestServiceMock.updatePatientRequestAttachment).toHaveBeenCalledWith(710, {
+        name: 'Com Arquivo',
+        file,
+      });
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Anexo atualizado com sucesso!');
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
 
-      expect(component['isSubmitting']()).toBe(false);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro interno ao processar a requisição de atualização.');
-      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      patientRequestServiceMock.updatePatientRequestAttachment.mockReturnValueOnce(
+        throwError(() => ({ error: { message: 'Nome duplicado.' } }))
+      );
+      component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Nome duplicado.');
+
+      patientRequestServiceMock.updatePatientRequestAttachment.mockReturnValueOnce(
+        throwError(() => new Error('Erro'))
+      );
+      component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao processar a atualização do anexo.'
+      );
     });
   });
 });

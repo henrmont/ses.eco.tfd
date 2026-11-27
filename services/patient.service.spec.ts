@@ -1,30 +1,67 @@
+// src/app/tfd/services/patient.service.spec.ts
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { FormControl, ValidationErrors } from '@angular/forms';
-import { PatientService, ApiResponse } from './patient-service';
-import { environment } from '../../../environments/environment
-';
-import { Patient } from '../models/patient';
-import { Escort } from '../models/escort';
-import { ReportAttachment } from '../models/report-attachment';
-import { PatientCare } from '../models/patient-care.model';
 import { Observable } from 'rxjs';
-import * as momentImport from 'moment';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const moment = (momentImport as any).default || momentImport;
+import { PatientService } from './patient.service';
+import { environment } from '../../../environments/environment';
+import { ApiResponse } from '../../core/models/api-response.model';
+import { PatientCare } from '../models/patient-care.model';
+import { PatientEscort } from '../models/patient-escort.model';
+import { PatientReport } from '../models/patient-report.model';
+import { Patient } from '../models/patient.model';
+import { ReportAttachment } from '../models/report-attachment.model';
 
-describe('PatientService', () => {
+function observeValidation(
+  result: Observable<ValidationErrors | null> | Promise<ValidationErrors | null>,
+  onNext: (value: ValidationErrors | null) => void
+): void {
+  if (!(result instanceof Observable)) {
+    throw new Error('Expected validator to return an Observable');
+  }
+  result.subscribe((value: ValidationErrors | null) => onNext(value));
+}
+
+describe('Tfd PatientService', () => {
   let service: PatientService;
   let httpMock: HttpTestingController;
 
-  const mockApiUrl = `${environment.apiTfdUrl}/patient`;
-  const mockChecksUrl = `${environment.apiTfdUrl}/checks`;
-  const mockValidatorUrl = `${environment.apiTfdUrl}/validator`;
+  const baseUrl = `${environment.apiTfdUrl}/patients`;
+
+  const mockPatient = {
+    id: 10,
+    name: 'Carlos Silva',
+    cns: '123456789012345',
+    document: '12345678901',
+    exists_in_tfd: true,
+  } as unknown as Patient & { exists_in_tfd?: boolean };
+
+  const mockEscort = {
+    id: 20,
+    name: 'Ana Silva',
+    cns: '987654321098765',
+    document: '98765432109',
+  } as unknown as PatientEscort;
+
+  const mockPatientCare = {
+    id: 5,
+    patient: mockPatient,
+    escorts: [mockEscort],
+  } as unknown as PatientCare;
+
+  const mockReport = { id: 30, title: 'Laudo Médico' } as unknown as PatientReport;
+  const mockAttachment = { id: 40, name: 'exame.pdf' } as unknown as ReportAttachment;
+  const mockCids = [{ id: 1, code: 'I10', description: 'Hipertensão' }];
+  const mockApiResponse = { message: 'OK' } as unknown as ApiResponse;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-      providers: [PatientService]
+      providers: [provideHttpClient(), provideHttpClientTesting(), PatientService],
     });
 
     service = TestBed.inject(PatientService);
@@ -32,319 +69,311 @@ describe('PatientService', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     httpMock.verify();
   });
 
-  it('deve ser criado', () => {
-    expect(service).toBeTruthy();
+  it('deve consultar endpoints GET de pacientes, acompanhantes, laudos, CIDs e anexos', () => {
+    let patientsRes: PatientCare[] | undefined;
+    let archivedRes: PatientCare[] | undefined;
+    let escortsRes: PatientEscort[] | undefined;
+    let reportsRes: PatientReport[] | undefined;
+    let cidsRes: unknown;
+    let attachmentsRes: ReportAttachment[] | undefined;
+
+    service.getPatients().subscribe((res) => (patientsRes = res));
+    service.getArchivePatients().subscribe((res) => (archivedRes = res));
+    service.getPatientEscorts(5).subscribe((res) => (escortsRes = res));
+    service.getPatientReports(5).subscribe((res) => (reportsRes = res));
+    service.getCids(5).subscribe((res) => (cidsRes = res));
+    service.getReportAttachments(5, 30).subscribe((res) => (attachmentsRes = res));
+
+    const r1 = httpMock.expectOne(baseUrl);
+    expect(r1.request.method).toBe('GET');
+    r1.flush([mockPatientCare]);
+
+    const r2 = httpMock.expectOne(`${baseUrl}/archived`);
+    expect(r2.request.method).toBe('GET');
+    r2.flush([mockPatientCare]);
+
+    const r3 = httpMock.expectOne(`${baseUrl}/5/escorts`);
+    expect(r3.request.method).toBe('GET');
+    r3.flush([mockEscort]);
+
+    const r4 = httpMock.expectOne(`${baseUrl}/5/reports`);
+    expect(r4.request.method).toBe('GET');
+    r4.flush([mockReport]);
+
+    const r5 = httpMock.expectOne(`${baseUrl}/5/cids`);
+    expect(r5.request.method).toBe('GET');
+    r5.flush(mockCids);
+
+    const r6 = httpMock.expectOne(`${baseUrl}/5/reports/30/attachments`);
+    expect(r6.request.method).toBe('GET');
+    r6.flush([mockAttachment]);
+
+    expect(patientsRes).toEqual([mockPatientCare]);
+    expect(archivedRes).toEqual([mockPatientCare]);
+    expect(escortsRes).toEqual([mockEscort]);
+    expect(reportsRes).toEqual([mockReport]);
+    expect(cidsRes).toEqual(mockCids);
+    expect(attachmentsRes).toEqual([mockAttachment]);
   });
 
-  // ==========================================
-  // FLUXO DE PACIENTES
-  // ==========================================
+  it('deve criar e atualizar paciente montando FormData com diferentes tipos de valores', () => {
+    const file = new File(['conteudo'], 'documento.pdf', { type: 'application/pdf' });
+    const momentLike = { format: (pattern: string) => (pattern === 'YYYY-MM-DD' ? '2026-05-10' : '') };
+    const dateObj = new Date('2026-06-15T12:00:00.000Z');
 
-  it('deve buscar pacientes (getPatients)', () => {
-    const mockPatients: Patient[] = [{ id: 1, name: 'João Silva' } as any];
+    const payload = {
+      name: 'João',
+      active: true,
+      inactive: false,
+      birthMoment: momentLike,
+      travelDate: dateObj,
+      docFile: file,
+      ignoredNull: null,
+      ignoredUndefined: undefined,
+    } as unknown as Patient;
 
-    service.getPatients().subscribe(patients => {
-      expect(patients.length).toBe(1);
-      expect(patients).toEqual(mockPatients);
-    });
+    let createRes: ApiResponse | undefined;
+    let updateRes: ApiResponse | undefined;
 
-    const req = httpMock.expectOne(`${mockApiUrl}/get-patients`);
-    expect(req.request.method).toBe('GET');
-    req.flush(mockPatients);
+    service.createPatient(payload).subscribe((res) => (createRes = res));
+    service.updatePatient(5, payload).subscribe((res) => (updateRes = res));
+
+    const postReq = httpMock.expectOne(baseUrl);
+    expect(postReq.request.method).toBe('POST');
+    expect(postReq.request.body).toBeInstanceOf(FormData);
+    const postForm = postReq.request.body as FormData;
+    expect(postForm.get('_method')).toBeNull();
+    expect(postForm.get('name')).toBe('João');
+    expect(postForm.get('active')).toBe('1');
+    expect(postForm.get('inactive')).toBe('0');
+    expect(postForm.get('birthMoment')).toBe('2026-05-10');
+    expect(postForm.get('travelDate')).toBe('2026-06-15');
+    expect(postForm.get('docFile')).toBe(file);
+    expect(postForm.has('ignoredNull')).toBe(false);
+    expect(postForm.has('ignoredUndefined')).toBe(false);
+    postReq.flush(mockApiResponse);
+
+    const putViaPostReq = httpMock.expectOne(`${baseUrl}/5`);
+    expect(putViaPostReq.request.method).toBe('POST');
+    expect(putViaPostReq.request.body).toBeInstanceOf(FormData);
+    expect((putViaPostReq.request.body as FormData).get('_method')).toBe('PUT');
+    putViaPostReq.flush(mockApiResponse);
+
+    expect(createRes).toEqual(mockApiResponse);
+    expect(updateRes).toEqual(mockApiResponse);
   });
 
-  it('deve criar um paciente utilizando FormData (createPatient)', () => {
-    const mockData = { name: 'Maria', birth: moment('2026-01-01'), file: new File([''], 'doc.pdf') };
-    const mockResponse: ApiResponse = { message: 'Paciente criado com sucesso' };
+  it('deve executar ações PATCH de estado do paciente', () => {
+    const responses: ApiResponse[] = [];
 
-    service.createPatient(mockData).subscribe(res => {
-      expect(res).toEqual(mockResponse);
-    });
+    service.archivePatient(5).subscribe((res) => responses.push(res));
+    service.movePatientFromArchive(5).subscribe((res) => responses.push(res));
+    service.movePatientFromOthers(5).subscribe((res) => responses.push(res));
+    service.validatePatient(5).subscribe((res) => responses.push(res));
+    service.finishBackPatient(5).subscribe((res) => responses.push(res));
 
-    const req = httpMock.expectOne(`${mockApiUrl}/create-patient`);
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body instanceof FormData).toBe(true);
-    req.flush(mockResponse);
+    const archiveReq = httpMock.expectOne(`${baseUrl}/5/archive`);
+    expect(archiveReq.request.method).toBe('PATCH');
+    expect(archiveReq.request.body).toEqual({});
+    archiveReq.flush(mockApiResponse);
+
+    const fromArchiveReq = httpMock.expectOne(`${baseUrl}/5/move-from-archive`);
+    expect(fromArchiveReq.request.method).toBe('PATCH');
+    expect(fromArchiveReq.request.body).toEqual({});
+    fromArchiveReq.flush(mockApiResponse);
+
+    const fromOthersReq = httpMock.expectOne(`${baseUrl}/5/move-from-others`);
+    expect(fromOthersReq.request.method).toBe('PATCH');
+    expect(fromOthersReq.request.body).toEqual({});
+    fromOthersReq.flush(mockApiResponse);
+
+    const validateReq = httpMock.expectOne(`${baseUrl}/5/validate`);
+    expect(validateReq.request.method).toBe('PATCH');
+    expect(validateReq.request.body).toEqual({});
+    validateReq.flush(mockApiResponse);
+
+    const finishReq = httpMock.expectOne(`${baseUrl}/5/finish-back`);
+    expect(finishReq.request.method).toBe('PATCH');
+    expect(finishReq.request.body).toEqual({});
+    finishReq.flush(mockApiResponse);
+
+    expect(responses).toHaveLength(5);
   });
 
-  it('deve atualizar um paciente utilizando FormData (updatePatient)', () => {
-    const mockData = { name: 'Maria Alterada' };
-    const mockResponse: ApiResponse = { message: 'Paciente atualizado' };
+  it('deve gerenciar acompanhantes, laudos e anexos (criar, atualizar e excluir)', () => {
+    const results: ApiResponse[] = [];
 
-    service.updatePatient(1, mockData).subscribe(res => {
-      expect(res).toEqual(mockResponse);
-    });
+    service.createPatientEscort(5, mockEscort).subscribe((res) => results.push(res));
+    service.updatePatientEscort(5, 20, mockEscort).subscribe((res) => results.push(res));
+    service.deletePatientEscort(5, 20).subscribe((res) => results.push(res));
 
-    const req = httpMock.expectOne(`${mockApiUrl}/update-patient/1`);
-    expect(req.request.method).toBe('POST');
-    req.flush(mockResponse);
+    service.createPatientReport(5, mockReport).subscribe((res) => results.push(res));
+    service.updatePatientReport(5, 30, mockReport).subscribe((res) => results.push(res));
+    service.deletePatientReport(5, 30).subscribe((res) => results.push(res));
+
+    service.createReportAttachment(5, 30, mockAttachment).subscribe((res) => results.push(res));
+    service.updateReportAttachment(5, 30, 40, mockAttachment).subscribe((res) => results.push(res));
+    service.deleteReportAttachment(5, 30, 40).subscribe((res) => results.push(res));
+
+    const createEscortReq = httpMock.expectOne(`${baseUrl}/5/escorts`);
+    expect(createEscortReq.request.method).toBe('POST');
+    expect(createEscortReq.request.body).toBeInstanceOf(FormData);
+    createEscortReq.flush(mockApiResponse);
+
+    const escortIdReqs = httpMock.match(`${baseUrl}/5/escorts/20`);
+    expect(escortIdReqs).toHaveLength(2);
+    const updateEscortReq = escortIdReqs.find((r) => r.request.method === 'POST');
+    const deleteEscortReq = escortIdReqs.find((r) => r.request.method === 'DELETE');
+    expect((updateEscortReq!.request.body as FormData).get('_method')).toBe('PUT');
+    updateEscortReq!.flush(mockApiResponse);
+    deleteEscortReq!.flush(mockApiResponse);
+
+    const createReportReq = httpMock.expectOne(`${baseUrl}/5/reports`);
+    expect(createReportReq.request.method).toBe('POST');
+    expect(createReportReq.request.body).toEqual(mockReport);
+    createReportReq.flush(mockApiResponse);
+
+    const reportIdReqs = httpMock.match(`${baseUrl}/5/reports/30`);
+    expect(reportIdReqs).toHaveLength(2);
+    const updateReportReq = reportIdReqs.find((r) => r.request.method === 'PUT');
+    const deleteReportReq = reportIdReqs.find((r) => r.request.method === 'DELETE');
+    expect(updateReportReq!.request.body).toEqual(mockReport);
+    updateReportReq!.flush(mockApiResponse);
+    deleteReportReq!.flush(mockApiResponse);
+
+    const createAttReq = httpMock.expectOne(`${baseUrl}/5/reports/30/attachments`);
+    expect(createAttReq.request.method).toBe('POST');
+    expect(createAttReq.request.body).toBeInstanceOf(FormData);
+    createAttReq.flush(mockApiResponse);
+
+    const attIdReqs = httpMock.match(`${baseUrl}/5/reports/30/attachments/40`);
+    expect(attIdReqs).toHaveLength(2);
+    const updateAttReq = attIdReqs.find((r) => r.request.method === 'POST');
+    const deleteAttReq = attIdReqs.find((r) => r.request.method === 'DELETE');
+    expect((updateAttReq!.request.body as FormData).get('_method')).toBe('PUT');
+    updateAttReq!.flush(mockApiResponse);
+    deleteAttReq!.flush(mockApiResponse);
+
+    expect(results).toHaveLength(9);
   });
 
-  it('deve arquivar um paciente (archivePatient)', () => {
-    const mockResponse: ApiResponse = { message: 'Arquivado' };
+  it('deve buscar paciente e acompanhante por CNS ou documento limpando dígitos e tratando erro com null', () => {
+    let foundPatientCns: unknown;
+    let errPatientDoc: unknown;
+    let foundEscortCns: unknown;
+    let errEscortDoc: unknown;
 
-    service.archivePatient(10).subscribe(res => {
-      expect(res).toEqual(mockResponse);
-    });
+    service.getPatientCns('123.4567.8901-2345').subscribe((res) => (foundPatientCns = res));
+    service.getPatientDocument('123.456.789-01').subscribe((res) => (errPatientDoc = res));
+    service.getEscortCns('987.6543.2109-8765').subscribe((res) => (foundEscortCns = res));
+    service.getEscortDocument('987.654.321-09').subscribe((res) => (errEscortDoc = res));
 
-    const req = httpMock.expectOne(`${mockApiUrl}/archive-patient/10`);
-    expect(req.request.method).toBe('PATCH');
-    req.flush(mockResponse);
+    const pCnsReq = httpMock.expectOne(
+      (r) => r.url === `${baseUrl}/search` && r.params.get('cns') === '123456789012345'
+    );
+    pCnsReq.flush(mockPatient);
+
+    const pDocReq = httpMock.expectOne(
+      (r) => r.url === `${baseUrl}/search` && r.params.get('document') === '12345678901'
+    );
+    pDocReq.flush('Erro', { status: 404, statusText: 'Not Found' });
+
+    const eCnsReq = httpMock.expectOne(
+      (r) => r.url === `${baseUrl}/escorts/search` && r.params.get('cns') === '987654321098765'
+    );
+    eCnsReq.flush(mockEscort);
+
+    const eDocReq = httpMock.expectOne(
+      (r) => r.url === `${baseUrl}/escorts/search` && r.params.get('document') === '98765432109'
+    );
+    eDocReq.flush('Erro', { status: 500, statusText: 'Server Error' });
+
+    expect(foundPatientCns).toEqual(mockPatient);
+    expect(errPatientDoc).toBeNull();
+    expect(foundEscortCns).toEqual(mockEscort);
+    expect(errEscortDoc).toBeNull();
   });
 
-  it('deve mover paciente do arquivo (movePatientFromArchive)', () => {
-    const mockResponse: ApiResponse = { message: 'Movido' };
-    service.movePatientFromArchive(10).subscribe(res => expect(res).toEqual(mockResponse));
-    const req = httpMock.expectOne(`${mockApiUrl}/move-patient-from-archive/10`);
-    expect(req.request.method).toBe('PATCH');
-    req.flush(mockResponse);
+  it('deve validar CNS e documento de paciente de forma assíncrona com debounce e callback onFound', async () => {
+    vi.useFakeTimers();
+    const onFoundPatient = vi.fn();
+    const cnsValidator = service.cnsPatientExistsValidator('111111111111111', onFoundPatient);
+
+    const pristineCtrl = new FormControl('123456789012345');
+    let pristineRes: ValidationErrors | null | string = 'pending';
+    observeValidation(cnsValidator(pristineCtrl), (v) => (pristineRes = v));
+    await vi.advanceTimersByTimeAsync(400);
+    expect(pristineRes).toBeNull();
+
+    const dirtyCtrl = new FormControl('123.4567.8901-2345');
+    dirtyCtrl.markAsDirty();
+    let cnsValidationRes: ValidationErrors | null | string = 'pending';
+    observeValidation(cnsValidator(dirtyCtrl), (v) => (cnsValidationRes = v));
+
+    await vi.advanceTimersByTimeAsync(399);
+    httpMock.expectNone(`${baseUrl}/search`);
+    await vi.advanceTimersByTimeAsync(1);
+
+    const cnsReq = httpMock.expectOne(
+      (r) => r.url === `${baseUrl}/search` && r.params.get('cns') === '123456789012345'
+    );
+    cnsReq.flush({ ...mockPatient, exists_in_tfd: true });
+    expect(onFoundPatient).toHaveBeenCalledTimes(1);
+    expect(cnsValidationRes).toEqual({ cnsExists: true });
+
+    const docValidator = service.documentPatientExistsValidator();
+    const docCtrl = new FormControl('123.456.789-01');
+    docCtrl.markAsDirty();
+    let docValidationRes: ValidationErrors | null | string = 'pending';
+    observeValidation(docValidator(docCtrl), (v) => (docValidationRes = v));
+    await vi.advanceTimersByTimeAsync(400);
+
+    const docReq = httpMock.expectOne(
+      (r) => r.url === `${baseUrl}/search` && r.params.get('document') === '12345678901'
+    );
+    docReq.flush({ ...mockPatient, exists_in_tfd: false });
+    expect(docValidationRes).toBeNull();
   });
 
-  it('deve mover paciente de outros fluxos (movePatientFromOthers)', () => {
-    const mockResponse: ApiResponse = { message: 'Movido de outros' };
-    service.movePatientFromOthers(10).subscribe(res => expect(res).toEqual(mockResponse));
-    const req = httpMock.expectOne(`${mockApiUrl}/move-patient-from-others/10`);
-    expect(req.request.method).toBe('PATCH');
-    req.flush(mockResponse);
-  });
+  it('deve validar CNS e documento de acompanhante (mesmo paciente, no atendimento e fora do atendimento)', async () => {
+    vi.useFakeTimers();
 
-  it('deve validar um paciente (validatePatient)', () => {
-    const mockResponse: ApiResponse = { message: 'Validado' };
-    service.validatePatient(10).subscribe(res => expect(res).toEqual(mockResponse));
-    const req = httpMock.expectOne(`${mockApiUrl}/validate-patient/10`);
-    expect(req.request.method).toBe('PATCH');
-    req.flush(mockResponse);
-  });
+    const escortCnsValidator = service.cnsEscortExistsValidator(mockPatientCare);
 
-  // ==========================================
-  // FLUXO DE ACOMPANHANTES
-  // ==========================================
+    const sameAsPatientCns = new FormControl('123456789012345');
+    sameAsPatientCns.markAsDirty();
+    let samePatientRes: ValidationErrors | null | string = 'pending';
+    observeValidation(escortCnsValidator(sameAsPatientCns), (v) => (samePatientRes = v));
+    await vi.advanceTimersByTimeAsync(400);
+    expect(samePatientRes).toEqual({ cnsPatientExists: true });
 
-  it('deve buscar acompanhantes do paciente (getPatientEscorts)', () => {
-    const mockEscorts: Escort[] = [{ id: 2, name: 'Acompanhante 1' } as any];
-    service.getPatientEscorts(5).subscribe(res => expect(res).toEqual(mockEscorts));
-    const req = httpMock.expectOne(`${mockApiUrl}/get-patient-escorts/5`);
-    expect(req.request.method).toBe('GET');
-    req.flush(mockEscorts);
-  });
+    const inCareCns = new FormControl('987654321098765');
+    inCareCns.markAsDirty();
+    let inCareRes: ValidationErrors | null | string = 'pending';
+    observeValidation(escortCnsValidator(inCareCns), (v) => (inCareRes = v));
+    await vi.advanceTimersByTimeAsync(400);
 
-  it('deve criar acompanhante (createPatientEscort)', () => {
-    const mockResponse: ApiResponse = { message: 'Acompanhante criado' };
-    service.createPatientEscort(5, { name: 'Acom' }).subscribe(res => expect(res).toEqual(mockResponse));
-    const req = httpMock.expectOne(`${mockApiUrl}/create-patient-escort/5`);
-    expect(req.request.method).toBe('POST');
-    req.flush(mockResponse);
-  });
+    const cnsReq = httpMock.expectOne(
+      (r) => r.url === `${baseUrl}/escorts/search` && r.params.get('cns') === '987654321098765'
+    );
+    cnsReq.flush(mockEscort);
+    expect(inCareRes).toEqual({ cnsExists: true });
 
-  it('deve atualizar acompanhante (updatePatientEscort)', () => {
-    const mockResponse: ApiResponse = { message: 'Acompanhante atualizado' };
-    service.updatePatientEscort(2, { name: 'Acom Editado' }).subscribe(res => expect(res).toEqual(mockResponse));
-    const req = httpMock.expectOne(`${mockApiUrl}/update-patient-escort/2`);
-    expect(req.request.method).toBe('PATCH');
-    req.flush(mockResponse);
-  });
+    const escortDocWithoutCare = service.documentEscortExistsValidator(null);
+    const otherDocCtrl = new FormControl('555.666.777-88');
+    otherDocCtrl.markAsDirty();
+    let otherDocRes: ValidationErrors | null | string = 'pending';
+    observeValidation(escortDocWithoutCare(otherDocCtrl), (v) => (otherDocRes = v));
+    await vi.advanceTimersByTimeAsync(400);
 
-  it('deve deletar acompanhante (deletePatientEscort)', () => {
-    const mockResponse: ApiResponse = { message: 'Acompanhante excluído' };
-    service.deletePatientEscort(2).subscribe(res => expect(res).toEqual(mockResponse));
-    const req = httpMock.expectOne(`${mockApiUrl}/delete-patient-escort/2`);
-    expect(req.request.method).toBe('DELETE');
-    req.flush(mockResponse);
-  });
-
-  // ==========================================
-  // PRONTUÁRIOS, LAUDOS E CIDS
-  // ==========================================
-
-  it('deve buscar prontuários (getPatientReports)', () => {
-    service.getPatientReports(1).subscribe(res => expect(res).toEqual([]));
-    const req = httpMock.expectOne(`${mockApiUrl}/get-patient-reports/1`);
-    req.flush([]);
-  });
-
-  it('deve criar prontuário (createPatientReport)', () => {
-    const data = { description: 'Laudo médico' };
-    service.createPatientReport(1, data).subscribe(res => expect(res.message).toBe('ok'));
-    const req = httpMock.expectOne(`${mockApiUrl}/create-patient-report/1`);
-    expect(req.request.body).toEqual(data);
-    req.flush({ message: 'ok' });
-  });
-
-  it('deve atualizar prontuário (updatePatientReport)', () => {
-    service.updatePatientReport(1, { text: 'mudei' }).subscribe(res => expect(res.message).toBe('ok'));
-    const req = httpMock.expectOne(`${mockApiUrl}/update-patient-report/1`);
-    req.flush({ message: 'ok' });
-  });
-
-  it('deve deletar prontuário (deletePatientReport)', () => {
-    service.deletePatientReport(1).subscribe(res => expect(res.message).toBe('ok'));
-    const req = httpMock.expectOne(`${mockApiUrl}/delete-patient-report/1`);
-    req.flush({ message: 'ok' });
-  });
-
-  it('deve carregar cids (getCids)', () => {
-    service.getCids(1).subscribe(res => expect(res).toEqual({ cid: 'M54' }));
-    const req = httpMock.expectOne(`${mockApiUrl}/get-cids/1`);
-    req.flush({ cid: 'M54' });
-  });
-
-  // ==========================================
-  // ANEXOS
-  // ==========================================
-
-  it('deve buscar anexos (getReportAttachments)', () => {
-    const mockAnexos: ReportAttachment[] = [{ id: 99 } as any];
-    service.getReportAttachments(1).subscribe(res => expect(res).toEqual(mockAnexos));
-    const req = httpMock.expectOne(`${mockApiUrl}/get-report-attachments/1`);
-    req.flush(mockAnexos);
-  });
-
-  it('deve criar anexo (createReportAttachment)', () => {
-    service.createReportAttachment(1, { file: '...' }).subscribe(res => expect(res.message).toBe('ok'));
-    const req = httpMock.expectOne(`${mockApiUrl}/create-report-attachment/1`);
-    req.flush({ message: 'ok' });
-  });
-
-  it('deve editar anexo (updateReportAttachment)', () => {
-    service.updateReportAttachment(1, { title: 'novo' }).subscribe(res => expect(res.message).toBe('ok'));
-    const req = httpMock.expectOne(`${mockApiUrl}/update-report-attachment/1`);
-    req.flush({ message: 'ok' });
-  });
-
-  it('deve deletar anexo (deleteReportAttachment)', () => {
-    service.deleteReportAttachment(1).subscribe(res => expect(res.message).toBe('ok'));
-    const req = httpMock.expectOne(`${mockApiUrl}/delete-report-attachment/1`);
-    req.flush({ message: 'ok' });
-  });
-
-  // ==========================================
-  // CHECKS DIRETOS
-  // ==========================================
-
-  it('deve obter dados de acompanhante por CNS ou Documento', () => {
-    const mockEscort = { id: 7, name: 'Acompanhante' } as Escort;
-    
-    service.getEscortCns(123).subscribe(res => expect(res).toEqual(mockEscort));
-    const req1 = httpMock.expectOne(`${mockChecksUrl}/get-escort-cns/123`);
-    req1.flush(mockEscort);
-
-    service.getEscortDocument(456).subscribe(res => expect(res).toEqual(mockEscort));
-    const req2 = httpMock.expectOne(`${mockChecksUrl}/get-escort-document/456`);
-    req2.flush(mockEscort);
-  });
-
-  // ==========================================
-  // VALIDATORS ASSÍNCRONOS (COM CAST E TIPAGEM FIXADA)
-  // ==========================================
-
-  describe('cnsPatientExistsValidator', () => {
-    it('deve retornar null imediatamente se o campo do controle for nulo/vazio', () => {
-      const validator = service.cnsPatientExistsValidator('12345');
-      const control = new FormControl('');
-      (validator(control) as Observable<ValidationErrors | null>).subscribe(res => expect(res).toBeNull());
-    });
-
-    it('deve retornar null se o CNS digitado for idêntico ao CNS atual do paciente (edição)', () => {
-      const validator = service.cnsPatientExistsValidator('12345678901');
-      const control = new FormControl('12345678901');
-      (validator(control) as Observable<ValidationErrors | null>).subscribe(res => expect(res).toBeNull());
-    });
-
-    it('deve retornar erro { cnsExists: true } se a API confirmar a existência', () => {
-      const validator = service.cnsPatientExistsValidator('1111');
-      const control = new FormControl('99999999999');
-
-      (validator(control) as Observable<ValidationErrors | null>).subscribe((res: ValidationErrors | null) => {
-        expect(res).toEqual({ cnsExists: true });
-      });
-
-      const req = httpMock.expectOne(`${mockValidatorUrl}/cns-patient-exists/99999999999/1111`);
-      req.flush({ cnsExists: true });
-    });
-
-    it('deve assumir null (válido) se a chamada de API falhar (fluxo catchError)', () => {
-      const validator = service.cnsPatientExistsValidator(null);
-      const control = new FormControl('99999999999');
-
-      (validator(control) as Observable<ValidationErrors | null>).subscribe((res: ValidationErrors | null) => {
-        expect(res).toBeNull();
-      });
-
-      const req = httpMock.expectOne(`${mockValidatorUrl}/cns-patient-exists/99999999999/`);
-      req.error(new ErrorEvent('Network error'));
-    });
-  });
-
-  describe('cnsEscortExistsValidator', () => {
-    const mockPatientCare: PatientCare = { id: 10, patient: { cns: '12345', document: '999' } } as any;
-
-    it('deve retornar null se vazio ou idêntico ao acompanhante atual', () => {
-      const validator = service.cnsEscortExistsValidator(mockPatientCare, '777');
-      (validator(new FormControl('')) as Observable<ValidationErrors | null>).subscribe(res => expect(res).toBeNull());
-      (validator(new FormControl('777')) as Observable<ValidationErrors | null>).subscribe(res => expect(res).toBeNull());
-    });
-
-    it('deve acusar erro imediato se o CNS do acompanhante for igual ao do titular do prontuário', () => {
-      const validator = service.cnsEscortExistsValidator(mockPatientCare, '777');
-      const control = new FormControl('12345');
-
-      (validator(control) as Observable<ValidationErrors | null>).subscribe((res: ValidationErrors | null) => {
-        expect(res).toEqual({ cnsPatientExists: true });
-      });
-    });
-
-    it('deve disparar requisição HTTP e mapear retorno positivo', () => {
-      const validator = service.cnsEscortExistsValidator(mockPatientCare, '777');
-      const control = new FormControl('88888');
-
-      (validator(control) as Observable<ValidationErrors | null>).subscribe((res: ValidationErrors | null) => expect(res).toEqual({ cnsExists: true }));
-
-      const req = httpMock.expectOne(`${mockValidatorUrl}/cns-escort-exists/10/88888/777`);
-      req.flush({ cnsExists: true });
-    });
-  });
-
-  describe('documentPatientExistsValidator', () => {
-    it('deve cobrir fluxo de validação de documento do paciente', () => {
-      const validator = service.documentPatientExistsValidator('123');
-      (validator(new FormControl('')) as Observable<ValidationErrors | null>).subscribe(res => expect(res).toBeNull());
-      (validator(new FormControl('123')) as Observable<ValidationErrors | null>).subscribe(res => expect(res).toBeNull());
-
-      const control = new FormControl('456');
-      (validator(control) as Observable<ValidationErrors | null>).subscribe((res: ValidationErrors | null) => expect(res).toEqual({ documentExists: true }));
-
-      const req = httpMock.expectOne(`${mockValidatorUrl}/document-patient-exists/456/123`);
-      req.flush({ documentExists: true });
-    });
-  });
-
-  describe('documentEscortExistsValidator', () => {
-    const mockPatientCare: PatientCare = { id: 10, patient: { cns: '123', document: 'CPF-TITULAR' } } as any;
-
-    it('deve validar se o documento do acompanhante choca com o do titular', () => {
-      const validator = service.documentEscortExistsValidator(mockPatientCare, 'OUTRO');
-      
-      (validator(new FormControl('CPF-TITULAR')) as Observable<ValidationErrors | null>).subscribe((res: ValidationErrors | null) => {
-        expect(res).toEqual({ documentPatientExists: true });
-      });
-
-      const control = new FormControl('CPF-NOVO');
-      (validator(control) as Observable<ValidationErrors | null>).subscribe((res: ValidationErrors | null) => expect(res).toEqual({ documentExists: true }));
-
-      const req = httpMock.expectOne(`${mockValidatorUrl}/document-escort-exists/10/CPF-NOVO/OUTRO`);
-      req.flush({ documentExists: true });
-    });
-  });
-
-  // ==========================================
-  // METODO PRIVADO mountFormData
-  // ==========================================
-
-  it('deve ignorar e retornar FormData vazio se o payload for nulo', () => {
-    const formData = (service as any).mountFormData(null);
-    expect(formData.has('any')).toBe(false);
+    const docReq = httpMock.expectOne(
+      (r) => r.url === `${baseUrl}/escorts/search` && r.params.get('document') === '55566677788'
+    );
+    docReq.flush({ id: 99, document: '55566677788' });
+    expect(otherDocRes).toEqual({ documentExists: true });
   });
 });

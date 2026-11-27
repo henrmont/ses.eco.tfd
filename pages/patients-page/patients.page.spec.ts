@@ -1,226 +1,413 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { TestBed, ComponentFixture } from '@angular/core/testing';
+// src/app/tfd/pages/patients-page/patients.page.spec.ts
+import { signal } from '@angular/core';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
-import { ActivatedRoute } from '@angular/router';
-import { of } from 'rxjs';
-import { PatientService } from '../../services/patient-service';
-import { provideEnvironmentNgxMask } from 'ngx-mask';
-import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { MatPaginator } from '@angular/material/paginator';
+import { provideRouter } from '@angular/router';
+import { Observable, Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// 1. Estrutura de espionagem idêntica à users-page para isolar o canal
-const broadcastChannelMock = {
-  postMessage: vi.fn(),
-  close: vi.fn()
-};
+import { PatientsPage } from './patients.page';
+import { LoadingComponent } from '../../../core/components/loading-component/loading-component';
+import { PatientArchiveComponent } from '../../components/patients/patient-archive/patient-archive.component';
+import { PatientDetailComponent } from '../../components/patients/patient-detail/patient-detail.component';
+import { PatientEscortsComponent } from '../../components/patients/patient-escorts/patient-escorts.component';
+import { PatientFinishBackComponent } from '../../components/patients/patient-finish-back/patient-finish-back.component';
+import { PatientMoveFromOthersComponent } from '../../components/patients/patient-move-from-others/patient-move-from-others.component';
+import { PatientReportsComponent } from '../../components/patients/patient-reports/patient-reports.component';
+import { PatientRequirementComponent } from '../../components/patients/patient-requirement/patient-requirement.component';
+import { PatientUpdateComponent } from '../../components/patients/patient-update/patient-update.component';
+import { PatientValidateComponent } from '../../components/patients/patient-validate/patient-validate.component';
+import { PatientCare } from '../../models/patient-care.model';
+import { TfdUser } from '../../models/user.model';
+import { AuthService } from '../../services/auth.service';
+import { PatientService } from '../../services/patient.service';
 
-let canalCallback: any = null;
-
-// Stub do canal antes de carregar o componente (evita vazamento)
-vi.stubGlobal('BroadcastChannel', class {
+class MockBroadcastChannel {
   name: string;
+  onmessage: ((ev: MessageEvent<string>) => void) | null = null;
+  postMessage = vi.fn();
+  close = vi.fn();
+
   constructor(name: string) {
     this.name = name;
   }
-  set onmessage(callback: any) {
-    canalCallback = callback;
-  }
-  get onmessage() {
-    return canalCallback;
-  }
-  postMessage(message: any) {
-    broadcastChannelMock.postMessage(message);
-    if (canalCallback) {
-      canalCallback({ data: message });
-    }
-  }
-  close() {
-    broadcastChannelMock.close();
-  }
-});
+}
 
 describe('PatientsPage', () => {
-  let component: any;
-  let fixture: ComponentFixture<any>;
-  
-  let mockPatientService: any;
-  let mockMatDialog: any;
-  let mockActivatedRoute: any;
+  let fixture: ComponentFixture<PatientsPage>;
+  let component: PatientsPage;
 
-  const mockPatientsResponse = [
+  let channelMock: MockBroadcastChannel;
+  let currentUserSignal: ReturnType<typeof signal<TfdUser | null>>;
+  let getPatientsMock: ReturnType<typeof vi.fn>;
+  let dialogOpenMock: ReturnType<typeof vi.fn>;
+  let loadingCloseMock: ReturnType<typeof vi.fn>;
+  let afterClosed$: Subject<unknown>;
+
+  const longPatientName = 'Maria Fernanda de Albuquerque Vasconcelos Cavalcanti';
+  const truncatedLongName = `${longPatientName.slice(0, 32)} ...${longPatientName.slice(-5)}`;
+
+  const samplePatients = [
     {
       id: 1,
-      is_archived: false,
       owner: true,
-      status: true,
-      is_valid: true,
-      patient: { name: 'Paciente Titular Ativo', cns: '123456789012345', document: '12345678901', document_type: 'CPF' }
+      patient: {
+        name: longPatientName,
+        cns: '123456789012345',
+        document: '12345678901',
+        document_type: 'CPF',
+      },
     },
     {
       id: 2,
-      is_archived: false,
       owner: false,
-      status: true,
-      is_valid: false,
-      patient: { name: 'Paciente Vinculado Inativo', cns: '987654321098765' },
-      user: { professional: { name: 'Dr. Lucas Silva' } }
+      patient: {
+        name: 'João Silva',
+        cns: '987654321098765',
+        document: '98765432109',
+        document_type: 'CPF',
+      },
+      user: {
+        professional: {
+          name: 'Dr. Carlos Eduardo Mendes',
+        },
+      },
     },
     {
       id: 3,
-      is_archived: true,
+      owner: false,
+      patient: {},
+      user: {
+        professional: {
+          name: 'Coordenação',
+        },
+      },
+    },
+    {
+      id: 4,
       owner: true,
-      patient: { name: 'Paciente Arquivado' }
-    }
-  ];
+      patient: {
+        name: 'Ana',
+      },
+      user: {},
+    },
+  ] as unknown as PatientCare[];
 
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    canalCallback = null;
+  async function initPage(
+    patientsStream$: Observable<PatientCare[] | null> = of(samplePatients),
+    userValue: TfdUser | null = {
+      id: 1,
+      roles: [
+        {
+          permissions: [
+            { name: 'tfd/paciente listar' },
+            { name: 'paciente editar' },
+            { name: '' },
+          ],
+        },
+        {},
+      ],
+    } as unknown as TfdUser
+  ): Promise<void> {
+    loadingCloseMock = vi.fn();
+    afterClosed$ = new Subject<unknown>();
 
-    mockPatientService = {
-      getPatients: vi.fn().mockReturnValue(of(mockPatientsResponse))
-    };
-
-    mockMatDialog = {
-      open: vi.fn().mockReturnValue({
-        afterClosed: vi.fn().mockReturnValue(of(true))
+    channelMock = new MockBroadcastChannel('tfd-patients-channel');
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return channelMock;
       })
-    };
+    );
 
-    mockActivatedRoute = {
-      parent: {
-        parent: {
-          snapshot: {
-            data: {
-              user: {
-                id: 99,
-                roles: [{ permissions: [{ name: 'tfd/paciente validar' }, { name: 'tfd/paciente atualizar' }] }]
-              }
-            }
-          }
-        }
+    currentUserSignal = signal<TfdUser | null>(userValue);
+    getPatientsMock = vi.fn(() => patientsStream$);
+    dialogOpenMock = vi.fn((comp: unknown) => {
+      if (comp === LoadingComponent) {
+        return { close: loadingCloseMock };
       }
-    };
-
-    // 2. Dynamic Import crucial para blindar o hoisting do Vitest
-    const { PatientsPage } = await import('./patients-page');
+      return {
+        afterClosed: () => afterClosed$.asObservable(),
+      };
+    });
 
     await TestBed.configureTestingModule({
       imports: [PatientsPage],
       providers: [
-        { provide: PatientService, useValue: mockPatientService },
-        { provide: MatDialog, useValue: mockMatDialog },
-        { provide: ActivatedRoute, useValue: mockActivatedRoute },
-        provideEnvironmentNgxMask()
+        provideRouter([]),
+        { provide: PatientService, useValue: { getPatients: getPatientsMock } },
+        { provide: AuthService, useValue: { currentUser: currentUserSignal } },
+        { provide: MatDialog, useValue: { open: dialogOpenMock } },
       ],
-      schemas: [NO_ERRORS_SCHEMA]
-    }).compileComponents();
+    })
+      .overrideComponent(PatientsPage, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
     fixture = TestBed.createComponent(PatientsPage);
     component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
     fixture?.destroy();
-    TestBed.resetTestingModule();
+    afterClosed$?.complete();
+    vi.unstubAllGlobals();
   });
 
-  // --- BLOCO 1: INICIALIZAÇÃO E CARREGAMENTO DE DADOS ---
-  describe('Inicialização', () => {
-    it('deve criar o componente com sucesso', () => {
-      expect(component).toBeTruthy();
+  it('deve inicializar canal, carregar e mapear pacientes (owner e others) com loading e fechar canal ao destruir', async () => {
+    await initPage();
+
+    expect(component).toBeTruthy();
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patients-channel');
+    expect(dialogOpenMock).toHaveBeenCalledWith(LoadingComponent, {
+      height: '200px',
+      disableClose: true,
+      autoFocus: false,
     });
+    expect(loadingCloseMock).toHaveBeenCalledTimes(1);
 
-    it('deve carregar a lista de pacientes e separar os DataSources por "Owner" (Titular) e "Others" (Outros)', () => {
-      fixture.detectChanges();
+    expect(component['ownerDataSource'].data).toEqual([
+      expect.objectContaining({
+        id: 1,
+        name: truncatedLongName,
+        cns: '123456789012345',
+        document: '12345678901',
+        document_type: 'CPF',
+      }),
+      expect.objectContaining({
+        id: 4,
+        name: 'Ana',
+        cns: '-',
+        document: '-',
+        document_type: '-',
+      }),
+    ]);
 
-      expect(mockPatientService.getPatients).toHaveBeenCalledTimes(1);
+    expect(component['othersDataSource'].data).toEqual([
+      expect.objectContaining({
+        id: 2,
+        name: 'João Silva',
+        cns: '987654321098765',
+        document: '98765432109',
+        document_type: 'CPF',
+        professional: 'Dr. Mendes',
+      }),
+      expect.objectContaining({
+        id: 3,
+        name: '-',
+        cns: '-',
+        document: '-',
+        document_type: '-',
+        professional: 'Coordenação',
+      }),
+    ]);
 
-      const ownerData = component['ownerDataSource']().data;
-      expect(ownerData.length).toBe(1);
-      expect(ownerData[0].name).toBe('Paciente Titular Ativo');
-
-      const othersData = component['othersDataSource']().data;
-      expect(othersData.length).toBe(1);
-      expect(othersData[0].professional).toBe('Dr. Lucas Silva');
-    });
-
-    it('deve fechar o BroadcastChannel corretamente ao destruir o componente', () => {
-      fixture.detectChanges();
-      component.ngOnDestroy();
-      
-      expect(broadcastChannelMock.close).toHaveBeenCalled();
-    });
+    fixture.destroy();
+    expect(channelMock.close).toHaveBeenCalledTimes(1);
   });
 
-  // --- BLOCO 2: REATIVIDADE DO FILTRO DA DATA TABLE ---
-  describe('Filtros', () => {
-    it('deve aplicar filtro de busca na listagem de titulares', () => {
-      fixture.detectChanges();
-      const mockEvent = { target: { value: '  PACIENTE TITULAR ' } } as unknown as Event;
-      
-      component['applyOwnerFilter'](mockEvent);
-      
-      expect(component['ownerDataSource']().filter).toBe('paciente titular');
-    });
+  it('deve recarregar pacientes sem loading ao receber "update" no BroadcastChannel', async () => {
+    await initPage();
+    getPatientsMock.mockClear();
+    dialogOpenMock.mockClear();
+    getPatientsMock.mockImplementation(() => of([samplePatients[0]]));
+
+    channelMock.onmessage?.({ data: 'ignorar' } as MessageEvent<string>);
+    expect(getPatientsMock).not.toHaveBeenCalled();
+
+    channelMock.onmessage?.({ data: 'update' } as MessageEvent<string>);
+    expect(getPatientsMock).toHaveBeenCalledTimes(1);
+    expect(dialogOpenMock).not.toHaveBeenCalled();
+    expect(component['ownerDataSource'].data).toHaveLength(1);
+    expect(component['othersDataSource'].data).toHaveLength(0);
   });
 
-  // --- BLOCO 3: SEGURANÇA E PERMISSÕES ---
-  describe('Controle de Permissões', () => {
-    it('deve retornar TRUE quando o usuário logado possui a permissão solicitada', () => {
-      fixture.detectChanges();
-      const possuiAcesso = component['checkPermissions']('tfd/paciente validar');
-      expect(possuiAcesso).toBe(true);
-    });
-
-    it('deve retornar FALSE quando o usuário logado NÃO possui a permissão solicitada', () => {
-      fixture.detectChanges();
-      const possuiAcesso = component['checkPermissions']('tfd/paciente deletar_inexistente');
-      expect(possuiAcesso).toBe(false);
-    });
+  it('deve manter ownerDataSource e othersDataSource vazios quando getPatients retornar null', async () => {
+    await initPage(of(null));
+    expect(component['ownerDataSource'].data).toEqual([]);
+    expect(component['othersDataSource'].data).toEqual([]);
   });
 
-  // --- BLOCO 4: FLUXOS DE MODAIS E BROADCASTS ---
-  describe('Ações de Modais e Mensageria', () => {
-    beforeEach(() => {
-      // Limpa os contadores acumulados da inicialização antes de testar as ações
-      mockPatientService.getPatients.mockClear();
-      broadcastChannelMock.postMessage.mockClear();
-      canalCallback = null; // Isola eventos de broadcast anteriores
+  it('deve manter ownerDataSource e othersDataSource vazios quando getPatients falhar', async () => {
+    await initPage(throwError(() => new Error('Falha na API')));
+    expect(component['ownerDataSource'].data).toEqual([]);
+    expect(component['othersDataSource'].data).toEqual([]);
+  });
+
+  it('deve filtrar owner e others, chamar firstPage nos paginators e avaliar permissões', async () => {
+    await initPage();
+
+    const ownerPaginatorMock = {
+      firstPage: vi.fn(),
+      page: of(),
+      _change: of(),
+      initialized: of(),
+    } as unknown as MatPaginator;
+
+    const othersPaginatorMock = {
+      firstPage: vi.fn(),
+      page: of(),
+      _change: of(),
+      initialized: of(),
+    } as unknown as MatPaginator;
+
+    component['ownerDataSource'].paginator = ownerPaginatorMock;
+    component['othersDataSource'].paginator = othersPaginatorMock;
+
+    component['applyOwnerFilter']({
+      target: { value: '  MARIA FERNANDA  ' },
+    } as unknown as Event);
+
+    component['applyOthersFilter']({
+      target: { value: '  JOÃO SILVA  ' },
+    } as unknown as Event);
+
+    expect(component['ownerDataSource'].filter).toBe('maria fernanda');
+    expect(component['othersDataSource'].filter).toBe('joão silva');
+    expect(ownerPaginatorMock.firstPage).toHaveBeenCalledTimes(1);
+    expect(othersPaginatorMock.firstPage).toHaveBeenCalledTimes(1);
+
+    expect(component['checkPermissions']('paciente listar')).toBe(false);
+    expect(component['checkPermissions']('paciente editar')).toBe(false);
+    expect(component['checkPermissions']('paciente excluir')).toBe(true);
+
+    currentUserSignal.set({ id: 1, roles: [] } as unknown as TfdUser);
+    expect(component['checkPermissions']('paciente listar')).toBe(true);
+  });
+
+  describe('Ações da tabela', () => {
+    const targetPatientCare = samplePatients[0];
+
+    beforeEach(async () => {
+      await initPage();
+      getPatientsMock.mockClear();
+      channelMock.postMessage.mockClear();
     });
 
-    it('deve abrir a modal de atualizar paciente e emitir alteração no canal de Broadcast quando concluído', async () => {
-      fixture.detectChanges(); // 1ª chamada de getPatients aqui
-      const pacienteFake = mockPatientsResponse[0] as any;
+    it('deve abrir modais sem refresh (detail, escorts, reports) e não atualizar ao fechar', () => {
+      component['patientDetail'](targetPatientCare);
+      expect(dialogOpenMock).toHaveBeenCalledWith(
+        PatientDetailComponent,
+        expect.objectContaining({
+          width: '1200px',
+          height: '700px',
+          disableClose: true,
+          autoFocus: false,
+          scrollStrategy: expect.anything(),
+          data: { patient_care: targetPatientCare },
+        })
+      );
 
-      component['updatePatient'](pacienteFake);
-      
-      await Promise.resolve();
-      fixture.detectChanges();
+      component['patientEscorts'](targetPatientCare);
+      expect(dialogOpenMock).toHaveBeenCalledWith(
+        PatientEscortsComponent,
+        expect.objectContaining({
+          width: '1200px',
+          height: 'auto',
+          data: { patient_care: targetPatientCare },
+        })
+      );
 
-      expect(mockMatDialog.open).toHaveBeenCalled();
-      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
-      
-      // 1 (do detectChanges) + 1 (do afterClosed) + 1 (do eco do onmessage callback) = 3
-      expect(mockPatientService.getPatients).toHaveBeenCalledTimes(3); 
+      component['patientReports'](targetPatientCare);
+      expect(dialogOpenMock).toHaveBeenCalledWith(
+        PatientReportsComponent,
+        expect.objectContaining({
+          width: '1200px',
+          height: 'auto',
+          data: { patient_care: targetPatientCare },
+        })
+      );
+
+      afterClosed$.next(true);
+      afterClosed$.complete();
+
+      expect(getPatientsMock).not.toHaveBeenCalled();
+      expect(channelMock.postMessage).not.toHaveBeenCalled();
     });
 
-    it('deve abrir a modal de visualização de prontuário sem disparar recarregamento ou broadcast', async () => {
-      // Força o modal a fechar SEM alteração (retornando false), condizente com uma ação de visualização
-      mockMatDialog.open.mockReturnValue({
-        afterClosed: vi.fn().mockReturnValue(of(false))
-      });
+    it('deve abrir modais com refresh (update, archive, moveFromOthers, validate, finishBack, requirement) e atualizar ao confirmar', () => {
+      component['patientUpdate'](targetPatientCare);
+      expect(dialogOpenMock).toHaveBeenCalledWith(
+        PatientUpdateComponent,
+        expect.objectContaining({
+          width: '1200px',
+          height: '700px',
+          data: { patient_care: targetPatientCare },
+        })
+      );
 
-      fixture.detectChanges();
-      const pacienteFake = mockPatientsResponse[0] as any;
+      component['patientArchive'](targetPatientCare);
+      expect(dialogOpenMock).toHaveBeenCalledWith(
+        PatientArchiveComponent,
+        expect.objectContaining({
+          width: '400px',
+          height: 'auto',
+          data: { patient_care: targetPatientCare },
+        })
+      );
 
-      component['showPatient'](pacienteFake);
-      
-      await Promise.resolve();
-      fixture.detectChanges();
+      component['patientMoveFromOthers'](targetPatientCare);
+      expect(dialogOpenMock).toHaveBeenCalledWith(
+        PatientMoveFromOthersComponent,
+        expect.objectContaining({
+          width: '400px',
+          height: 'auto',
+          data: { patient_care: targetPatientCare },
+        })
+      );
 
-      expect(mockMatDialog.open).toHaveBeenCalled();
-      expect(broadcastChannelMock.postMessage).not.toHaveBeenCalled();
-      expect(mockPatientService.getPatients).toHaveBeenCalledTimes(1); // Apenas a chamada inicial do detectChanges
+      component['patientValidate'](targetPatientCare);
+      expect(dialogOpenMock).toHaveBeenCalledWith(
+        PatientValidateComponent,
+        expect.objectContaining({
+          width: '400px',
+          height: 'auto',
+          data: { patient_care: targetPatientCare },
+        })
+      );
+
+      component['patientFinishBack'](targetPatientCare);
+      expect(dialogOpenMock).toHaveBeenCalledWith(
+        PatientFinishBackComponent,
+        expect.objectContaining({
+          width: '400px',
+          height: 'auto',
+          data: { patient_care: targetPatientCare },
+        })
+      );
+
+      component['patientRequirement'](targetPatientCare);
+      expect(dialogOpenMock).toHaveBeenCalledWith(
+        PatientRequirementComponent,
+        expect.objectContaining({
+          width: '500px',
+          height: 'auto',
+          data: { patient_care: targetPatientCare },
+        })
+      );
+
+      afterClosed$.next(true);
+      afterClosed$.complete();
+
+      expect(getPatientsMock).toHaveBeenCalledTimes(6);
+      expect(channelMock.postMessage).toHaveBeenCalledTimes(6);
+      expect(channelMock.postMessage).toHaveBeenCalledWith('update');
+    });
+
+    it('não deve atualizar quando modal com refresh for cancelado', () => {
+      component['patientUpdate'](targetPatientCare);
+      afterClosed$.next(false);
+      afterClosed$.complete();
+
+      expect(getPatientsMock).not.toHaveBeenCalled();
+      expect(channelMock.postMessage).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,183 +1,208 @@
-import { TestBed, ComponentFixture } from '@angular/core/testing';
+// src/app/tfd/components/patient-requests/patient-request-halted/patient-request-halted.component.spec.ts
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { of, throwError } from 'rxjs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { HaltedPatientRequestComponent } from './halted-patient-request-component';
-import { PatientRequestService } from '../../../services/patient-request-service';
-import { MessageService } from '../../../../core/services/message-service';
+import {
+  PatientRequestHaltedComponent,
+  PatientRequestHaltedDialogData,
+} from './patient-request-halted.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { PatientRequest } from '../../../models/patient-request.model';
+import { PatientRequestService } from '../../../services/patient-request.service';
 
-describe('HaltedPatientRequestComponent', () => {
-  let component: HaltedPatientRequestComponent;
-  let fixture: ComponentFixture<HaltedPatientRequestComponent>;
-  
-  let patientRequestServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  const mockDialogData = {
+describe('PatientRequestHaltedComponent', () => {
+  let component: PatientRequestHaltedComponent;
+  let fixture: ComponentFixture<PatientRequestHaltedComponent>;
+
+  let broadcastChannelMock: MockBroadcastChannel;
+  let patientRequestServiceMock: {
+    haltedPatientRequest: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
+  };
+
+  const baseDialogData: PatientRequestHaltedDialogData = {
     patient_request: {
-      id: 450,
-      is_owner_bookmark: false,
+      id: 66,
+      is_owner_bookmark: true,
       report: {
         patient_care: {
           patient: {
-            name: 'Carlos Alberto'
-          }
-        }
-      }
-    }
+            name: 'Lucas Almeida',
+          },
+        },
+      },
+    } as unknown as PatientRequest,
   };
 
-  beforeEach(async () => {
-    patientRequestServiceMock = {
-      haltedPatientRequest: vi.fn()
-    };
-
-    messageServiceMock = {
-      showMessage: vi.fn()
-    };
-
-    dialogRefMock = {
-      close: vi.fn()
-    };
-
-    await TestBed.configureTestingModule({
-      imports: [HaltedPatientRequestComponent]
-    })
-    .overrideComponent(HaltedPatientRequestComponent, {
-      set: {
+  async function createComponent(
+    dialogData: PatientRequestHaltedDialogData | null = {
+      patient_request: {
+        id: 66,
+        is_owner_bookmark: true,
+        report: {
+          patient_care: {
+            patient: {
+              name: 'Lucas Almeida',
+            },
+          },
+        },
+      } as unknown as PatientRequest,
+    }
+  ): Promise<void> {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientRequestHaltedComponent],
         providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
           { provide: PatientRequestService, useValue: patientRequestServiceMock },
           { provide: MessageService, useValue: messageServiceMock },
           { provide: MatDialogRef, useValue: dialogRefMock },
-          { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-        ]
-      }
-    })
-    .compileComponents();
+          { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        ],
+      })
+      .overrideComponent(PatientRequestHaltedComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
-    fixture = TestBed.createComponent(HaltedPatientRequestComponent);
+    fixture = TestBed.createComponent(PatientRequestHaltedComponent);
     component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    broadcastChannelMock = new MockBroadcastChannel();
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
+    patientRequestServiceMock = {
+      haltedPatientRequest: vi.fn(),
+    };
+
+    messageServiceMock = {
+      showMessage: vi.fn(),
+    };
+
+    dialogRefMock = {
+      close: vi.fn(),
+    };
+
+    await createComponent();
   });
 
-  describe('Inicialização', () => {
-    it('deve instanciar o componente com sucesso', () => {
-      fixture.detectChanges();
-      expect(component).toBeTruthy();
-    });
-
-    it('deve inicializar com o estado de submissão desativado', () => {
-      fixture.detectChanges();
-      expect(component['isSubmitting']()).toBe(false);
-    });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
-  describe('Fluxo de Submissão (onSubmit)', () => {
-    it('deve barrar a execução e exibir mensagem de erro se o id da solicitação não estiver presente', () => {
-      TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ imports: [HaltedPatientRequestComponent] })
-        .overrideComponent(HaltedPatientRequestComponent, {
-          set: {
-            providers: [
-              { provide: PatientRequestService, useValue: patientRequestServiceMock },
-              { provide: MessageService, useValue: messageServiceMock },
-              { provide: MatDialogRef, useValue: dialogRefMock },
-              { provide: MAT_DIALOG_DATA, useValue: { patient_request: { id: null } } }
-            ]
-          }
-        });
+  it('deve criar o componente, abrir o BroadcastChannel e expor isMarkedHalted e patientName', () => {
+    expect(component).toBeTruthy();
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patient-requests-channel');
+    expect(component['isSubmitting']()).toBe(false);
+    expect(component['isMarkedHalted']()).toBe(true);
+    expect(component['patientName']()).toBe('Lucas Almeida');
+  });
 
-      const localFixture = TestBed.createComponent(HaltedPatientRequestComponent);
-      const localComponent = localFixture.componentInstance;
-      localFixture.detectChanges();
+  it('deve lidar com is_owner_bookmark falso/ausente e patientName ausente', async () => {
+    await createComponent({
+      patient_request: { id: 66, is_owner_bookmark: false } as unknown as PatientRequest,
+    });
+    expect(component['isMarkedHalted']()).toBe(false);
+    expect(component['patientName']()).toBe('Não informado');
 
-      localComponent['onSubmit']();
+    await createComponent(null);
+    expect(component['isMarkedHalted']()).toBe(false);
+    expect(component['patientName']()).toBe('Não informado');
+  });
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro: Identificador da solicitação não encontrado.');
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
+  });
+
+  describe('Paralisação da Solicitação (onSubmit)', () => {
+    it('deve exibir mensagem e não chamar haltedPatientRequest quando patient_request.id for inválido', async () => {
+      await createComponent(null);
+
+      component['onSubmit']();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificador da solicitação inválido.'
+      );
       expect(patientRequestServiceMock.haltedPatientRequest).not.toHaveBeenCalled();
     });
 
-    // ==========================================
-    // 🎯 FLUXO A: MARCAR SOBRESTADO (is_owner_bookmark: false)
-    // ==========================================
-    describe('Quando a ação for MARCAR SOBRESTADO (is_owner_bookmark: false)', () => {
-      it('deve paralisar a solicitação com sucesso, exibir mensagem da API e fechar a modal retornando true', () => {
-        fixture.detectChanges();
-        const mockApiResponse = { message: 'Solicitação suspensa pela auditoria!' };
-        patientRequestServiceMock.haltedPatientRequest.mockReturnValue(of(mockApiResponse));
+    it('deve gerenciar isSubmitting, exibir mensagem, notificar canal e fechar dialog no sucesso', () => {
+      const pending$ = new Subject<{ message?: string }>();
+      patientRequestServiceMock.haltedPatientRequest.mockReturnValue(pending$.asObservable());
 
-        component['onSubmit']();
+      component['onSubmit']();
+      expect(component['isSubmitting']()).toBe(true);
+      expect(patientRequestServiceMock.haltedPatientRequest).toHaveBeenCalledWith(66);
 
-        expect(component['isSubmitting']()).toBe(false);
-        expect(patientRequestServiceMock.haltedPatientRequest).toHaveBeenCalledWith(450);
-        expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação suspensa pela auditoria!');
-        expect(dialogRefMock.close).toHaveBeenCalledWith(true);
-      });
+      pending$.next({ message: 'Solicitação paralisada!' });
+      pending$.complete();
+      fixture.detectChanges();
 
-      it('deve usar mensagem padrão de sucesso se a API retornar um objeto vazio', () => {
-        fixture.detectChanges();
-        patientRequestServiceMock.haltedPatientRequest.mockReturnValue(of({}));
-
-        component['onSubmit']();
-
-        expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação paralisada com sucesso!');
-      });
-
-      it('deve tratar falhas do servidor, exibir mensagem de erro da API e liberar o estado de submissão', () => {
-        fixture.detectChanges();
-        const mockApiError = { error: { message: 'Não é possível paralisar uma solicitação com viagens agendadas.' } };
-        patientRequestServiceMock.haltedPatientRequest.mockReturnValue(throwError(() => mockApiError));
-
-        component['onSubmit']();
-
-        expect(patientRequestServiceMock.haltedPatientRequest).toHaveBeenCalledWith(450);
-        expect(messageServiceMock.showMessage).toHaveBeenCalledWith(mockApiError.error.message);
-        expect(component['isSubmitting']()).toBe(false);
-        expect(dialogRefMock.close).not.toHaveBeenCalled();
-      });
-
-      it('deve usar mensagem de erro genérica se o servidor falhar sem retornar corpo de erro', () => {
-        fixture.detectChanges();
-        const rawError = { status: 500 };
-        patientRequestServiceMock.haltedPatientRequest.mockReturnValue(throwError(() => rawError));
-
-        component['onSubmit']();
-
-        expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Ocorreu um erro operacional ao tentar paralisar a solicitação.');
-        expect(component['isSubmitting']()).toBe(false);
-      });
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação paralisada!');
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
     });
 
-    // ==========================================
-    // 🎯 FLUXO B: DESMARCAR SOBRESTADO (is_owner_bookmark: true)
-    // ==========================================
-    describe('Quando a ação for DESMARCAR SOBRESTADO (is_owner_bookmark: true)', () => {
-      beforeEach(() => {
-        // Usa o Object.assign para mudar o valor mantendo a mesma referência de memória da propriedade readonly
-        Object.assign(component['data'].patient_request, { is_owner_bookmark: true });
-      });
+    it('deve usar mensagem padrão de sucesso quando response não trouxer message', () => {
+      patientRequestServiceMock.haltedPatientRequest.mockReturnValue(of({}));
 
-      it('deve executar a chamada de API normalmente repassando o ID da solicitação', () => {
-        fixture.detectChanges();
-        patientRequestServiceMock.haltedPatientRequest.mockReturnValue(of({ message: 'Retornado ao fluxo normal.' }));
+      component['onSubmit']();
+      fixture.detectChanges();
 
-        component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Solicitação paralisada com sucesso!'
+      );
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+    });
 
-        expect(patientRequestServiceMock.haltedPatientRequest).toHaveBeenCalledWith(450);
-        expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Retornado ao fluxo normal.');
-        expect(dialogRefMock.close).toHaveBeenCalledWith(true);
-      });
+    it('deve exibir mensagem de erro da API ou fallback e não fechar dialog em caso de falha', () => {
+      patientRequestServiceMock.haltedPatientRequest.mockReturnValueOnce(
+        throwError(() => ({ error: { message: 'Solicitação já paralisada.' } }))
+      );
 
-      it('deve reter o comportamento e resetar o sinal isSubmitting caso ocorra erro no fluxo de desmarcação', () => {
-        fixture.detectChanges();
-        patientRequestServiceMock.haltedPatientRequest.mockReturnValue(throwError(() => ({ status: 400 })));
+      component['onSubmit']();
+      fixture.detectChanges();
 
-        component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação já paralisada.');
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
 
-        expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Ocorreu um erro operacional ao tentar paralisar a solicitação.');
-        expect(component['isSubmitting']()).toBe(false);
-      });
+      patientRequestServiceMock.haltedPatientRequest.mockReturnValueOnce(
+        throwError(() => new Error('Erro de rede'))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao tentar paralisar a solicitação.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
     });
   });
 });

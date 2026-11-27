@@ -1,166 +1,267 @@
+// src/app/tfd/layouts/tfd.layout.spec.ts
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { TfdLayout } from './tfd-layout';
-import { ActivatedRoute } from '@angular/router';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
-import { MessageService } from '../../../core/services/message-service';
-import { DatasusService } from '../../services/datasus-service';
-import { of, throwError } from 'rxjs';
-import { ElementRef } from '@angular/core';
+import { ActivatedRoute, provideRouter } from '@angular/router';
+import { Subject } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { TfdLayout } from './tfd.layout';
+import { PatientCreateComponent } from '../components/patients/patient-create/patient-create.component';
+import { PatientRequestCreateComponent } from '../components/patient-requests/patient-request-create/patient-request-create.component';
+import { PatientRequestTravelsImportComponent } from '../components/patient-request-travels/patient-request-travels-import/patient-request-travels-import.component';
+import { RoleCreateComponent } from '../components/roles/role-create/role-create.component';
+import { UserCreateComponent } from '../components/users/user-create/user-create.component';
+import { Professionals } from '../enums/professionals';
+import { TfdUser } from '../models/user.model';
+import { AuthService } from '../services/auth.service';
+
+class MockBroadcastChannel {
+  name: string;
+  postMessage = vi.fn();
+  close = vi.fn();
+
+  constructor(name: string) {
+    this.name = name;
+  }
+}
 
 describe('TfdLayout', () => {
   let component: TfdLayout;
   let fixture: ComponentFixture<TfdLayout>;
 
-  // Mocks das dependências
-  let activatedRouteMock: any;
-  let dialogMock: any;
-  let messageServiceMock: any;
-  let datasusServiceMock: any;
-  let dialogRefMock: any;
+  let createdChannels: MockBroadcastChannel[];
+  let currentUserSignal: ReturnType<typeof signal<TfdUser | null>>;
+  let authServiceMock: {
+    currentUser: ReturnType<typeof signal<TfdUser | null>>;
+  };
+  let dialogOpenSpy: ReturnType<typeof vi.spyOn>;
+  let afterClosedSubject$: Subject<unknown>;
 
-  beforeEach(async () => {
-    // 1. Mock do ActivatedRoute simulando a estrutura de snapshot e roles do usuário
-    activatedRouteMock = {
-      snapshot: {
-        routeConfig: { path: 'usuarios' } // Simula que estamos na rota /usuarios
+  const buildAdminUser = (): TfdUser =>
+    ({
+      professional: {
+        types: [Professionals.ADMINISTRADOR],
       },
-      parent: {
-        snapshot: {
-          data: {
-            user: {
-              roles: [
-                {
-                  permissions: [
-                    { name: 'usuarios/usuário listar' },
-                    { name: 'usuarios/usuário criar' }
-                  ]
-                }
-              ]
-            }
-          }
-        }
-      }
-    };
+      roles: [
+        {
+          permissions: [
+            { name: 'tfd/usuário listar' },
+            { name: 'usuário criar' },
+            { name: 'tfd/regra listar' },
+            { name: 'regra criar' },
+            { name: 'configuração listar' },
+          ],
+        },
+      ],
+    }) as unknown as TfdUser;
 
-    // 2. Mocks dos serviços e modais
-    dialogRefMock = {
-      afterClosed: vi.fn().mockReturnValue(of(true)), // Simula que o usuário confirmou a ação no modal
-      close: vi.fn()
-    };
+  async function createComponent(routeConfigPath?: string): Promise<void> {
+    afterClosedSubject$ = new Subject<unknown>();
 
-    dialogMock = {
-      open: vi.fn().mockReturnValue(dialogRefMock)
-    };
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [TfdLayout],
+        providers: [
+          provideRouter([]),
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
+          { provide: AuthService, useValue: authServiceMock },
+          {
+            provide: ActivatedRoute,
+            useValue: {
+              snapshot: { routeConfig: routeConfigPath ? { path: routeConfigPath } : undefined },
+              parent: { snapshot: { routeConfig: undefined } },
+            },
+          },
+        ],
+      })
+      .overrideComponent(TfdLayout, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
-    messageServiceMock = {
-      showMessage: vi.fn()
-    };
-
-    datasusServiceMock = {
-      process: vi.fn()
-    };
-
-    // Mock global do BroadcastChannel para o Vitest não estourar erro no ambiente Node/JSDOM
-    global.BroadcastChannel = vi.fn().mockImplementation(() => ({
-      postMessage: vi.fn(),
-      close: vi.fn()
-    }));
-
-    await TestBed.configureTestingModule({
-      imports: [TfdLayout],
-      providers: [
-        { provide: ActivatedRoute, useValue: activatedRouteMock },
-        { provide: MatDialog, useValue: dialogMock },
-        { provide: MessageService, useValue: messageServiceMock },
-        { provide: DatasusService, useValue: datasusServiceMock }
-      ]
-    }).compileComponents();
+    dialogOpenSpy = vi.spyOn(MatDialog.prototype, 'open').mockReturnValue({
+      afterClosed: () => afterClosedSubject$.asObservable(),
+    } as unknown as MatDialogRef<unknown, unknown>);
 
     fixture = TestBed.createComponent(TfdLayout);
     component = fixture.componentInstance;
-    fixture.detectChanges(); // Inicializa o OnPush estavelmente
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    createdChannels = [];
+    currentUserSignal = signal<TfdUser | null>(buildAdminUser());
+    authServiceMock = {
+      currentUser: currentUserSignal,
+    };
+
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function (name: string) {
+        const channel = new MockBroadcastChannel(name);
+        createdChannels.push(channel);
+        return channel;
+      })
+    );
+
+    await createComponent();
   });
 
-  it('should create', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it('deve criar o layout, inicializar os 5 BroadcastChannels, enviar mensagens e fechar ao destruir', () => {
     expect(component).toBeTruthy();
-  });
+    expect(createdChannels.map((c) => c.name)).toEqual([
+      'tfd-roles-channel',
+      'tfd-users-channel',
+      'tfd-patients-channel',
+      'tfd-patient-requests-channel',
+      'tfd-travels-channel',
+    ]);
 
-  describe('checkPermission', () => {
-    it('deve retornar true se o usuário possuir a permissão correspondente à rota ativa', () => {
-      const hasPermission = component.checkPermission(['usuário listar']);
-      expect(hasPermission).toBe(true);
-    });
+    component.postMessage('USERS');
+    expect(createdChannels[1].postMessage).toHaveBeenCalledWith('update');
 
-    it('deve retornar false se o usuário não possuir a permissão exigida', () => {
-      const hasPermission = component.checkPermission(['regra criar']);
-      expect(hasPermission).toBe(false);
-    });
+    component.postMessage('ROLES', 'custom-event');
+    expect(createdChannels[0].postMessage).toHaveBeenCalledWith('custom-event');
 
-    it('deve tratar com segurança caso o array de roles venha nulo ou indefinido', () => {
-      activatedRouteMock.parent.snapshot.data.user.roles = undefined;
-      const hasPermission = component.checkPermission(['usuário listar']);
-      expect(hasPermission).toBe(false);
-    });
-  });
+    expect(() =>
+      component.postMessage('INVALID_KEY' as unknown as 'USERS', 'noop')
+    ).not.toThrow();
 
-  describe('Abertura de Modais de Criação', () => {
-    it('deve abrir o modal CreateUserComponent e disparar mensagem no BroadcastChannel se houver retorno positivo', () => {
-      component.createUser();
-      expect(dialogMock.open).toHaveBeenCalled();
-      expect(dialogRefMock.afterClosed).toHaveBeenCalled();
-    });
-
-    it('deve abrir o modal CreateRoleComponent corretamente', () => {
-      component.createRole();
-      expect(dialogMock.open).toHaveBeenCalled();
-    });
-
-    it('deve abrir o modal CreateHospitalUnityComponent corretamente', () => {
-      component.createHospitalUnity();
-      expect(dialogMock.open).toHaveBeenCalled();
-    });
-
-    it('deve abrir o modal CreatePatient corretamente', () => {
-      component.createPatient();
-      expect(dialogMock.open).toHaveBeenCalled();
+    fixture.destroy();
+    createdChannels.forEach((channel) => {
+      expect(channel.close).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe('Importação de Competência Datasus', () => {
-    it('deve simular o clique no input nativo de arquivos ao chamar importCompetence', () => {
-      // Mock do signal do viewChild
-      const mockNativeElement = { click: vi.fn() };
-      vi.spyOn(component, 'competence').mockReturnValue(new ElementRef(mockNativeElement));
-
-      component.importCompetence();
-      expect(mockNativeElement.click).toHaveBeenCalled();
+  describe('Reatividade de permissões, tipos profissionais e menu visível', () => {
+    it('deve filtrar grupos e itens do menu para administrador com permissões', () => {
+      const visible = component['visibleMenuGroups']();
+      expect(visible.map((g) => g.subHeader)).toEqual(['Usuários', 'Regras', 'Configurações']);
+      expect(visible[0].items.map((i) => i.label)).toEqual(['Usuários', 'Novo usuário']);
     });
 
-    it('deve processar o arquivo zip com sucesso, exibir mensagem e fechar o loading', () => {
-      const mockFile = new File([''], 'competencia.zip', { type: 'application/zip' });
-      const mockEvent = { target: { files: [mockFile] } };
-      
-      datasusServiceMock.process.mockReturnValue(of({ message: 'Arquivo processado!' }));
+    it('deve suportar diferentes formatos de tipos profissionais e prefixo de rota', async () => {
+      currentUserSignal.set({
+        professional: {
+          types: [
+            { type: Professionals.CADASTRO },
+            { name: Professionals.MEDICO },
+            { description: Professionals.PASSAGEM },
+            123,
+            null,
+          ],
+        },
+        roles: [
+          {
+            permissions: [
+              { name: 'modulo-custom/paciente listar' },
+              { name: 'paciente criar' },
+              { name: 'parecer listar' },
+              { name: 'passagem listar' },
+              { name: 'passagem criar' },
+              { name: '' },
+            ],
+          },
+          {},
+        ],
+      } as unknown as TfdUser);
 
-      component.onFileChange(mockEvent);
+      await createComponent('modulo-custom');
+      fixture.detectChanges();
 
-      expect(dialogMock.open).toHaveBeenCalled(); // Abriu o loading
-      expect(datasusServiceMock.process).toHaveBeenCalledWith(mockFile);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Arquivo processado!');
-      expect(dialogRefMock.close).toHaveBeenCalled(); // Fechou o loading
+      const headers = component['visibleMenuGroups']().map((g) => g.subHeader);
+      expect(headers).toEqual(['Pacientes', 'Pareceres Médicos', 'Passagens']);
     });
 
-    it('deve tratar o erro caso o processamento do arquivo falhe no servidor', () => {
-      const mockFile = new File([''], 'competencia.zip', { type: 'application/zip' });
-      const mockEvent = { target: { files: [mockFile] } };
-      const mockError = { error: { message: 'Arquivo zip corrompido.' } };
-      
-      datasusServiceMock.process.mockReturnValue(throwError(() => mockError));
+    it('deve suportar professional.type único e ocultar itens sem permissão ou sem usuário', () => {
+      currentUserSignal.set({
+        professional: { type: `  ${Professionals.AJUDA_DE_CUSTO}  ` },
+        roles: [{ permissions: [{ name: 'ajuda de custo listar' }] }],
+      } as unknown as TfdUser);
 
-      component.onFileChange(mockEvent);
+      const headers = component['visibleMenuGroups']().map((g) => g.subHeader);
+      expect(headers).toEqual(['Ajuda de custo', 'Prestações de conta']);
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Arquivo zip corrompido.');
-      expect(dialogRefMock.close).toHaveBeenCalled();
+      currentUserSignal.set({
+        professional: { types: [Professionals.PAGAMENTO] },
+        roles: [],
+      } as unknown as TfdUser);
+      expect(component['visibleMenuGroups']()).toEqual([]);
+
+      currentUserSignal.set(null);
+      expect(component['userProfessionalTypes']()).toEqual([]);
+      expect(component['visibleMenuGroups']()).toEqual([]);
+    });
+  });
+
+  describe('Ações de Diálogo', () => {
+    it('deve abrir UserCreateComponent e publicar no canal USERS quando fechado com sucesso', () => {
+      const usersChannel = createdChannels[1];
+      component['userCreate']();
+
+      expect(dialogOpenSpy).toHaveBeenCalledWith(UserCreateComponent, {
+        width: '700px',
+        height: 'auto',
+        disableClose: true,
+        autoFocus: false,
+      });
+
+      afterClosedSubject$.next(true);
+      afterClosedSubject$.complete();
+      expect(usersChannel.postMessage).toHaveBeenCalledWith('update');
+    });
+
+    it('deve abrir RoleCreateComponent, PatientCreateComponent, PatientRequestCreateComponent e PatientRequestTravelsImportComponent', () => {
+      const rolesChannel = createdChannels[0];
+      const patientsChannel = createdChannels[2];
+      const requestsChannel = createdChannels[3];
+      const travelsChannel = createdChannels[4];
+
+      component['roleCreate']();
+      expect(dialogOpenSpy).toHaveBeenCalledWith(RoleCreateComponent, {
+        width: '900px',
+        height: 'auto',
+        disableClose: true,
+        autoFocus: false,
+      });
+
+      component['patientCreate']();
+      expect(dialogOpenSpy).toHaveBeenCalledWith(PatientCreateComponent, {
+        width: '1200px',
+        height: '700px',
+        disableClose: true,
+        autoFocus: false,
+      });
+
+      component['patientRequestCreate']();
+      expect(dialogOpenSpy).toHaveBeenCalledWith(PatientRequestCreateComponent, {
+        width: '800px',
+        height: 'auto',
+        disableClose: true,
+        autoFocus: false,
+      });
+
+      component['patientRequestTravelsImport']();
+      expect(dialogOpenSpy).toHaveBeenCalledWith(PatientRequestTravelsImportComponent, {
+        width: '400px',
+        height: 'auto',
+        disableClose: true,
+        autoFocus: false,
+      });
+
+      afterClosedSubject$.next(false);
+      afterClosedSubject$.complete();
+
+      expect(rolesChannel.postMessage).not.toHaveBeenCalled();
+      expect(patientsChannel.postMessage).not.toHaveBeenCalled();
+      expect(requestsChannel.postMessage).not.toHaveBeenCalled();
+      expect(travelsChannel.postMessage).not.toHaveBeenCalled();
     });
   });
 });

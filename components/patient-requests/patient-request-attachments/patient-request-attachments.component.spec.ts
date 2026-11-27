@@ -1,247 +1,332 @@
-import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
-import { MatTableDataSource } from '@angular/material/table';
-import { of, throwError } from 'rxjs';
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import * as fileSaver from 'file-saver';
+// src/app/tfd/components/patient-requests/patient-request-attachments/patient-request-attachments.component.spec.ts
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { saveAs } from 'file-saver';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { PatientRequestAttachmentsComponent } from './patient-request-attachments-component';
-import { PatientRequestService } from '../../../services/patient-request-service';
-import { StorageService } from '../../../../core/services/storage-service';
-import { PatientRequestAttachment } from '../../../models/patient-request-attachment';
-import { CreatePatientRequestAttachmentComponent } from '../create-patient-request-attachment-component/create-patient-request-attachment-component';
-import { UpdatePatientRequestAttachmentComponent } from '../update-patient-request-attachment-component/update-patient-request-attachment-component';
-import { DeletePatientRequestAttachmentComponent } from '../delete-patient-request-attachment-component/delete-patient-request-attachment-component';
+import {
+  PatientRequestAttachmentDialogData,
+  PatientRequestAttachmentsComponent,
+} from './patient-request-attachments.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { StorageService } from '../../../../core/services/storage.service';
+import { PatientRequest } from '../../../models/patient-request.model';
+import { PatientRequestAttachment } from '../../../models/patient-request-attachment.model';
+import { PatientRequestService } from '../../../services/patient-request.service';
+import { PatientRequestAttachmentCreateComponent } from '../patient-request-attachment-create/patient-request-attachment-create.component';
+import { PatientRequestAttachmentDeleteComponent } from '../patient-request-attachment-delete/patient-request-attachment-delete.component';
+import { PatientRequestAttachmentUpdateComponent } from '../patient-request-attachment-update/patient-request-attachment-update.component';
 
-// Mock explícito da biblioteca file-saver para monitorar os gatilhos de download local
 vi.mock('file-saver', () => ({
-  saveAs: vi.fn()
+  saveAs: vi.fn(),
 }));
+
+class MockBroadcastChannel {
+  name: string;
+  onmessage: ((ev: MessageEvent<string>) => void) | null = null;
+  postMessage = vi.fn();
+  close = vi.fn();
+
+  constructor(name: string) {
+    this.name = name;
+  }
+}
 
 describe('PatientRequestAttachmentsComponent', () => {
   let component: PatientRequestAttachmentsComponent;
   let fixture: ComponentFixture<PatientRequestAttachmentsComponent>;
 
-  // Mocks das dependências
-  let patientRequestServiceMock: any;
-  let storageServiceMock: any;
-  let dialogMock: any;
-  let dialogRefMock: any;
-  let broadcastSpy: any;
-
-  // Dados falsos de entrada via MAT_DIALOG_DATA
-  const mockDialogData = {
-    patient_request: {
-      id: 99
-    }
+  let createdChannels: MockBroadcastChannel[];
+  let patientRequestServiceMock: {
+    getPatientRequestAttachments: ReturnType<typeof vi.fn>;
   };
+  let storageServiceMock: {
+    download: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogOpenSpy: ReturnType<typeof vi.spyOn>;
+  let afterClosedSubject$: Subject<unknown>;
 
-  // Massa de dados de anexos tipada conforme o Model do contexto de solicitações
-  const mockAttachmentsResponse: PatientRequestAttachment[] = [
-    { id: 20, name: 'comprovante-residencia.pdf', archive_id: 201, patient_request_id: 99 },
-    { id: 21, name: 'rg-frente.png', archive_id: 202, patient_request_id: 99 }
+  const mockAttachments: PatientRequestAttachment[] = [
+    { id: 1, name: 'Exame de Sangue', archive_id: 101 } as unknown as PatientRequestAttachment,
+    { id: 2, name: 'Laudo Médico', archive_id: 102 } as unknown as PatientRequestAttachment,
   ];
 
-  beforeEach(async () => {
-    patientRequestServiceMock = {
-      getPatientRequestAttachments: vi.fn().mockReturnValue(of(mockAttachmentsResponse))
-    };
+  const defaultDialogData: PatientRequestAttachmentDialogData = {
+    patient_request: { id: 88 } as unknown as PatientRequest,
+  };
 
-    storageServiceMock = {
-      download: vi.fn().mockReturnValue(of({ archive: new Blob(['conteudo-falso'], { type: 'application/pdf' }) }))
-    };
+  async function createComponent(
+    dialogData: PatientRequestAttachmentDialogData | null = defaultDialogData
+  ): Promise<void> {
+    afterClosedSubject$ = new Subject<unknown>();
 
-    dialogRefMock = {
-      afterClosed: vi.fn().mockReturnValue(of(true)) // Simula confirmação do usuário nas submodais
-    };
-
-    dialogMock = {
-      open: vi.fn().mockReturnValue(dialogRefMock)
-    };
-
-    // Intercepta as transmissões do canal para não poluir o ecossistema do navegador
-    broadcastSpy = vi.spyOn(BroadcastChannel.prototype, 'postMessage').mockImplementation(() => {});
-
-    await TestBed.configureTestingModule({
-      imports: [PatientRequestAttachmentsComponent]
-    })
-    .overrideComponent(PatientRequestAttachmentsComponent, {
-      set: {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientRequestAttachmentsComponent],
         providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
           { provide: PatientRequestService, useValue: patientRequestServiceMock },
           { provide: StorageService, useValue: storageServiceMock },
-          { provide: MatDialog, useValue: dialogMock },
-          { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-        ]
-      }
-    })
-    .compileComponents();
+          { provide: MessageService, useValue: messageServiceMock },
+          { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        ],
+      })
+      .overrideComponent(PatientRequestAttachmentsComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
+
+    dialogOpenSpy = vi.spyOn(MatDialog.prototype, 'open').mockReturnValue({
+      afterClosed: () => afterClosedSubject$.asObservable(),
+    } as unknown as MatDialogRef<unknown, unknown>);
 
     fixture = TestBed.createComponent(PatientRequestAttachmentsComponent);
     component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    vi.mocked(saveAs).mockReset();
+    createdChannels = [];
+
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function (name: string) {
+        const channel = new MockBroadcastChannel(name);
+        createdChannels.push(channel);
+        return channel;
+      })
+    );
+
+    patientRequestServiceMock = {
+      getPatientRequestAttachments: vi.fn().mockReturnValue(of(mockAttachments)),
+    };
+
+    storageServiceMock = {
+      download: vi.fn(),
+    };
+
+    messageServiceMock = {
+      showMessage: vi.fn(),
+    };
+
+    await createComponent();
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
 
-  describe('Inicialização e Fluxo de Carga Inicial', () => {
-    it('deve instanciar o componente com sucesso', () => {
-      fixture.detectChanges(); // Dispara o ngOnInit
-      expect(component).toBeTruthy();
-    });
+  it('deve criar o componente, abrir os 5 BroadcastChannels, carregar anexos e fechar canais ao destruir', async () => {
+    expect(component).toBeTruthy();
+    expect(createdChannels.map((c) => c.name)).toEqual([
+      'tfd-patient-requests-channel',
+      'tfd-opinions-channel',
+      'tfd-travels-channel',
+      'tfd-cost-assistances-channel',
+      'tfd-accountabilities-channel',
+    ]);
+    expect(patientRequestServiceMock.getPatientRequestAttachments).toHaveBeenCalledWith(88);
+    expect(component['isLoading']()).toBe(false);
+    expect(component['dataSource'].data).toEqual(mockAttachments);
 
-    it('deve carregar a lista de anexos reativamente e alimentar o dataSource baseado em computed', () => {
-      fixture.detectChanges();
+    const closedCountBeforeDestroy = createdChannels.filter(
+      (c) => c.close.mock.calls.length > 0
+    ).length;
+    expect(closedCountBeforeDestroy).toBe(0);
 
-      // Garante que buscou os arquivos vinculados ao ID da solicitação correto
-      expect(patientRequestServiceMock.getPatientRequestAttachments).toHaveBeenCalledWith(99);
-      
-      // Valida se o sinal reativo bruto foi populado
-      expect(component['attachmentsList']()).toEqual(mockAttachmentsResponse);
-      
-      // Valida se o computed do dataSource derivou a instância e os dados perfeitamente
-      expect(component['dataSource']()).toBeInstanceOf(MatTableDataSource);
-      expect(component['dataSource']().data).toEqual(mockAttachmentsResponse);
-      
-      // O loading deve ter sido desativado ao concluir com sucesso
-      expect(component['isLoading']()).toBe(false);
-    });
+    await createComponent(null);
+    expect(component['isLoading']()).toBe(false);
+    expect(patientRequestServiceMock.getPatientRequestAttachments).toHaveBeenCalledTimes(1);
 
-    it('deve desativar o spinner e não disparar requisições caso o id da solicitação esteja ausente (Guarda Preventiva)', () => {
-      TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ imports: [PatientRequestAttachmentsComponent] })
-        .overrideComponent(PatientRequestAttachmentsComponent, {
-          set: {
-            providers: [
-              { provide: PatientRequestService, useValue: patientRequestServiceMock },
-              { provide: StorageService, useValue: storageServiceMock },
-              { provide: MatDialog, useValue: dialogMock },
-              { provide: MAT_DIALOG_DATA, useValue: { patient_request: { id: null } } }
-            ]
-          }
-        });
-
-      const localFixture = TestBed.createComponent(PatientRequestAttachmentsComponent);
-      const localComponent = localFixture.componentInstance;
-      localFixture.detectChanges();
-
-      expect(patientRequestServiceMock.getPatientRequestAttachments).not.toHaveBeenCalled();
-      expect(localComponent['isLoading']()).toBe(false);
-    });
-
-    it('deve desligar o loading mesmo se a API do servidor falhar no ciclo de inicialização', () => {
-      patientRequestServiceMock.getPatientRequestAttachments.mockReturnValue(throwError(() => new Error('Falha de conexão')));
-      fixture.detectChanges();
-
-      expect(component['isLoading']()).toBe(false);
-      expect(component['attachmentsList']()).toEqual([]);
+    const lastFiveChannels = createdChannels.slice(-5);
+    fixture.destroy();
+    lastFiveChannels.forEach((channel) => {
+      expect(channel.close).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe('Fluxo de Download de Arquivos', () => {
-    beforeEach(() => {
-      fixture.detectChanges();
+  it('deve atualizar anexos quando algum BroadcastChannel receber "update" e ignorar outras mensagens', () => {
+    patientRequestServiceMock.getPatientRequestAttachments.mockClear();
+    const updatedList = [mockAttachments[0]];
+    patientRequestServiceMock.getPatientRequestAttachments.mockReturnValue(of(updatedList));
+
+    createdChannels[0].onmessage?.({ data: 'ignorar' } as MessageEvent<string>);
+    expect(patientRequestServiceMock.getPatientRequestAttachments).not.toHaveBeenCalled();
+
+    const loadingValues: boolean[] = [];
+    const pending$ = new Subject<PatientRequestAttachment[]>();
+    patientRequestServiceMock.getPatientRequestAttachments.mockReturnValueOnce(pending$.asObservable());
+
+    createdChannels[2].onmessage?.({ data: 'update' } as MessageEvent<string>);
+    loadingValues.push(component['isLoading']());
+    pending$.next(updatedList);
+    pending$.complete();
+
+    expect(patientRequestServiceMock.getPatientRequestAttachments).toHaveBeenCalledWith(88);
+    expect(loadingValues).toEqual([false]);
+    expect(component['dataSource'].data).toEqual(updatedList);
+  });
+
+  it('deve limpar dataSource e exibir mensagem da API ou fallback ao falhar ao carregar anexos', async () => {
+    patientRequestServiceMock.getPatientRequestAttachments.mockReturnValueOnce(
+      throwError(() => ({ error: { message: 'Sem permissão para listar anexos.' } }))
+    );
+    await createComponent();
+    expect(component['dataSource'].data).toEqual([]);
+    expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+      'Sem permissão para listar anexos.'
+    );
+
+    patientRequestServiceMock.getPatientRequestAttachments.mockReturnValueOnce(
+      throwError(() => new Error('Erro de rede'))
+    );
+    await createComponent();
+    expect(component['dataSource'].data).toEqual([]);
+    expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+      'Não foi possível carregar os anexos da solicitação.'
+    );
+  });
+
+  describe('Download de Anexo (download)', () => {
+    it('deve ignorar archiveId nulo/indefinido ou já em andamento para o mesmo archiveId', () => {
+      component['download'](null, 'Doc');
+      component['download'](undefined, 'Doc');
+      expect(storageServiceMock.download).not.toHaveBeenCalled();
+
+      const pending$ = new Subject<{ archive?: Blob }>();
+      storageServiceMock.download.mockReturnValueOnce(pending$.asObservable());
+
+      component['download'](101, '  Exame Sangue  ');
+      expect(component['downloadingArchiveId']()).toBe(101);
+      expect(storageServiceMock.download).toHaveBeenCalledWith('tfd', 101);
+
+      component['download'](101, 'Duplicado');
+      expect(storageServiceMock.download).toHaveBeenCalledTimes(1);
+
+      const blob = new Blob(['conteudo']);
+      pending$.next({ archive: blob });
+      pending$.complete();
+
+      expect(component['downloadingArchiveId']()).toBeNull();
+      expect(saveAs).toHaveBeenCalledWith(blob, 'Exame Sangue');
     });
 
-    it('deve buscar o arquivo no storage service e invocar a biblioteca file-saver para salvar localmente', () => {
-      component['download'](201, 'comprovante-residencia.pdf');
+    it('deve usar nome fallback quando name não for informado, ignorar sem archive e tratar erro', () => {
+      const blob = new Blob(['conteudo']);
+      storageServiceMock.download.mockReturnValueOnce(of({ archive: blob }));
+      component['download'](105);
+      expect(saveAs).toHaveBeenCalledWith(blob, 'anexo-105');
 
-      expect(storageServiceMock.download).toHaveBeenCalledWith(201);
-      expect(fileSaver.saveAs).toHaveBeenCalledWith(expect.any(Blob), 'comprovante-residencia.pdf');
-    });
+      storageServiceMock.download.mockReturnValueOnce(of({}));
+      component['download'](106, 'Sem Archive');
+      expect(saveAs).toHaveBeenCalledTimes(1);
 
-    it('deve lidar amigavelmente e não disparar quebras se a resposta do storage vier corrompida ou vazia', () => {
-      storageServiceMock.download.mockReturnValue(of(null));
-      component['download'](201, 'invalido.pdf');
+      storageServiceMock.download.mockReturnValueOnce(
+        throwError(() => ({ error: { message: 'Arquivo não encontrado.' } }))
+      );
+      component['download'](107, 'Erro API');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Arquivo não encontrado.');
+      expect(component['downloadingArchiveId']()).toBeNull();
 
-      expect(storageServiceMock.download).toHaveBeenCalledWith(201);
-      expect(fileSaver.saveAs).not.toHaveBeenCalled();
-    });
-
-    it('deve engolir o erro de forma segura caso a API do storage falhar', () => {
-      storageServiceMock.download.mockReturnValue(throwError(() => new Error('Error 404')));
-      
-      expect(() => component['download'](201, 'erro.pdf')).not.toThrow();
-      expect(fileSaver.saveAs).not.toHaveBeenCalled();
+      storageServiceMock.download.mockReturnValueOnce(throwError(() => new Error('Falha')));
+      component['download'](108, 'Erro Genérico');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao realizar o download do arquivo.'
+      );
+      expect(component['downloadingArchiveId']()).toBeNull();
     });
   });
 
-  describe('Abertura de Modais Internas e Mutação de Dados', () => {
-    const targetAttachment: PatientRequestAttachment = { 
-      id: 20, 
-      name: 'documento.pdf', 
-      archive_id: 201,
-      patient_request_id: 99 
-    };
-
-    beforeEach(() => {
-      fixture.detectChanges();
-    });
-
-    it('deve abrir a modal CreatePatientRequestAttachmentComponent, atualizar a grid em background e notificar o canal de transmissão', () => {
+  describe('Ações de Diálogo (Create, Update, Delete)', () => {
+    it('deve abrir modal de criação, recarregar e notificar todos os canais quando fechado com sucesso', () => {
       patientRequestServiceMock.getPatientRequestAttachments.mockClear();
+      const activeChannels = createdChannels.slice(-5);
+      activeChannels.forEach((c) => c.postMessage.mockClear());
 
-      component['createPatientRequestAttachment']();
+      component['patientRequestAttachmentCreate']();
 
-      expect(dialogMock.open).toHaveBeenCalledWith(CreatePatientRequestAttachmentComponent, {
-        width: '400px',
-        height: 'auto',
-        disableClose: true,
-        autoFocus: false,
-        data: { patient_request: mockDialogData.patient_request }
+      expect(dialogOpenSpy).toHaveBeenCalledWith(
+        PatientRequestAttachmentCreateComponent,
+        expect.objectContaining({
+          width: '400px',
+          height: 'auto',
+          disableClose: true,
+          autoFocus: false,
+          scrollStrategy: expect.anything(),
+          data: { patient_request: { id: 88 } },
+        })
+      );
+
+      afterClosedSubject$.next(true);
+      afterClosedSubject$.complete();
+
+      expect(patientRequestServiceMock.getPatientRequestAttachments).toHaveBeenCalledWith(88);
+      activeChannels.forEach((channel) => {
+        expect(channel.postMessage).toHaveBeenCalledWith('update');
       });
-
-      expect(patientRequestServiceMock.getPatientRequestAttachments).toHaveBeenCalledWith(99);
-      expect(broadcastSpy).toHaveBeenCalledWith('update');
-      expect(component['isLoading']()).toBe(false);
     });
 
-    it('deve abrir a modal UpdatePatientRequestAttachmentComponent, atualizar a grid sem travar a UI e notificar o canal', () => {
+    it('deve abrir modal de atualização e não recarregar nem notificar quando fechado sem sucesso', () => {
       patientRequestServiceMock.getPatientRequestAttachments.mockClear();
+      const activeChannels = createdChannels.slice(-5);
+      activeChannels.forEach((c) => c.postMessage.mockClear());
 
-      component['updatePatientRequestAttachment'](targetAttachment);
+      const targetAttachment = mockAttachments[0];
+      component['patientRequestAttachmentUpdate'](targetAttachment);
 
-      expect(dialogMock.open).toHaveBeenCalledWith(UpdatePatientRequestAttachmentComponent, {
-        width: '400px',
-        height: 'auto',
-        disableClose: true,
-        autoFocus: false,
-        data: { patient_request_attachment: targetAttachment }
-      });
+      expect(dialogOpenSpy).toHaveBeenCalledWith(
+        PatientRequestAttachmentUpdateComponent,
+        expect.objectContaining({
+          width: '400px',
+          height: 'auto',
+          disableClose: true,
+          autoFocus: false,
+          data: {
+            patient_request: { id: 88 },
+            patient_request_attachment: targetAttachment,
+          },
+        })
+      );
 
-      expect(patientRequestServiceMock.getPatientRequestAttachments).toHaveBeenCalled();
-      expect(broadcastSpy).toHaveBeenCalledWith('update');
-      expect(component['isLoading']()).toBe(false);
-    });
-
-    it('deve abrir a modal DeletePatientRequestAttachmentComponent acionando o estado de carregamento total e notificar o canal', () => {
-      patientRequestServiceMock.getPatientRequestAttachments.mockClear();
-
-      component['deletePatientRequestAttachment'](targetAttachment);
-
-      expect(dialogMock.open).toHaveBeenCalledWith(DeletePatientRequestAttachmentComponent, {
-        width: '400px',
-        height: 'auto',
-        disableClose: true,
-        autoFocus: false,
-        data: { patient_request_attachment: targetAttachment }
-      });
-
-      expect(patientRequestServiceMock.getPatientRequestAttachments).toHaveBeenCalled();
-      expect(broadcastSpy).toHaveBeenCalledWith('update');
-    });
-
-    it('não deve recarregar os dados nem transmitir mensagens se as modais forem fechadas sem ação concludente', () => {
-      dialogRefMock.afterClosed.mockReturnValue(of(false));
-      patientRequestServiceMock.getPatientRequestAttachments.mockClear();
-      broadcastSpy.mockClear();
-
-      component['createPatientRequestAttachment']();
+      afterClosedSubject$.next(false);
+      afterClosedSubject$.complete();
 
       expect(patientRequestServiceMock.getPatientRequestAttachments).not.toHaveBeenCalled();
-      expect(broadcastSpy).not.toHaveBeenCalled();
+      activeChannels.forEach((channel) => {
+        expect(channel.postMessage).not.toHaveBeenCalled();
+      });
+    });
+
+    it('deve abrir modal de exclusão e recarregar quando fechado com sucesso', () => {
+      patientRequestServiceMock.getPatientRequestAttachments.mockClear();
+      const targetAttachment = mockAttachments[1];
+
+      component['patientRequestAttachmentDelete'](targetAttachment);
+
+      expect(dialogOpenSpy).toHaveBeenCalledWith(
+        PatientRequestAttachmentDeleteComponent,
+        expect.objectContaining({
+          width: '400px',
+          height: 'auto',
+          disableClose: true,
+          autoFocus: false,
+          data: {
+            patient_request: { id: 88 },
+            patient_request_attachment: targetAttachment,
+          },
+        })
+      );
+
+      afterClosedSubject$.next(true);
+      afterClosedSubject$.complete();
+
+      expect(patientRequestServiceMock.getPatientRequestAttachments).toHaveBeenCalledWith(88);
     });
   });
 });

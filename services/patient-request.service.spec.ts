@@ -1,27 +1,38 @@
+// src/app/tfd/services/patient-request.service.spec.ts
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { PatientRequestService, ApiResponse } from './patient-request-service';
-import { environment } from '../../../environments/environment
-';
-import { PatientRequest } from '../models/patient-request';
-import { Patient } from '../models/patient';
-import { HospitalUnity } from '../models/hospital-unity';
-import { Professional } from '../models/professional';
-import { PatientRequestAttachment } from '../models/patient-request-attachment';
-import * as momentImport from 'moment';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const moment = (momentImport as any).default || momentImport;
+import { PatientRequestService } from './patient-request.service';
+import { environment } from '../../../environments/environment';
+import { ApiResponse } from '../../core/models/api-response.model';
+import { HospitalUnity } from '../models/hospital-unity.model';
+import { PatientReport } from '../models/patient-report.model';
+import { PatientRequestAttachment } from '../models/patient-request-attachment.model';
+import { PatientRequest } from '../models/patient-request.model';
+import { Patient } from '../models/patient.model';
+import { Professional } from '../models/professional.model';
 
-describe('PatientRequestService', () => {
+describe('Tfd PatientRequestService', () => {
   let service: PatientRequestService;
   let httpMock: HttpTestingController;
 
-  const mockApiUrl = `${environment.apiTfdUrl}/patient-request`;
+  const baseUrl = `${environment.apiTfdUrl}/patient-requests`;
+
+  const mockRequest = { id: 12, status: 'pending' } as unknown as PatientRequest;
+  const mockAttachment = { id: 34, name: 'laudo.pdf' } as unknown as PatientRequestAttachment;
+  const mockPatient = { id: 56, name: 'José Santos' } as unknown as Patient;
+  const mockReport = { id: 78, title: 'Relatório Clínico' } as unknown as PatientReport;
+  const mockUnity = { id: 90, name: 'Hospital Central' } as unknown as HospitalUnity;
+  const mockProfessional = { id: 101, name: 'Dra. Helena' } as unknown as Professional;
+  const mockApiResponse = { message: 'OK' } as unknown as ApiResponse;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-      providers: [PatientRequestService]
+      providers: [provideHttpClient(), provideHttpClientTesting(), PatientRequestService],
     });
 
     service = TestBed.inject(PatientRequestService);
@@ -32,247 +43,210 @@ describe('PatientRequestService', () => {
     httpMock.verify();
   });
 
-  it('deve ser criado com sucesso', () => {
-    expect(service).toBeTruthy();
+  it('deve consultar todos os endpoints GET de solicitações, anexos, pacientes, laudos, unidades e profissionais', () => {
+    let requestsRes: PatientRequest[] | undefined;
+    let archivedRes: PatientRequest[] | undefined;
+    let attachmentsRes: PatientRequestAttachment[] | undefined;
+    let patientsRes: Patient[] | undefined;
+    let reportsRes: PatientReport[] | undefined;
+    let unitiesRes: HospitalUnity[] | undefined;
+    let professionalsRes: Professional[] | undefined;
+
+    service.getPatientRequests().subscribe((res) => (requestsRes = res));
+    service.getArchivePatientRequests().subscribe((res) => (archivedRes = res));
+    service.getPatientRequestAttachments(12).subscribe((res) => (attachmentsRes = res));
+    service.getPatients().subscribe((res) => (patientsRes = res));
+    service.getReports(56).subscribe((res) => (reportsRes = res));
+    service.getHospitalUnities().subscribe((res) => (unitiesRes = res));
+    service.getProfessionals().subscribe((res) => (professionalsRes = res));
+
+    const r1 = httpMock.expectOne(baseUrl);
+    expect(r1.request.method).toBe('GET');
+    r1.flush([mockRequest]);
+
+    const r2 = httpMock.expectOne(`${baseUrl}/archived`);
+    expect(r2.request.method).toBe('GET');
+    r2.flush([mockRequest]);
+
+    const r3 = httpMock.expectOne(`${baseUrl}/12/attachments`);
+    expect(r3.request.method).toBe('GET');
+    r3.flush([mockAttachment]);
+
+    const r4 = httpMock.expectOne(`${baseUrl}/patients`);
+    expect(r4.request.method).toBe('GET');
+    r4.flush([mockPatient]);
+
+    const r5 = httpMock.expectOne(`${baseUrl}/patients/56/reports`);
+    expect(r5.request.method).toBe('GET');
+    r5.flush([mockReport]);
+
+    const r6 = httpMock.expectOne(`${baseUrl}/hospital-unities`);
+    expect(r6.request.method).toBe('GET');
+    r6.flush([mockUnity]);
+
+    const r7 = httpMock.expectOne(`${baseUrl}/professionals`);
+    expect(r7.request.method).toBe('GET');
+    r7.flush([mockProfessional]);
+
+    expect(requestsRes).toEqual([mockRequest]);
+    expect(archivedRes).toEqual([mockRequest]);
+    expect(attachmentsRes).toEqual([mockAttachment]);
+    expect(patientsRes).toEqual([mockPatient]);
+    expect(reportsRes).toEqual([mockReport]);
+    expect(unitiesRes).toEqual([mockUnity]);
+    expect(professionalsRes).toEqual([mockProfessional]);
   });
 
-  // ==========================================
-  // BLOCO 1: CONSULTAS / GETTERS
-  // ==========================================
+  it('deve executar createPatientRequest, updatePatientRequest e deletePatientRequest', () => {
+    let createRes: ApiResponse | undefined;
+    let updateRes: ApiResponse | undefined;
+    let deleteRes: ApiResponse | undefined;
 
-  it('deve buscar as solicitações de pacientes (getPatientRequests)', () => {
-    const mockRequests: PatientRequest[] = [{ id: 1, type: 'Consulta' } as any];
+    service.createPatientRequest(mockRequest).subscribe((res) => (createRes = res));
+    service.updatePatientRequest(12, mockRequest).subscribe((res) => (updateRes = res));
+    service.deletePatientRequest(12).subscribe((res) => (deleteRes = res));
 
-    service.getPatientRequests().subscribe(res => {
-      expect(res.length).toBe(1);
-      expect(res).toEqual(mockRequests);
-    });
+    const postReq = httpMock.expectOne(baseUrl);
+    expect(postReq.request.method).toBe('POST');
+    expect(postReq.request.body).toEqual(mockRequest);
+    postReq.flush(mockApiResponse);
 
-    const req = httpMock.expectOne(`${mockApiUrl}/get-patient-requests`);
-    expect(req.request.method).toBe('GET');
-    req.flush(mockRequests);
+    const idReqs = httpMock.match(`${baseUrl}/12`);
+    expect(idReqs).toHaveLength(2);
+
+    const putReq = idReqs.find((r) => r.request.method === 'PUT');
+    const deleteReq = idReqs.find((r) => r.request.method === 'DELETE');
+
+    expect(putReq).toBeDefined();
+    expect(putReq!.request.body).toEqual(mockRequest);
+    putReq!.flush(mockApiResponse);
+
+    expect(deleteReq).toBeDefined();
+    deleteReq!.flush(mockApiResponse);
+
+    expect(createRes).toEqual(mockApiResponse);
+    expect(updateRes).toEqual(mockApiResponse);
+    expect(deleteRes).toEqual(mockApiResponse);
   });
 
-  it('deve buscar a lista de pacientes (getPatients)', () => {
-    const mockPatients: Patient[] = [{ id: 10, name: 'Carlos Solicitante' } as any];
-
-    service.getPatients().subscribe(res => {
-      expect(res).toEqual(mockPatients);
-    });
-
-    const req = httpMock.expectOne(`${mockApiUrl}/get-patients`);
-    expect(req.request.method).toBe('GET');
-    req.flush(mockPatients);
-  });
-
-  it('deve buscar prontuários vinculados (getReports)', () => {
-    service.getReports(45).subscribe(res => {
-      expect(res).toEqual([]);
-    });
-
-    const req = httpMock.expectOne(`${mockApiUrl}/get-patient-reports/45`);
-    expect(req.request.method).toBe('GET');
-    req.flush([]);
-  });
-
-  it('deve buscar unidades hospitalares (getHospitalUnities)', () => {
-    const mockUnities: HospitalUnity[] = [{ id: 2, name: 'Hospital Central' } as any];
-
-    service.getHospitalUnities().subscribe(res => {
-      expect(res).toEqual(mockUnities);
-    });
-
-    const req = httpMock.expectOne(`${mockApiUrl}/get-hospital-unities`);
-    expect(req.request.method).toBe('GET');
-    req.flush(mockUnities);
-  });
-
-  it('deve buscar profissionais médicos (getMedicalProfessionals)', () => {
-    const mockProfessionals: Professional[] = [{ id: 5, name: 'Dr. Roberto' } as any];
-
-    service.getMedicalProfessionals().subscribe(res => {
-      expect(res).toEqual(mockProfessionals);
-    });
-
-    const req = httpMock.expectOne(`${mockApiUrl}/get-medical-professionals`);
-    expect(req.request.method).toBe('GET');
-    req.flush(mockProfessionals);
-  });
-
-  it('deve buscar anexos de uma solicitação (getPatientRequestAttachments)', () => {
-    const mockAttachments: PatientRequestAttachment[] = [{ id: 12, file_name: 'laudo.pdf' } as any];
-
-    service.getPatientRequestAttachments(1).subscribe(res => {
-      expect(res).toEqual(mockAttachments);
-    });
-
-    const req = httpMock.expectOne(`${mockApiUrl}/get-patient-request-attachments/1`);
-    expect(req.request.method).toBe('GET');
-    req.flush(mockAttachments);
-  });
-
-  // ==========================================
-  // BLOCO 2: OPERAÇÕES DA SOLICITAÇÃO (MUTATIONS)
-  // ==========================================
-
-  it('deve criar uma solicitação de paciente (createPatientRequest)', () => {
-    const mockData: PatientRequest = { type: 'Exame' } as any;
-    const mockResponse: ApiResponse = { message: 'Solicitação aberta' };
-
-    service.createPatientRequest(mockData).subscribe(res => {
-      expect(res).toEqual(mockResponse);
-    });
-
-    const req = httpMock.expectOne(`${mockApiUrl}/create-patient-request`);
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual(mockData);
-    req.flush(mockResponse);
-  });
-
-  it('deve atualizar uma solicitação (updatePatientRequest)', () => {
-    const mockData: PatientRequest = { type: 'Exame Alterado' } as any;
-    const mockResponse: ApiResponse = { message: 'Solicitação alterada' };
-
-    service.updatePatientRequest(7, mockData).subscribe(res => {
-      expect(res).toEqual(mockResponse);
-    });
-
-    const req = httpMock.expectOne(`${mockApiUrl}/update-patient-request/7`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual(mockData);
-    req.flush(mockResponse);
-  });
-
-  it('deve deletar uma solicitação (deletePatientRequest)', () => {
-    const mockResponse: ApiResponse = { message: 'Solicitação removida' };
-
-    service.deletePatientRequest(7).subscribe(res => {
-      expect(res).toEqual(mockResponse);
-    });
-
-    const req = httpMock.expectOne(`${mockApiUrl}/delete-patient-request/7`);
-    expect(req.request.method).toBe('DELETE');
-    req.flush(mockResponse);
-  });
-
-  it('deve sobrestar/pausar uma solicitação com corpo vazio (haltedPatientRequest)', () => {
-    const mockResponse: ApiResponse = { message: 'Solicitação sobrestada' };
-
-    service.haltedPatientRequest(3).subscribe(res => {
-      expect(res).toEqual(mockResponse);
-    });
-
-    const req = httpMock.expectOne(`${mockApiUrl}/halted-patient-request/3`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual({}); // Garante que envia um corpo vazio
-    req.flush(mockResponse);
-  });
-
-  it('deve tramitar solicitação para área médica (processPatientRequestToMedical)', () => {
-    const mockData = { professional_id: 5 };
-    const mockResponse: ApiResponse = { message: 'Tramitado com sucesso' };
-
-    service.processPatientRequestToMedical(3, mockData).subscribe(res => {
-      expect(res).toEqual(mockResponse);
-    });
-
-    const req = httpMock.expectOne(`${mockApiUrl}/process-patient-request-to-medical/3`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual(mockData);
-    req.flush(mockResponse);
-  });
-
-  // ==========================================
-  // BLOCO 3: TRÂMITE ENTRE CAIXAS E FLUXOS
-  // ==========================================
-
-  it('deve mover solicitação a partir de processos (movePatientRequestFromProcesses)', () => {
-    const mockResponse: ApiResponse = { message: 'Retornado para Minha Caixa' };
-
-    service.movePatientRequestFromProcesses(1).subscribe(res => expect(res).toEqual(mockResponse));
-
-    const req = httpMock.expectOne(`${mockApiUrl}/move-patient-request-from-processes/1`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual({});
-    req.flush(mockResponse);
-  });
-
-  it('deve mover solicitação a partir de outras caixas (movePatientRequestFromOthers)', () => {
-    const mockResponse: ApiResponse = { message: 'Puxado para Minha Caixa' };
-
-    service.movePatientRequestFromOthers(1).subscribe(res => expect(res).toEqual(mockResponse));
-
-    const req = httpMock.expectOne(`${mockApiUrl}/move-patient-request-from-others/1`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual({});
-    req.flush(mockResponse);
-  });
-
-  it('deve restaurar solicitação a partir do arquivo (movePatientRequestFromArchive)', () => {
-    const mockResponse: ApiResponse = { message: 'Desarquivado' };
-
-    service.movePatientRequestFromArchive(1).subscribe(res => expect(res).toEqual(mockResponse));
-
-    const req = httpMock.expectOne(`${mockApiUrl}/move-patient-request-from-archive/1`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual({});
-    req.flush(mockResponse);
-  });
-
-  // ==========================================
-  // BLOCO 4: ANEXOS DA SOLICITAÇÃO (MULTIPART)
-  // ==========================================
-
-  it('deve criar um anexo montando o FormData corretamente (createPatientRequestAttachment)', () => {
-    const mockResponse: ApiResponse = { message: 'Upload concluído' };
-    const mockPayload = {
-      description: 'Documento RG',
-      date: moment('2026-06-17'),
-      file: new File(['content'], 'rg.pdf', { type: 'application/pdf' })
+  it('deve criar, atualizar (com FormData e _method=PUT) e excluir anexos de solicitação', () => {
+    const file = new File(['conteudo'], 'anexo.pdf', { type: 'application/pdf' });
+    const momentLike = {
+      format: (pattern: string) => (pattern === 'YYYY-MM-DD' ? '2026-08-20' : ''),
     };
+    const dateObj = new Date('2026-09-10T12:00:00.000Z');
 
-    service.createPatientRequestAttachment(9, mockPayload).subscribe(res => {
-      expect(res).toEqual(mockResponse);
-    });
+    const richAttachment = {
+      title: 'Exame',
+      active: true,
+      archived: false,
+      issueMoment: momentLike,
+      examDate: dateObj,
+      file,
+      emptyNull: null,
+      emptyUndefined: undefined,
+    } as unknown as PatientRequestAttachment;
 
-    const req = httpMock.expectOne(`${mockApiUrl}/create-patient-request-attachment/9`);
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body instanceof FormData).toBe(true);
-    req.flush(mockResponse);
+    let createRes: ApiResponse | undefined;
+    let updateRes: ApiResponse | undefined;
+    let deleteRes: ApiResponse | undefined;
+
+    service
+      .createPatientRequestAttachment(12, mockAttachment)
+      .subscribe((res) => (createRes = res));
+    service
+      .updatePatientRequestAttachment(34, richAttachment)
+      .subscribe((res) => (updateRes = res));
+    service.deletePatientRequestAttachment(34).subscribe((res) => (deleteRes = res));
+
+    const createReq = httpMock.expectOne(`${baseUrl}/12/attachments`);
+    expect(createReq.request.method).toBe('POST');
+    expect(createReq.request.body).toBeInstanceOf(FormData);
+    expect((createReq.request.body as FormData).get('_method')).toBeNull();
+    createReq.flush(mockApiResponse);
+
+    const attReqs = httpMock.match(`${baseUrl}/attachments/34`);
+    expect(attReqs).toHaveLength(2);
+
+    const updateReq = attReqs.find((r) => r.request.method === 'POST');
+    const deleteReq = attReqs.find((r) => r.request.method === 'DELETE');
+
+    expect(updateReq).toBeDefined();
+    expect(updateReq!.request.body).toBeInstanceOf(FormData);
+    const formData = updateReq!.request.body as FormData;
+    expect(formData.get('_method')).toBe('PUT');
+    expect(formData.get('title')).toBe('Exame');
+    expect(formData.get('active')).toBe('1');
+    expect(formData.get('archived')).toBe('0');
+    expect(formData.get('issueMoment')).toBe('2026-08-20');
+    expect(formData.get('examDate')).toBe('2026-09-10');
+    expect(formData.get('file')).toBe(file);
+    expect(formData.has('emptyNull')).toBe(false);
+    expect(formData.has('emptyUndefined')).toBe(false);
+    updateReq!.flush(mockApiResponse);
+
+    expect(deleteReq).toBeDefined();
+    deleteReq!.flush(mockApiResponse);
+
+    expect(createRes).toEqual(mockApiResponse);
+    expect(updateRes).toEqual(mockApiResponse);
+    expect(deleteRes).toEqual(mockApiResponse);
   });
 
-  it('deve atualizar um anexo usando FormData (updatePatientRequestAttachment)', () => {
-    const mockResponse: ApiResponse = { message: 'Anexo modificado' };
-    const mockPayload = { description: 'Nova Descrição' };
+  it('deve executar todas as ações PATCH de estado e movimentação da solicitação', () => {
+    const results: ApiResponse[] = [];
+    const processPayload = { hospital_unity_id: 90 };
+    const undoPayload = { reason: 'Correção de fluxo' };
 
-    service.updatePatientRequestAttachment(12, mockPayload).subscribe(res => {
-      expect(res).toEqual(mockResponse);
-    });
+    service.haltedPatientRequest(12).subscribe((res) => results.push(res));
+    service.archivePatientRequest(12).subscribe((res) => results.push(res));
+    service.processPatientRequest(12, processPayload).subscribe((res) => results.push(res));
+    service.movePatientRequestFromProcesses(12).subscribe((res) => results.push(res));
+    service.movePatientRequestFromOthers(12).subscribe((res) => results.push(res));
+    service.movePatientRequestFromArchive(12).subscribe((res) => results.push(res));
+    service.undoPatientRequest(12, undoPayload).subscribe((res) => results.push(res));
+    service.finishBackPatientRequest(12).subscribe((res) => results.push(res));
 
-    const req = httpMock.expectOne(`${mockApiUrl}/update-patient-request-attachment/12`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body instanceof FormData).toBe(true);
-    req.flush(mockResponse);
-  });
+    const haltedReq = httpMock.expectOne(`${baseUrl}/12/halted`);
+    expect(haltedReq.request.method).toBe('PATCH');
+    expect(haltedReq.request.body).toEqual({});
+    haltedReq.flush(mockApiResponse);
 
-  it('deve deletar um anexo (deletePatientRequestAttachment)', () => {
-    const mockResponse: ApiResponse = { message: 'Anexo removido' };
+    const archiveReq = httpMock.expectOne(`${baseUrl}/12/archive`);
+    expect(archiveReq.request.method).toBe('PATCH');
+    expect(archiveReq.request.body).toEqual({});
+    archiveReq.flush(mockApiResponse);
 
-    service.deletePatientRequestAttachment(12).subscribe(res => {
-      expect(res).toEqual(mockResponse);
-    });
+    const processReq = httpMock.expectOne(`${baseUrl}/12/process`);
+    expect(processReq.request.method).toBe('PATCH');
+    expect(processReq.request.body).toEqual(processPayload);
+    processReq.flush(mockApiResponse);
 
-    const req = httpMock.expectOne(`${mockApiUrl}/delete-patient-request-attachment/12`);
-    expect(req.request.method).toBe('DELETE');
-    req.flush(mockResponse);
-  });
+    const fromProcessesReq = httpMock.expectOne(`${baseUrl}/12/move-from-processes`);
+    expect(fromProcessesReq.request.method).toBe('PATCH');
+    expect(fromProcessesReq.request.body).toEqual({});
+    fromProcessesReq.flush(mockApiResponse);
 
-  // ==========================================
-  // BLOCO 5: MÉTODO PRIVADO mountFormData
-  // ==========================================
+    const fromOthersReq = httpMock.expectOne(`${baseUrl}/12/move-from-others`);
+    expect(fromOthersReq.request.method).toBe('PATCH');
+    expect(fromOthersReq.request.body).toEqual({});
+    fromOthersReq.flush(mockApiResponse);
 
-  it('deve retornar um FormData vazio se o payload fornecido for nulo', () => {
-    const formData: FormData = (service as any).mountFormData(null);
-    expect(formData.has('any')).toBe(false);
+    const fromArchiveReq = httpMock.expectOne(`${baseUrl}/12/move-from-archive`);
+    expect(fromArchiveReq.request.method).toBe('PATCH');
+    expect(fromArchiveReq.request.body).toEqual({});
+    fromArchiveReq.flush(mockApiResponse);
+
+    const undoReq = httpMock.expectOne(`${baseUrl}/12/undo`);
+    expect(undoReq.request.method).toBe('PATCH');
+    expect(undoReq.request.body).toEqual(undoPayload);
+    undoReq.flush(mockApiResponse);
+
+    const finishBackReq = httpMock.expectOne(`${baseUrl}/12/finish-back`);
+    expect(finishBackReq.request.method).toBe('PATCH');
+    expect(finishBackReq.request.body).toEqual({});
+    finishBackReq.flush(mockApiResponse);
+
+    expect(results).toHaveLength(8);
   });
 });

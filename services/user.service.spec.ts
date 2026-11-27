@@ -1,26 +1,47 @@
-import { TestBed } from '@angular/core/testing';
-import { HttpClient, provideHttpClient } from '@angular/common/http';
+// src/app/tfd/services/user.service.spec.ts
+import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { UserService, ApiResponse } from './user-service';
-import { environment } from '../../../environments/environment
-';
-import { User } from '../models/user';
-import { Role } from '../models/role';
-import { FormControl } from '@angular/forms';
+import { TestBed } from '@angular/core/testing';
+import { FormControl, ValidationErrors } from '@angular/forms';
+import { Observable } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-describe('UserService', () => {
+import { UserService } from './user.service';
+import { environment } from '../../../environments/environment';
+import { ApiResponse } from '../../core/models/api-response.model';
+import { Role } from '../../core/models/role.model';
+import { TfdUser } from '../models/user.model';
+
+function observeValidation(
+  result: Observable<ValidationErrors | null> | Promise<ValidationErrors | null>,
+  onNext: (value: ValidationErrors | null) => void
+): void {
+  if (!(result instanceof Observable)) {
+    throw new Error('Expected validator to return an Observable');
+  }
+  result.subscribe((value: ValidationErrors | null) => onNext(value));
+}
+
+describe('Tfd UserService', () => {
   let service: UserService;
   let httpMock: HttpTestingController;
-  const baseUrl = `${environment.apiTfdUrl}/user`;
-  const validatorUrl = `${environment.apiTfdUrl}/validator`;
+
+  const baseUrl = `${environment.apiTfdUrl}/users`;
+
+  const mockUser = {
+    id: 1,
+    name: 'Maria Souza',
+    email: 'maria@saude.gov.br',
+  } as unknown as TfdUser;
+
+  const mockRoles = [{ id: 1, name: 'Administrador' }] as unknown as Role[];
+  const mockApiResponse = { message: 'OK' } as unknown as ApiResponse;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+
     TestBed.configureTestingModule({
-      providers: [
-        UserService,
-        provideHttpClient(),
-        provideHttpClientTesting()
-      ]
+      providers: [provideHttpClient(), provideHttpClientTesting(), UserService],
     });
 
     service = TestBed.inject(UserService);
@@ -28,176 +49,232 @@ describe('UserService', () => {
   });
 
   afterEach(() => {
-    // Garante que nenhuma requisição HTTP ficou pendente ou aberta
+    vi.useRealTimers();
     httpMock.verify();
   });
 
-  it('should be created', () => {
-    expect(service).toBeTruthy();
+  it('deve consultar getMe, getUsers e getRoles via GET', () => {
+    let meResult: TfdUser | undefined;
+    let usersResult: TfdUser[] | undefined;
+    let rolesResult: Role[] | undefined;
+
+    service.getMe().subscribe((res) => (meResult = res));
+    service.getUsers().subscribe((res) => (usersResult = res));
+    service.getRoles().subscribe((res) => (rolesResult = res));
+
+    const meReq = httpMock.expectOne(`${baseUrl}/me`);
+    expect(meReq.request.method).toBe('GET');
+    meReq.flush(mockUser);
+
+    const usersReq = httpMock.expectOne(baseUrl);
+    expect(usersReq.request.method).toBe('GET');
+    usersReq.flush([mockUser]);
+
+    const rolesReq = httpMock.expectOne(`${baseUrl}/roles`);
+    expect(rolesReq.request.method).toBe('GET');
+    rolesReq.flush(mockRoles);
+
+    expect(meResult).toEqual(mockUser);
+    expect(usersResult).toEqual([mockUser]);
+    expect(rolesResult).toEqual(mockRoles);
   });
 
-  it('deve buscar a lista de usuários (getUsers)', () => {
-    const mockUsers: User[] = [{ id: 1, name: 'John Doe', email: 'john@laravel.com' } as any];
+  it('deve executar createUser, updateUser e deleteUser', () => {
+    let createRes: ApiResponse | undefined;
+    let updateRes: ApiResponse | undefined;
+    let deleteRes: ApiResponse | undefined;
 
-    service.getUsers().subscribe((users) => {
-      expect(users.length).toBe(1);
-      expect(users).toEqual(mockUsers);
-    });
+    service.createUser(mockUser).subscribe((res) => (createRes = res));
+    service.updateUser(7, mockUser).subscribe((res) => (updateRes = res));
+    service.deleteUser(7).subscribe((res) => (deleteRes = res));
 
-    const req = httpMock.expectOne(`${baseUrl}/get-users`);
+    const postReq = httpMock.expectOne(baseUrl);
+    expect(postReq.request.method).toBe('POST');
+    expect(postReq.request.body).toEqual(mockUser);
+    postReq.flush(mockApiResponse);
+
+    const idReqs = httpMock.match(`${baseUrl}/7`);
+    expect(idReqs).toHaveLength(2);
+
+    const putReq = idReqs.find((r) => r.request.method === 'PUT');
+    const deleteReq = idReqs.find((r) => r.request.method === 'DELETE');
+
+    expect(putReq).toBeDefined();
+    expect(putReq!.request.body).toEqual(mockUser);
+    putReq!.flush(mockApiResponse);
+
+    expect(deleteReq).toBeDefined();
+    deleteReq!.flush(mockApiResponse);
+
+    expect(createRes).toEqual(mockApiResponse);
+    expect(updateRes).toEqual(mockApiResponse);
+    expect(deleteRes).toEqual(mockApiResponse);
+  });
+
+  it('deve executar lockUser, validateUser e rolesUser', () => {
+    let lockRes: ApiResponse | undefined;
+    let validateRes: ApiResponse | undefined;
+    let rolesRes: ApiResponse | undefined;
+
+    service.lockUser(3).subscribe((res) => (lockRes = res));
+    service.validateUser(3).subscribe((res) => (validateRes = res));
+    service.rolesUser(3, mockRoles).subscribe((res) => (rolesRes = res));
+
+    const lockReq = httpMock.expectOne(`${baseUrl}/3/lock`);
+    expect(lockReq.request.method).toBe('PATCH');
+    expect(lockReq.request.body).toEqual({});
+    lockReq.flush(mockApiResponse);
+
+    const validateReq = httpMock.expectOne(`${baseUrl}/3/validate`);
+    expect(validateReq.request.method).toBe('PATCH');
+    expect(validateReq.request.body).toEqual({});
+    validateReq.flush(mockApiResponse);
+
+    const rolesReq = httpMock.expectOne(`${baseUrl}/3/roles`);
+    expect(rolesReq.request.method).toBe('PUT');
+    expect(rolesReq.request.body).toEqual(mockRoles);
+    rolesReq.flush(mockApiResponse);
+
+    expect(lockRes).toEqual(mockApiResponse);
+    expect(validateRes).toEqual(mockApiResponse);
+    expect(rolesRes).toEqual(mockApiResponse);
+  });
+
+  it('deve verificar disponibilidade de e-mail com e sem parâmetro ignore', () => {
+    let existsWithIgnore: boolean | undefined;
+    let existsWithoutIgnore: boolean | undefined;
+
+    service
+      .checkEmailExists('  Maria@Saude.Gov.BR  ', '  Atual@Saude.Gov.BR ')
+      .subscribe((res) => (existsWithIgnore = res));
+
+    const req1 = httpMock.expectOne(
+      (r) =>
+        r.url === `${baseUrl}/availability` &&
+        r.params.get('email') === 'maria@saude.gov.br' &&
+        r.params.get('ignore') === 'atual@saude.gov.br'
+    );
+    expect(req1.request.method).toBe('GET');
+    req1.flush({ available: false, exists: true });
+
+    service.checkEmailExists('novo@saude.gov.br').subscribe((res) => (existsWithoutIgnore = res));
+
+    const req2 = httpMock.expectOne(
+      (r) =>
+        r.url === `${baseUrl}/availability` &&
+        r.params.get('email') === 'novo@saude.gov.br' &&
+        !r.params.has('ignore')
+    );
+    expect(req2.request.method).toBe('GET');
+    req2.flush({ available: true, exists: false });
+
+    expect(existsWithIgnore).toBe(true);
+    expect(existsWithoutIgnore).toBe(false);
+  });
+
+  it('deve verificar disponibilidade de CNS limpando dígitos com e sem parâmetro ignore', () => {
+    let cnsExists: boolean | undefined;
+
+    service
+      .checkCnsExists('123.4567.8901-2345', '999.8887.7766-5544')
+      .subscribe((res) => (cnsExists = res));
+
+    const req = httpMock.expectOne(
+      (r) =>
+        r.url === `${baseUrl}/availability` &&
+        r.params.get('cns') === '123456789012345' &&
+        r.params.get('ignore') === '999888777665544'
+    );
     expect(req.request.method).toBe('GET');
-    req.flush(mockUsers); // Devolve os dados falsos
+    req.flush({ available: false, exists: true });
+
+    expect(cnsExists).toBe(true);
   });
 
-  it('deve buscar a lista de regras/roles (getRoles)', () => {
-    const mockRoles: Role[] = [{ id: 1, name: 'Admin', permissions: [] }];
+  it('deve validar e-mail de forma assíncrona ignorando inválidos e aplicando debounce de 400ms', async () => {
+    vi.useFakeTimers();
+    const validator = service.emailUserExistsValidator('atual@saude.gov.br');
 
-    service.getRoles().subscribe((roles) => {
-      expect(roles).toEqual(mockRoles);
+    const invalidControl = new FormControl('email-invalido');
+    let invalidResult: ValidationErrors | null | string = 'pending';
+    observeValidation(validator(invalidControl), (res) => {
+      invalidResult = res;
+    });
+    await vi.advanceTimersByTimeAsync(400);
+    httpMock.expectNone(`${baseUrl}/availability`);
+    expect(invalidResult).toBeNull();
+
+    const validControl = new FormControl('  Maria@Saude.Gov.BR  ');
+    let existsResult: ValidationErrors | null | string = 'pending';
+    observeValidation(validator(validControl), (res) => {
+      existsResult = res;
     });
 
-    const req = httpMock.expectOne(`${baseUrl}/get-roles`);
-    expect(req.request.method).toBe('GET');
-    req.flush(mockRoles);
+    await vi.advanceTimersByTimeAsync(399);
+    httpMock.expectNone(`${baseUrl}/availability`);
+
+    await vi.advanceTimersByTimeAsync(1);
+    const req = httpMock.expectOne(
+      (r) =>
+        r.url === `${baseUrl}/availability` &&
+        r.params.get('email') === 'maria@saude.gov.br' &&
+        r.params.get('ignore') === 'atual@saude.gov.br'
+    );
+    req.flush({ available: false, exists: true });
+    expect(existsResult).toEqual({ emailExists: true });
+
+    const errorControl = new FormControl('erro@saude.gov.br');
+    let errorResult: ValidationErrors | null | string = 'pending';
+    observeValidation(validator(errorControl), (res) => {
+      errorResult = res;
+    });
+    await vi.advanceTimersByTimeAsync(400);
+    const errReq = httpMock.expectOne(
+      `${baseUrl}/availability?email=erro@saude.gov.br&ignore=atual@saude.gov.br`
+    );
+    errReq.flush('Erro no servidor', { status: 500, statusText: 'Internal Server Error' });
+    expect(errorResult).toBeNull();
   });
 
-  it('deve enviar uma requisição POST para criar usuário (createUser)', () => {
-    const mockUser = { name: 'Novo Usuário', email: 'novo@teste.com' } as User;
-    const mockResponse: ApiResponse = { message: 'Usuário criado com sucesso!' };
+  it('deve validar CNS de forma assíncrona ignorando incompletos e aplicando debounce de 400ms', async () => {
+    vi.useFakeTimers();
+    const validator = service.cnsUserExistsValidator('111222333444555');
 
-    service.createUser(mockUser).subscribe((res) => {
-      expect(res).toEqual(mockResponse);
+    const shortControl = new FormControl('123.456');
+    let shortResult: ValidationErrors | null | string = 'pending';
+    observeValidation(validator(shortControl), (res) => {
+      shortResult = res;
+    });
+    await vi.advanceTimersByTimeAsync(400);
+    httpMock.expectNone(`${baseUrl}/availability`);
+    expect(shortResult).toBeNull();
+
+    const validCnsControl = new FormControl(123456789012345);
+    let existsResult: ValidationErrors | null | string = 'pending';
+    observeValidation(validator(validCnsControl), (res) => {
+      existsResult = res;
     });
 
-    const req = httpMock.expectOne(`${baseUrl}/create-user`);
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual(mockUser); // Garante que enviou os dados no corpo
-    req.flush(mockResponse);
-  });
+    await vi.advanceTimersByTimeAsync(400);
+    const req = httpMock.expectOne(
+      (r) =>
+        r.url === `${baseUrl}/availability` &&
+        r.params.get('cns') === '123456789012345' &&
+        r.params.get('ignore') === '111222333444555'
+    );
+    req.flush({ available: true, exists: false });
+    expect(existsResult).toBeNull();
 
-  it('deve enviar uma requisição PATCH para travar usuário com corpo vazio (lockUser)', () => {
-    const userId = 123;
-    const mockResponse: ApiResponse = { message: 'Usuário travado' };
-
-    service.lockUser(userId).subscribe((res) => {
-      expect(res).toEqual(mockResponse);
+    const errorCnsControl = new FormControl('999.8887.7766-5544');
+    let errorResult: ValidationErrors | null | string = 'pending';
+    observeValidation(validator(errorCnsControl), (res) => {
+      errorResult = res;
     });
-
-    const req = httpMock.expectOne(`${baseUrl}/lock-user/${userId}`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual({}); // 🛠️ Teste crítico: Garante que o corpo vai vazio {} e não quebra o Laravel
-    req.flush(mockResponse);
-  });
-
-  it('deve enviar uma requisição PATCH para validar usuário com corpo vazio (validateUser)', () => {
-    const userId = 123;
-    const mockResponse: ApiResponse = { message: 'Usuário validado' };
-
-    service.validateUser(userId).subscribe((res) => {
-      expect(res).toEqual(mockResponse);
-    });
-
-    const req = httpMock.expectOne(`${baseUrl}/validate-user/${userId}`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual({});
-    req.flush(mockResponse);
-  });
-
-  it('deve enviar uma requisição PATCH para atualizar dados (updateUser)', () => {
-    const userId = 45;
-    const updatedData = { name: 'Nome Atualizado' } as User;
-
-    service.updateUser(userId, updatedData).subscribe();
-
-    const req = httpMock.expectOne(`${baseUrl}/update-user/${userId}`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual(updatedData);
-    req.flush({});
-  });
-
-  it('deve enviar uma requisição DELETE para remover usuário (deleteUser)', () => {
-    const userId = 99;
-
-    service.deleteUser(userId).subscribe();
-
-    const req = httpMock.expectOne(`${baseUrl}/delete-user/${userId}`);
-    expect(req.request.method).toBe('DELETE');
-    req.flush({});
-  });
-
-  it('deve atualizar as permissões/roles do usuário (rolesUser)', () => {
-    const userId = 10;
-    const mockRoles: Role[] = [{ id: 2, name: 'Gerente', permissions: [] }];
-
-    service.rolesUser(userId, mockRoles).subscribe();
-
-    const req = httpMock.expectOne(`${baseUrl}/roles-user/${userId}`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual(mockRoles);
-    req.flush({});
-  });
-
-  // --- TESTES DOS VALIDATORES ASSÍNCRONOS ---
-
-  describe('Async Validators', () => {
-    
-    it('deve retornar { emailExists: true } se o email já existir no validador', () => {
-      const validatorFn = service.emailUserExistsValidator('antigo@email.com');
-      const control = new FormControl('novo@email.com');
-
-      // Executa o validador assíncrono passando o FormControl mockado
-      (validatorFn(control) as any).subscribe((result: any) => {
-        expect(result).toEqual({ emailExists: true });
-      });
-
-      const req = httpMock.expectOne(`${validatorUrl}/email-user-exists/novo@email.com/antigo@email.com`);
-      expect(req.request.method).toBe('GET');
-      req.flush(true); // Simula o Laravel respondendo "true" (existe)
-    });
-
-    it('deve retornar null se o email NÃO existir ou se a API falhar', () => {
-      const validatorFn = service.emailUserExistsValidator('antigo@email.com');
-      const control = new FormControl('novo@email.com');
-
-      // Caso 1: API retorna false (Não existe)
-      (validatorFn(control) as any).subscribe((result: any) => {
-        expect(result).toBeNull();
-      });
-
-      let req = httpMock.expectOne(`${validatorUrl}/email-user-exists/novo@email.com/antigo@email.com`);
-      req.flush(false);
-
-      // Caso 2: API cai / dá erro (catchError ativa)
-      (validatorFn(control) as any).subscribe((result: any) => {
-        expect(result).toBeNull(); // Não deve quebrar o formulário do usuário
-      });
-
-      req = httpMock.expectOne(`${validatorUrl}/email-user-exists/novo@email.com/antigo@email.com`);
-      req.error(new ProgressEvent('error')); // Força um erro de rede/HTTP
-    });
-
-    it('deve retornar null imediatamente se o campo de CNS estiver vazio', () => {
-      const validatorFn = service.cnsUserExistsValidator('1234');
-      const control = new FormControl(''); // Valor vazio
-
-      (validatorFn(control) as any).subscribe((result: any) => {
-        expect(result).toBeNull();
-      });
-
-      // Nenhuma requisição HTTP deve ser feita
-      httpMock.expectNone(`${validatorUrl}/cns-user-exists//1234`);
-    });
-
-    it('deve validar corretamente a existência de CNS', () => {
-      const validatorFn = service.cnsUserExistsValidator('cns-atual');
-      const control = new FormControl('cns-digitado');
-
-      (validatorFn(control) as any).subscribe((result: any) => {
-        expect(result).toEqual({ cnsExists: true });
-      });
-
-      const req = httpMock.expectOne(`${validatorUrl}/cns-user-exists/cns-digitado/cns-atual`);
-      req.flush(true);
-    });
+    await vi.advanceTimersByTimeAsync(400);
+    const errReq = httpMock.expectOne(
+      `${baseUrl}/availability?cns=999888777665544&ignore=111222333444555`
+    );
+    errReq.flush('Falha', { status: 500, statusText: 'Server Error' });
+    expect(errorResult).toBeNull();
   });
 });

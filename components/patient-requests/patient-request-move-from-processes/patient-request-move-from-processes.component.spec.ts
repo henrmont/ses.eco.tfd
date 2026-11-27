@@ -1,145 +1,206 @@
-import { TestBed, ComponentFixture } from '@angular/core/testing';
+// src/app/tfd/components/patient-requests/patient-request-move-from-processes/patient-request-move-from-processes.component.spec.ts
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { of, throwError } from 'rxjs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MovePatientRequestFromProcessesComponent } from './move-patient-request-from-processes-component';
-import { PatientRequestService } from '../../../services/patient-request-service';
-import { MessageService } from '../../../../core/services/message-service';
+import {
+  PatientRequestMoveFromProcessesComponent,
+  PatientRequestMoveFromProcessesDialogData,
+} from './patient-request-move-from-processes.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { PatientRequest } from '../../../models/patient-request.model';
+import { PatientRequestService } from '../../../services/patient-request.service';
 
-describe('MovePatientRequestFromProcessesComponent', () => {
-  let component: MovePatientRequestFromProcessesComponent;
-  let fixture: ComponentFixture<MovePatientRequestFromProcessesComponent>;
-  
-  let patientRequestServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  // Mock estruturado exatamente igual ao seu HTML, incluindo o nó .patient
-  const mockDialogData = {
+describe('PatientRequestMoveFromProcessesComponent', () => {
+  let component: PatientRequestMoveFromProcessesComponent;
+  let fixture: ComponentFixture<PatientRequestMoveFromProcessesComponent>;
+
+  let broadcastChannelMock: MockBroadcastChannel;
+  let patientRequestServiceMock: {
+    movePatientRequestFromProcesses: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
+  };
+
+  const baseDialogData: PatientRequestMoveFromProcessesDialogData = {
     patient_request: {
-      id: 850,
+      id: 99,
       report: {
         patient_care: {
           patient: {
-            name: 'Carlos Eduardo'
-          }
-        }
-      }
-    }
+            name: 'Beatriz Lima',
+          },
+        },
+      },
+    } as unknown as PatientRequest,
   };
 
-  beforeEach(async () => {
-    patientRequestServiceMock = {
-      movePatientRequestFromProcesses: vi.fn()
-    };
-
-    messageServiceMock = {
-      showMessage: vi.fn()
-    };
-
-    dialogRefMock = {
-      close: vi.fn()
-    };
-
-    await TestBed.configureTestingModule({
-      imports: [MovePatientRequestFromProcessesComponent]
-    })
-    .overrideComponent(MovePatientRequestFromProcessesComponent, {
-      set: {
+  async function createComponent(
+    dialogData: PatientRequestMoveFromProcessesDialogData | null = {
+      patient_request: {
+        id: 99,
+        report: {
+          patient_care: {
+            patient: {
+              name: 'Beatriz Lima',
+            },
+          },
+        },
+      } as unknown as PatientRequest,
+    }
+  ): Promise<void> {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientRequestMoveFromProcessesComponent],
         providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
           { provide: PatientRequestService, useValue: patientRequestServiceMock },
           { provide: MessageService, useValue: messageServiceMock },
           { provide: MatDialogRef, useValue: dialogRefMock },
-          { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-        ]
-      }
-    })
-    .compileComponents();
+          { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        ],
+      })
+      .overrideComponent(PatientRequestMoveFromProcessesComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
-    fixture = TestBed.createComponent(MovePatientRequestFromProcessesComponent);
+    fixture = TestBed.createComponent(PatientRequestMoveFromProcessesComponent);
     component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    broadcastChannelMock = new MockBroadcastChannel();
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
+    patientRequestServiceMock = {
+      movePatientRequestFromProcesses: vi.fn(),
+    };
+
+    messageServiceMock = {
+      showMessage: vi.fn(),
+    };
+
+    dialogRefMock = {
+      close: vi.fn(),
+    };
+
+    await createComponent();
   });
 
-  describe('Inicialização', () => {
-    it('deve instanciar o componente com sucesso', () => {
-      fixture.detectChanges();
-      expect(component).toBeTruthy();
-    });
-
-    it('deve inicializar com o estado de submissão desativado', () => {
-      fixture.detectChanges();
-      expect(component['isSubmitting']()).toBe(false);
-    });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
-  describe('Fluxo de Submissão (onSubmit)', () => {
-    it('deve barrar a execução e exibir mensagem de erro se o id da solicitação não estiver presente', () => {
-      TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ imports: [MovePatientRequestFromProcessesComponent] })
-        .overrideComponent(MovePatientRequestFromProcessesComponent, {
-          set: {
-            providers: [
-              { provide: PatientRequestService, useValue: patientRequestServiceMock },
-              { provide: MessageService, useValue: messageServiceMock },
-              { provide: MatDialogRef, useValue: dialogRefMock },
-              { provide: MAT_DIALOG_DATA, useValue: { patient_request: { id: null, report: { patient_care: { patient: { name: 'Incompleto' } } } } } }
-            ]
-          }
-        });
+  it('deve criar o componente, abrir o BroadcastChannel e expor patientName', () => {
+    expect(component).toBeTruthy();
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patient-requests-channel');
+    expect(component['isSubmitting']()).toBe(false);
+    expect(component['patientName']()).toBe('Beatriz Lima');
+  });
 
-      const localFixture = TestBed.createComponent(MovePatientRequestFromProcessesComponent);
-      const localComponent = localFixture.componentInstance;
-      localFixture.detectChanges();
+  it('deve retornar "Não informado" em patientName quando dados do paciente estiverem ausentes', async () => {
+    await createComponent({
+      patient_request: { id: 99 } as unknown as PatientRequest,
+    });
+    expect(component['patientName']()).toBe('Não informado');
 
-      localComponent['onSubmit']();
+    await createComponent(null);
+    expect(component['patientName']()).toBe('Não informado');
+  });
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro: Identificador da solicitação não encontrado.');
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
+  });
+
+  describe('Movimentação de Processos (onSubmit)', () => {
+    it('deve exibir mensagem e não chamar movePatientRequestFromProcesses quando patient_request.id for inválido', async () => {
+      await createComponent(null);
+
+      component['onSubmit']();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificador da solicitação inválido.'
+      );
       expect(patientRequestServiceMock.movePatientRequestFromProcesses).not.toHaveBeenCalled();
     });
 
-    it('deve movimentar a solicitação com sucesso, exibir toast e fechar a modal retornando true', () => {
-      fixture.detectChanges();
-      const mockApiResponse = { message: 'Solicitação transferida com sucesso!' };
-      patientRequestServiceMock.movePatientRequestFromProcesses.mockReturnValue(of(mockApiResponse));
+    it('deve gerenciar isSubmitting, exibir mensagem, notificar canal e fechar dialog no sucesso', () => {
+      const pending$ = new Subject<{ message?: string }>();
+      patientRequestServiceMock.movePatientRequestFromProcesses.mockReturnValue(
+        pending$.asObservable()
+      );
 
       component['onSubmit']();
+      expect(component['isSubmitting']()).toBe(true);
+      expect(patientRequestServiceMock.movePatientRequestFromProcesses).toHaveBeenCalledWith(99);
 
-      expect(patientRequestServiceMock.movePatientRequestFromProcesses).toHaveBeenCalledWith(850);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação transferida com sucesso!');
+      pending$.next({ message: 'Solicitação movimentada de processos!' });
+      pending$.complete();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Solicitação movimentada de processos!'
+      );
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
       expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
     });
 
-    it('deve usar mensagem padrão de sucesso se a API retornar um objeto vazio', () => {
-      fixture.detectChanges();
+    it('deve usar mensagem padrão de sucesso quando response não trouxer message', () => {
       patientRequestServiceMock.movePatientRequestFromProcesses.mockReturnValue(of({}));
 
       component['onSubmit']();
+      fixture.detectChanges();
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação movimentada com sucesso!');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Solicitação movimentada com sucesso!'
+      );
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
     });
 
-    it('deve tratar falhas do servidor, exibir mensagem de erro da API e resetar o estado de carregamento do botão', () => {
-      fixture.detectChanges();
-      const mockApiError = { error: { message: 'Esta solicitação já foi movimentada por outro operador.' } };
-      patientRequestServiceMock.movePatientRequestFromProcesses.mockReturnValue(throwError(() => mockApiError));
+    it('deve exibir mensagem de erro da API ou fallback e não fechar dialog em caso de falha', () => {
+      patientRequestServiceMock.movePatientRequestFromProcesses.mockReturnValueOnce(
+        throwError(() => ({ error: { message: 'Processo bloqueado.' } }))
+      );
 
       component['onSubmit']();
+      fixture.detectChanges();
 
-      expect(patientRequestServiceMock.movePatientRequestFromProcesses).toHaveBeenCalledWith(850);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(mockApiError.error.message);
-      expect(component['isSubmitting']()).toBe(false);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Processo bloqueado.');
       expect(dialogRefMock.close).not.toHaveBeenCalled();
-    });
+      expect(component['isSubmitting']()).toBe(false);
 
-    it('deve usar mensagem de erro genérica se o servidor falhar sem retornar corpo de erro', () => {
-      fixture.detectChanges();
-      const rawError = { status: 500 };
-      patientRequestServiceMock.movePatientRequestFromProcesses.mockReturnValue(throwError(() => rawError));
+      patientRequestServiceMock.movePatientRequestFromProcesses.mockReturnValueOnce(
+        throwError(() => new Error('Erro de rede'))
+      );
 
       component['onSubmit']();
+      fixture.detectChanges();
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Ocorreu um erro ao tentar movimentar a solicitação.');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao tentar movimentar a solicitação.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
       expect(component['isSubmitting']()).toBe(false);
     });
   });

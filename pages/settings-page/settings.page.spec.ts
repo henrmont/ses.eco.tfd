@@ -1,34 +1,34 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+// src/app/tfd/pages/settings-page/settings.page.spec.ts
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { SettingsPage } from './settings-page';
+import { SettingsPage } from './settings.page';
 
 describe('SettingsPage', () => {
-  let component: SettingsPage;
   let fixture: ComponentFixture<SettingsPage>;
+  let component: SettingsPage;
 
-  beforeEach(async () => {
-    vi.clearAllMocks();
-
+  async function initPage(): Promise<void> {
     await TestBed.configureTestingModule({
       imports: [SettingsPage],
-      providers: [
-        // Adicione os mocks de serviços aqui quando passar a utilizá-los
-      ]
-    }).compileComponents();
+    })
+      .overrideComponent(SettingsPage, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
     fixture = TestBed.createComponent(SettingsPage);
     component = fixture.componentInstance;
     fixture.detectChanges();
-  });
+  }
 
   afterEach(() => {
     fixture?.destroy();
-    TestBed.resetTestingModule();
   });
 
-  it('should create a página de configurações', () => {
+  it('deve criar a instância de SettingsPage sem erros', async () => {
+    await initPage();
+
     expect(component).toBeTruthy();
   });
-
 });

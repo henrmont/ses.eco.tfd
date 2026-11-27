@@ -1,265 +1,283 @@
-import { TestBed, ComponentFixture, fakeAsync, tick } from '@angular/core/testing';
+// src/app/tfd/components/patient-requests/patient-request-process/patient-request-process.component.spec.ts
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { provideNativeDateAdapter } from '@angular/material/core';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { ChangeDetectorRef } from '@angular/core';
-import { of, throwError } from 'rxjs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ProcessPatientRequestComponent } from './process-patient-request-component';
-import { PatientRequestService } from '../../../services/patient-request-service';
-import { MessageService } from '../../../../core/services/message-service';
+import {
+  GroupedProfessionalsResponse,
+  PatientRequestProcessComponent,
+  PatientRequestProcessDialogData,
+  ProfessionalOption,
+} from './patient-request-process.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { PatientRequest } from '../../../models/patient-request.model';
+import { PatientRequestService } from '../../../services/patient-request.service';
 
-describe('ProcessPatientRequestComponent', () => {
-  let component: ProcessPatientRequestComponent;
-  let fixture: ComponentFixture<ProcessPatientRequestComponent>;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  let patientRequestServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+describe('PatientRequestProcessComponent', () => {
+  let component: PatientRequestProcessComponent;
+  let fixture: ComponentFixture<PatientRequestProcessComponent>;
 
-  const mockDialogData = {
-    patient_request: {
-      id: 550,
-      report: {
-        patient_care: { name: 'Carlos de Souza' }
-      }
-    }
+  let broadcastChannelMock: MockBroadcastChannel;
+  let patientRequestServiceMock: {
+    getProfessionals: ReturnType<typeof vi.fn>;
+    processPatientRequest: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
   };
 
-  const mockProfessionalsList = [
-    { id: 10, name: 'Dr. Roberto Cruz', patient_medical_requests_count: 3, patient: { name: 'Dr. Roberto Cruz' } },
-    { id: 20, name: 'Dr. Adalberto Silva', patient_medical_requests_count: 0, patient: { name: 'Dr. Adalberto Silva' } },
-    { id: 30, name: 'Dra. Amanda Costa', patient_medical_requests_count: 1, patient: { name: 'Dra. Amanda Costa' } }
-  ];
+  const medicalProf: ProfessionalOption = { id: 1, name: 'Dr. João', requests_count: 2 };
+  const socialProf: ProfessionalOption = { id: 2, name: 'Dra. Maria', requests_count: 1 };
+  const travelProf: ProfessionalOption = { id: 3, name: 'Carlos Viagens', requests_count: 4 };
+  const costProf: ProfessionalOption = { id: 4, name: 'Ana Custos', requests_count: 3 };
+
+  const groupedResponse: GroupedProfessionalsResponse = {
+    medical_professionals: [medicalProf],
+    social_professionals: [socialProf],
+    travel_professionals: [travelProf],
+    cost_assistance_professionals: [costProf],
+  };
+
+  async function createComponent(
+    dialogData: PatientRequestProcessDialogData | null = {
+      patient_request: {
+        id: 120,
+        type: 'Entrada',
+      } as unknown as PatientRequest,
+    }
+  ): Promise<void> {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientRequestProcessComponent],
+        providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
+          { provide: PatientRequestService, useValue: patientRequestServiceMock },
+          { provide: MessageService, useValue: messageServiceMock },
+          { provide: MatDialogRef, useValue: dialogRefMock },
+          { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        ],
+      })
+      .overrideComponent(PatientRequestProcessComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
+
+    fixture = TestBed.createComponent(PatientRequestProcessComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
 
   beforeEach(async () => {
+    broadcastChannelMock = new MockBroadcastChannel();
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
     patientRequestServiceMock = {
-      getMedicalProfessionals: vi.fn(),
-      processPatientRequestToMedical: vi.fn()
+      getProfessionals: vi.fn().mockReturnValue(of(groupedResponse)),
+      processPatientRequest: vi.fn().mockReturnValue(of({ message: 'Processado!' })),
     };
 
     messageServiceMock = {
-      showMessage: vi.fn()
+      showMessage: vi.fn(),
     };
 
     dialogRefMock = {
-      close: vi.fn()
+      close: vi.fn(),
     };
 
-    // Respostas padrão das Streams assinadas
-    patientRequestServiceMock.getMedicalProfessionals.mockReturnValue(of(mockProfessionalsList));
-    patientRequestServiceMock.processPatientRequestToMedical.mockReturnValue(of({ message: 'Solicitação encaminhada com sucesso!' }));
-
-    await TestBed.configureTestingModule({
-      imports: [
-        ProcessPatientRequestComponent
-      ],
-      providers: [
-        provideNativeDateAdapter(),
-        provideAnimationsAsync('noop'),
-        { provide: PatientRequestService, useValue: patientRequestServiceMock },
-        { provide: MessageService, useValue: messageServiceMock },
-        { provide: MatDialogRef, useValue: dialogRefMock },
-        { provide: MAT_DIALOG_DATA, useValue: mockDialogData },
-        ChangeDetectorRef
-      ]
-    })
-    .overrideComponent(ProcessPatientRequestComponent, {
-      set: {
-        providers: [
-          { provide: MatDialogRef, useValue: dialogRefMock }
-        ]
-      }
-    })
-    .compileComponents();
-
-    fixture = TestBed.createComponent(ProcessPatientRequestComponent);
-    component = fixture.componentInstance;
+    await createComponent();
   });
 
-  it('deve criar o componente com sucesso e inicializar o formulário reativo vazio', () => {
-    fixture.detectChanges();
-    
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('deve criar o componente, abrir o BroadcastChannel e carregar profissionais agrupados', () => {
     expect(component).toBeTruthy();
-    expect(component['isSubmitting']()).toBe(false);
-    expect(component['tramitPatientRequestForm']).toBeTruthy();
-
-    const formValues = component['tramitPatientRequestForm'].value;
-    expect(formValues.medical_professional_id).toBeNull();
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patient-requests-channel');
+    expect(patientRequestServiceMock.getProfessionals).toHaveBeenCalledTimes(1);
+    expect(component['isLoadingProfessionals']()).toBe(false);
+    expect(component['isReadOnly']()).toBe(false);
+    expect(component['isEntranceType']()).toBe(true);
+    expect(component['filteredMedicalOptions']()).toEqual([medicalProf]);
+    expect(component['filteredSocialOptions']()).toEqual([socialProf]);
+    expect(component['filteredTravelOptions']()).toEqual([travelProf]);
+    expect(component['filteredCostAssistanceOptions']()).toEqual([costProf]);
+    expect(component['processForm'].enabled).toBe(true);
   });
 
-  describe('Buscas Automáticas e Autocomplete (Médicos) na Tramitação', () => {
-    it('deve carregar a lista de profissionais médicos mapeando as propriedades do patient anexado', () => {
-      fixture.detectChanges();
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
+  });
 
-      expect(patientRequestServiceMock.getMedicalProfessionals).toHaveBeenCalled();
-      expect(component['medicalProfessionalOptions'].length).toBe(3);
-      expect(component['medicalProfessionalReadOnly']()).toBe(false);
-      expect(component['medicalProfessionalOptions'][0].name).toBe('Dr. Roberto Cruz');
+  it('deve suportar resposta em array, resposta inválida e erro ao carregar profissionais', async () => {
+    const arrayList: ProfessionalOption[] = Array.from({ length: 12 }, (_, idx) => ({
+      id: idx + 1,
+      name: `Profissional ${idx + 1}`,
+    }));
+    patientRequestServiceMock.getProfessionals.mockReturnValueOnce(of(arrayList));
+    await createComponent();
+    expect(component['filteredMedicalOptions']()).toHaveLength(10);
+
+    patientRequestServiceMock.getProfessionals.mockReturnValueOnce(of(null));
+    await createComponent();
+    expect(component['filteredMedicalOptions']()).toEqual([]);
+
+    patientRequestServiceMock.getProfessionals.mockReturnValueOnce(
+      throwError(() => new Error('Falha ao buscar profissionais'))
+    );
+    await createComponent();
+    expect(component['isReadOnly']()).toBe(true);
+    expect(component['filteredMedicalOptions']()).toEqual([]);
+  });
+
+  describe('Display, Filtros, Sincronização e Tipo', () => {
+    it('deve formatar displayProfessionalFn e filtrar opções por texto ou objeto', () => {
+      expect(component['displayProfessionalFn'](null)).toBe('');
+      expect(component['displayProfessionalFn']('')).toBe('');
+      expect(component['displayProfessionalFn']('Texto')).toBe('Texto');
+      expect(component['displayProfessionalFn'](medicalProf)).toBe('Dr. João');
+      expect(component['displayProfessionalFn']({ id: 9, name: '' })).toBe('');
+
+      component['medicalProfessionalControl'].setValue('João');
+      expect(component['filteredMedicalOptions']()).toEqual([medicalProf]);
+
+      component['medicalProfessionalControl'].setValue(socialProf);
+      expect(component['filteredMedicalOptions']()).toEqual([]);
+
+      component['socialProfessionalControl'].setValue('Maria');
+      expect(component['filteredSocialOptions']()).toEqual([socialProf]);
+
+      component['travelProfessionalControl'].setValue('Carlos');
+      expect(component['filteredTravelOptions']()).toEqual([travelProf]);
+
+      component['costAssistanceProfessionalControl'].setValue('Ana');
+      expect(component['filteredCostAssistanceOptions']()).toEqual([costProf]);
     });
 
-    it('deve filtrar as opções de médicos com base no input do formulário em formato String', () => {
-      fixture.detectChanges();
-
-      let resultOptions: any[] = [];
-      component['filteredMedicalProfessionalOptions'].subscribe(options => {
-        resultOptions = options;
+    it('deve sincronizar IDs no processForm e exigir passagem/ajuda quando type não for Entrada', async () => {
+      await createComponent({
+        patient_request: {
+          id: 120,
+          type: 'Agendamento',
+        } as unknown as PatientRequest,
       });
 
-      // Dispara o valor diretamente para ativar a stream reativa do valueChanges
-      component['medicalProfessionalControl'].setValue('Adalberto');
+      expect(component['isEntranceType']()).toBe(false);
+      expect(component['isFormInvalid']()).toBe(true);
 
-      expect(resultOptions.length).toBe(1);
-      expect(resultOptions[0].name).toBe('Dr. Adalberto Silva');
-    });
+      component['medicalProfessionalControl'].setValue(medicalProf);
+      component['socialProfessionalControl'].setValue(socialProf);
+      component['travelProfessionalControl'].setValue(travelProf);
+      component['costAssistanceProfessionalControl'].setValue(costProf);
 
-    it('deve filtrar as opções de médicos corretamente quando o valor do input for um objeto Médico', () => {
-      fixture.detectChanges();
+      expect(component['processForm'].get('medical_professional_id')?.value).toBe(1);
+      expect(component['processForm'].get('social_professional_id')?.value).toBe(2);
+      expect(component['processForm'].get('travel_professional_id')?.value).toBe(3);
+      expect(component['processForm'].get('cost_assistance_professional_id')?.value).toBe(4);
+      expect(component['isFormInvalid']()).toBe(false);
 
-      let resultOptions: any[] = [];
-      component['filteredMedicalProfessionalOptions'].subscribe(options => {
-        resultOptions = options;
-      });
+      component['medicalProfessionalControl'].setValue('Apenas Texto');
+      expect(component['processForm'].get('medical_professional_id')?.value).toBeNull();
 
-      const selectedObj = { id: 30, name: 'Dra. Amanda Costa' };
-      component['medicalProfessionalControl'].setValue(selectedObj);
-
-      // Retorna exatamente 1 item (o médico correspondente ao nome do objeto selecionado)
-      expect(resultOptions.length).toBe(1);
-      expect(resultOptions[0].name).toBe('Dra. Amanda Costa');
-    });
-
-    it('deve manter medicalProfessionalReadOnly como verdadeiro quando a busca de médicos falhar na inicialização', () => {
-      patientRequestServiceMock.getMedicalProfessionals.mockReturnValue(throwError(() => new Error('Erro na API')));
-      
-      fixture = TestBed.createComponent(ProcessPatientRequestComponent);
-      component = fixture.componentInstance;
-      fixture.detectChanges();
-
-      expect(component['medicalProfessionalReadOnly']()).toBe(true);
-    });
-
-    it('deve formatar o texto de exibição do médico corretamente através de displayMedicalProfessional', () => {
-      fixture.detectChanges();
-      const docObj = { id: 10, name: 'Dr. Roberto Cruz' };
-      expect(component['displayMedicalProfessional'](docObj)).toBe('Dr. Roberto Cruz');
-      expect(component['displayMedicalProfessional'](null)).toBe('');
-    });
-
-    it('deve atualizar o controle medical_professional_id e marcar o formulário como dirty ao disparar setMedicalProfessional', () => {
-      fixture.detectChanges();
-      const selectedDoc = { id: 20, name: 'Dr. Adalberto Silva' };
-      
-      component['setMedicalProfessional'](selectedDoc);
-      fixture.detectChanges();
-
-      const docIdControl = component['tramitPatientRequestForm'].get('medical_professional_id');
-      expect(docIdControl?.value).toBe(20);
-      expect(component['tramitPatientRequestForm'].dirty).toBe(true);
+      component['processForm'].get('type')?.setValue('Entrada');
+      expect(component['isEntranceType']()).toBe(true);
+      expect(component['processForm'].get('travel_professional_id')?.value).toBeNull();
+      expect(component['processForm'].get('cost_assistance_professional_id')?.value).toBeNull();
+      expect(component['travelProfessionalControl'].value).toBe('');
+      expect(component['costAssistanceProfessionalControl'].value).toBe('');
     });
   });
 
-  describe('Fluxo de Submissão e Tramitação do Pedido (onSubmit)', () => {
-    beforeEach(() => {
-      fixture.detectChanges();
-
-      // Limpa validações para isolamento perfeito de testes de submissão
-      const tramitForm = component['tramitPatientRequestForm'];
-      Object.keys(tramitForm.controls).forEach(key => {
-        const control = tramitForm.get(key);
-        control?.clearValidators();
-        control?.clearAsyncValidators();
-        control?.setErrors(null);
-        control?.updateValueAndValidity();
-      });
-
-      Object.defineProperty(tramitForm, 'invalid', { get: () => !tramitForm.valid, configurable: true });
-      Object.defineProperty(tramitForm, 'valid', { get: () => !tramitForm.errors, configurable: true });
-    });
-
-    it('deve barrar a submissão marcando controles como touched se o formulário estiver inválido', () => {
-      component['tramitPatientRequestForm'].setErrors({ required: true });
-
-      component['onSubmit']();
-      
-      expect(component['tramitPatientRequestForm'].touched).toBe(true);
-      expect(component['medicalProfessionalControl'].touched).toBe(true);
-      expect(patientRequestServiceMock.processPatientRequestToMedical).not.toHaveBeenCalled();
-    });
-
-    it('deve barrar a submissão e exibir alerta se o ID da solicitação do paciente não existir nos dados da modal', () => {
-      // 🎯 CORREÇÃO: Altera a propriedade interna em vez de reatribuir o objeto completo 'data'
-      component['data'].patient_request.id = null;
-
-      component['onSubmit']();
-      
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro: Identificador da solicitação não encontrado.');
-      expect(patientRequestServiceMock.processPatientRequestToMedical).not.toHaveBeenCalled();
-    });
-
-    it('deve tramitar a solicitação com sucesso utilizando getRawValue, exibir mensagem e fechar a modal', () => {
-      // Garante que o ID esteja restaurado para o teste de sucesso
-      component['data'].patient_request.id = 550;
-      
-      component['tramitPatientRequestForm'].patchValue({
-        medical_professional_id: 10
-      });
+  describe('Processamento (onSubmit)', () => {
+    it('deve exibir mensagem quando patient_request.id não for encontrado', async () => {
+      await createComponent(null);
 
       component['onSubmit']();
 
-      expect(component['isSubmitting']()).toBe(false); // Validado via Pipe Finalize
-      expect(patientRequestServiceMock.processPatientRequestToMedical).toHaveBeenCalledWith(
-        550,
-        component['tramitPatientRequestForm'].getRawValue()
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificador da solicitação não encontrado.'
       );
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação encaminhada com sucesso!');
+      expect(patientRequestServiceMock.processPatientRequest).not.toHaveBeenCalled();
+    });
+
+    it('deve marcar controles como touched e não enviar quando processForm for inválido', () => {
+      component['onSubmit']();
+
+      expect(component['processForm'].get('medical_professional_id')?.touched).toBe(true);
+      expect(component['processForm'].get('social_professional_id')?.touched).toBe(true);
+      expect(patientRequestServiceMock.processPatientRequest).not.toHaveBeenCalled();
+    });
+
+    it('deve gerenciar isSubmitting, enviar payload, notificar canal e fechar dialog no sucesso', () => {
+      component['medicalProfessionalControl'].setValue(medicalProf);
+      component['socialProfessionalControl'].setValue(socialProf);
+
+      const pending$ = new Subject<{ message?: string }>();
+      patientRequestServiceMock.processPatientRequest.mockReturnValueOnce(pending$.asObservable());
+
+      component['onSubmit']();
+      fixture.detectChanges();
+      expect(component['isSubmitting']()).toBe(true);
+      expect(component['processForm'].disabled).toBe(true);
+      expect(patientRequestServiceMock.processPatientRequest).toHaveBeenCalledWith(120, {
+        type: 'Entrada',
+        medical_professional_id: 1,
+        social_professional_id: 2,
+        travel_professional_id: null,
+        cost_assistance_professional_id: null,
+      });
+
+      pending$.next({ message: 'Solicitação encaminhada!' });
+      pending$.complete();
+      fixture.detectChanges();
+
+      expect(component['isSubmitting']()).toBe(false);
+      expect(component['processForm'].enabled).toBe(true);
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação encaminhada!');
       expect(dialogRefMock.close).toHaveBeenCalledWith(true);
     });
 
-    it('deve lidar amigavelmente com falhas estruturadas do backend ao tramitar', () => {
-      component['data'].patient_request.id = 550;
-      component['tramitPatientRequestForm'].patchValue({ medical_professional_id: 10 });
-      
-      const mockApiError = { error: { message: 'Médico selecionado indisponível para novos trâmites.' } };
-      patientRequestServiceMock.processPatientRequestToMedical.mockReturnValue(throwError(() => mockApiError));
+    it('deve usar mensagem padrão de sucesso e tratar erros da API ou fallback', () => {
+      component['medicalProfessionalControl'].setValue(medicalProf);
+      component['socialProfessionalControl'].setValue(socialProf);
 
+      patientRequestServiceMock.processPatientRequest.mockReturnValueOnce(of({}));
       component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Solicitação processada com sucesso!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Médico selecionado indisponível para novos trâmites.');
-      expect(dialogRefMock.close).not.toHaveBeenCalled();
-      expect(component['isSubmitting']()).toBe(false);
-    });
-  });
-
-  describe('Cobertura de Branches de Exceção e Casos de Borda', () => {
-    it('deve exibir mensagem genérica de erro caso o servidor falhe no onSubmit sem retornar uma mensagem estruturada', () => {
-      fixture.detectChanges();
-      
-      const tramitForm = component['tramitPatientRequestForm'];
-      Object.defineProperty(tramitForm, 'invalid', { get: () => false, configurable: true });
-
-      // Simula um erro HTTP 500 puro sem corpo de mensagem interno
-      const mockRawError = { status: 500, statusText: 'Internal Server Error' };
-      patientRequestServiceMock.processPatientRequestToMedical.mockReturnValue(throwError(() => mockRawError));
-
+      patientRequestServiceMock.processPatientRequest.mockReturnValueOnce(
+        throwError(() => ({ error: { message: 'Profissional indisponível.' } }))
+      );
       component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Profissional indisponível.');
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro ao tentar encaminhar a solicitação.');
-      expect(component['isSubmitting']()).toBe(false);
-      expect(dialogRefMock.close).not.toHaveBeenCalled();
-    });
-
-    it('deve garantir que o ciclo finalize de carregamento limpe o estado visual mesmo em quebras drásticas da API', () => {
-      patientRequestServiceMock.getMedicalProfessionals.mockReturnValue(throwError(() => new Error('Crash')));
-      
-      fixture = TestBed.createComponent(ProcessPatientRequestComponent);
-      component = fixture.componentInstance;
-      fixture.detectChanges();
-
-      expect(component['medicalProfessionalOptions']).toEqual([]);
-      expect(component['medicalProfessionalLoading']()).toBe(false);
-      expect(component['medicalProfessionalReadOnly']()).toBe(true);
+      patientRequestServiceMock.processPatientRequest.mockReturnValueOnce(
+        throwError(() => new Error('Erro inesperado'))
+      );
+      component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Houve um erro operacional ao processar a solicitação.'
+      );
     });
   });
 });

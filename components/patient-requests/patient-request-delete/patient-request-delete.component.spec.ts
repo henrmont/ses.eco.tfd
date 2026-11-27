@@ -1,142 +1,202 @@
-import { TestBed, ComponentFixture } from '@angular/core/testing';
+// src/app/tfd/components/patient-requests/patient-request-delete/patient-request-delete.component.spec.ts
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { of, throwError } from 'rxjs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DeletePatientRequestComponent } from './delete-patient-request-component';
-import { PatientRequestService } from '../../../services/patient-request-service';
-import { MessageService } from '../../../../core/services/message-service';
+import {
+  PatientRequestDeleteComponent,
+  PatientRequestDeleteDialogData,
+} from './patient-request-delete.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { PatientRequest } from '../../../models/patient-request.model';
+import { PatientRequestService } from '../../../services/patient-request.service';
 
-describe('DeletePatientRequestComponent', () => {
-  let component: DeletePatientRequestComponent;
-  let fixture: ComponentFixture<DeletePatientRequestComponent>;
-  
-  let patientRequestServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  const mockDialogData = {
-    patient_request: {
-      id: 220,
-      report: {
-        patient_care: { name: 'João da Silva Santos' }
-      }
-    }
+describe('PatientRequestDeleteComponent', () => {
+  let component: PatientRequestDeleteComponent;
+  let fixture: ComponentFixture<PatientRequestDeleteComponent>;
+
+  let broadcastChannelMock: MockBroadcastChannel;
+  let patientRequestServiceMock: {
+    deletePatientRequest: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
   };
 
-  beforeEach(async () => {
-    patientRequestServiceMock = {
-      deletePatientRequest: vi.fn()
-    };
+  const baseDialogData: PatientRequestDeleteDialogData = {
+    patient_request: {
+      id: 44,
+      report: {
+        patient_care: {
+          patient: {
+            name: 'Carlos Pereira',
+          },
+        },
+      },
+    } as unknown as PatientRequest,
+  };
 
-    messageServiceMock = {
-      showMessage: vi.fn()
-    };
-
-    dialogRefMock = {
-      close: vi.fn()
-    };
-
-    await TestBed.configureTestingModule({
-      imports: [DeletePatientRequestComponent]
-    })
-    // 🚀 Forçando os mocks diretamente no escopo do componente Standalone
-    .overrideComponent(DeletePatientRequestComponent, {
-      set: {
+  async function createComponent(
+    dialogData: PatientRequestDeleteDialogData | null = {
+      patient_request: {
+        id: 44,
+        report: {
+          patient_care: {
+            patient: {
+              name: 'Carlos Pereira',
+            },
+          },
+        },
+      } as unknown as PatientRequest,
+    }
+  ): Promise<void> {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientRequestDeleteComponent],
         providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
           { provide: PatientRequestService, useValue: patientRequestServiceMock },
           { provide: MessageService, useValue: messageServiceMock },
           { provide: MatDialogRef, useValue: dialogRefMock },
-          { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-        ]
-      }
-    })
-    .compileComponents();
+          { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        ],
+      })
+      .overrideComponent(PatientRequestDeleteComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
-    fixture = TestBed.createComponent(DeletePatientRequestComponent);
+    fixture = TestBed.createComponent(PatientRequestDeleteComponent);
     component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    broadcastChannelMock = new MockBroadcastChannel();
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
+    patientRequestServiceMock = {
+      deletePatientRequest: vi.fn(),
+    };
+
+    messageServiceMock = {
+      showMessage: vi.fn(),
+    };
+
+    dialogRefMock = {
+      close: vi.fn(),
+    };
+
+    await createComponent();
   });
 
-  describe('Inicialização', () => {
-    it('deve instanciar o componente com sucesso', () => {
-      fixture.detectChanges();
-      expect(component).toBeTruthy();
-    });
-
-    it('deve inicializar com o estado de submissão desativado', () => {
-      fixture.detectChanges();
-      expect(component['isSubmitting']()).toBe(false);
-    });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
-  describe('Fluxo de Submissão (onSubmit)', () => {
-    it('deve barrar a execução e exibir mensagem de erro se o id da solicitação não estiver presente', () => {
-      TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ imports: [DeletePatientRequestComponent] })
-        .overrideComponent(DeletePatientRequestComponent, {
-          set: {
-            providers: [
-              { provide: PatientRequestService, useValue: patientRequestServiceMock },
-              { provide: MessageService, useValue: messageServiceMock },
-              { provide: MatDialogRef, useValue: dialogRefMock },
-              { provide: MAT_DIALOG_DATA, useValue: { patient_request: { id: null } } }
-            ]
-          }
-        });
+  it('deve criar o componente, abrir o BroadcastChannel e expor patientName', () => {
+    expect(component).toBeTruthy();
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patient-requests-channel');
+    expect(component['isSubmitting']()).toBe(false);
+    expect(component['patientName']()).toBe('Carlos Pereira');
+  });
 
-      const localFixture = TestBed.createComponent(DeletePatientRequestComponent);
-      const localComponent = localFixture.componentInstance;
-      localFixture.detectChanges();
+  it('deve retornar "Não informado" em patientName quando dados do paciente estiverem ausentes', async () => {
+    await createComponent({
+      patient_request: { id: 44 } as unknown as PatientRequest,
+    });
+    expect(component['patientName']()).toBe('Não informado');
 
-      localComponent['onSubmit']();
+    await createComponent(null);
+    expect(component['patientName']()).toBe('Não informado');
+  });
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro: Identificador da solicitação não encontrado.');
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
+  });
+
+  describe('Remoção da Solicitação (onSubmit)', () => {
+    it('deve exibir mensagem e não chamar deletePatientRequest quando patient_request.id for inválido', async () => {
+      await createComponent(null);
+
+      component['onSubmit']();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificador da solicitação não encontrado.'
+      );
       expect(patientRequestServiceMock.deletePatientRequest).not.toHaveBeenCalled();
     });
 
-    it('deve remover a solicitação com sucesso, exibir toast e fechar a modal retornando true', () => {
-      fixture.detectChanges();
-      const mockApiResponse = { message: 'Solicitação excluída com sucesso!' };
-      patientRequestServiceMock.deletePatientRequest.mockReturnValue(of(mockApiResponse));
+    it('deve gerenciar isSubmitting, exibir mensagem, notificar canal e fechar dialog no sucesso', () => {
+      const pending$ = new Subject<{ message?: string }>();
+      patientRequestServiceMock.deletePatientRequest.mockReturnValue(pending$.asObservable());
 
       component['onSubmit']();
-
       expect(component['isSubmitting']()).toBe(true);
-      expect(patientRequestServiceMock.deletePatientRequest).toHaveBeenCalledWith(220);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação excluída com sucesso!');
+      expect(patientRequestServiceMock.deletePatientRequest).toHaveBeenCalledWith(44);
+
+      pending$.next({ message: 'Solicitação excluída!' });
+      pending$.complete();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação excluída!');
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve usar mensagem padrão de sucesso quando response não trouxer message', () => {
+      patientRequestServiceMock.deletePatientRequest.mockReturnValue(of({}));
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Solicitação removida com sucesso!'
+      );
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
       expect(dialogRefMock.close).toHaveBeenCalledWith(true);
     });
 
-    it('deve usar mensagem padrão de sucesso se a API retornar um objeto vazio', () => {
-      fixture.detectChanges();
-      patientRequestServiceMock.deletePatientRequest.mockReturnValue(of({})); // Resposta sem .message
+    it('deve exibir mensagem de erro da API ou fallback e não fechar dialog em caso de falha', () => {
+      patientRequestServiceMock.deletePatientRequest.mockReturnValueOnce(
+        throwError(() => ({ error: { message: 'Solicitação em andamento.' } }))
+      );
 
       component['onSubmit']();
-
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação removida com sucesso!');
-    });
-
-    it('deve tratar falhas do servidor, exibir mensagem de erro da API e resetar o estado de carregamento do botão', () => {
       fixture.detectChanges();
-      const mockApiError = { error: { message: 'Não é possível remover uma solicitação em andamento.' } };
-      patientRequestServiceMock.deletePatientRequest.mockReturnValue(throwError(() => mockApiError));
 
-      component['onSubmit']();
-
-      expect(patientRequestServiceMock.deletePatientRequest).toHaveBeenCalledWith(220);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(mockApiError.error.message);
-      expect(component['isSubmitting']()).toBe(false);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Solicitação em andamento.');
       expect(dialogRefMock.close).not.toHaveBeenCalled();
-    });
+      expect(component['isSubmitting']()).toBe(false);
 
-    it('deve usar mensagem de erro genérica se o servidor falhar sem retornar corpo de erro', () => {
-      fixture.detectChanges();
-      const rawError = { status: 500 }; // Sem err.error.message
-      patientRequestServiceMock.deletePatientRequest.mockReturnValue(throwError(() => rawError));
+      patientRequestServiceMock.deletePatientRequest.mockReturnValueOnce(
+        throwError(() => new Error('Erro de rede'))
+      );
 
       component['onSubmit']();
+      fixture.detectChanges();
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Ocorreu um erro ao tentar remover a solicitação.');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Ocorreu um erro ao tentar remover a solicitação.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
       expect(component['isSubmitting']()).toBe(false);
     });
   });
