@@ -1,142 +1,198 @@
-import { TestBed, ComponentFixture } from '@angular/core/testing';
+// src/app/tfd/components/patients/patient-report-delete/patient-report-delete.component.spec.ts
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { of, throwError } from 'rxjs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DeletePatientReportComponent } from './delete-patient-report-component';
-import { PatientService } from '../../../services/patient-service';
-import { MessageService } from '../../../../core/services/message-service';
+import {
+  PatientReportDeleteComponent,
+  PatientReportDeleteDialogData,
+} from './patient-report-delete.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { PatientCare } from '../../../models/patient-care.model';
+import { PatientReport } from '../../../models/patient-report.model';
+import { PatientService } from '../../../services/patient.service';
 
-describe('DeletePatientReportComponent', () => {
-  let component: DeletePatientReportComponent;
-  let fixture: ComponentFixture<DeletePatientReportComponent>;
-  
-  let patientServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  const mockDialogData = {
-    report: {
-      id: 150,
-      protocol: '2026.06.008X'
-    }
+describe('PatientReportDeleteComponent', () => {
+  let component: PatientReportDeleteComponent;
+  let fixture: ComponentFixture<PatientReportDeleteComponent>;
+
+  let broadcastChannelMock: MockBroadcastChannel;
+  let patientServiceMock: {
+    deletePatientReport: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
   };
 
-  beforeEach(async () => {
-    patientServiceMock = {
-      deletePatientReport: vi.fn()
-    };
+  const baseDialogData: PatientReportDeleteDialogData = {
+    patient_care: {
+      id: 42,
+    } as unknown as PatientCare,
+    patient_report: {
+      id: 9,
+      protocol: '  PROT-900  ',
+    } as unknown as PatientReport,
+  };
 
-    messageServiceMock = {
-      showMessage: vi.fn()
-    };
-
-    dialogRefMock = {
-      close: vi.fn()
-    };
-
-    await TestBed.configureTestingModule({
-      imports: [DeletePatientReportComponent]
-    })
-    // 🚀 Usando o recurso de override para forçar os providers direto no escopo do componente
-    .overrideComponent(DeletePatientReportComponent, {
-      set: {
+  async function createComponent(
+    dialogData: PatientReportDeleteDialogData | null = {
+      patient_care: { ...baseDialogData.patient_care } as unknown as PatientCare,
+      patient_report: { ...baseDialogData.patient_report } as unknown as PatientReport,
+    }
+  ): Promise<void> {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientReportDeleteComponent],
         providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
           { provide: PatientService, useValue: patientServiceMock },
           { provide: MessageService, useValue: messageServiceMock },
           { provide: MatDialogRef, useValue: dialogRefMock },
-          { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-        ]
-      }
-    })
-    .compileComponents();
+          { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        ],
+      })
+      .overrideComponent(PatientReportDeleteComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
-    fixture = TestBed.createComponent(DeletePatientReportComponent);
+    fixture = TestBed.createComponent(PatientReportDeleteComponent);
     component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    broadcastChannelMock = new MockBroadcastChannel();
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
+    patientServiceMock = {
+      deletePatientReport: vi.fn(),
+    };
+
+    messageServiceMock = {
+      showMessage: vi.fn(),
+    };
+
+    dialogRefMock = {
+      close: vi.fn(),
+    };
+
+    await createComponent();
   });
 
-  describe('Inicialização', () => {
-    it('deve instanciar o componente com sucesso', () => {
-      fixture.detectChanges();
-      expect(component).toBeTruthy();
-    });
-
-    it('deve inicializar com o estado de submissão desativado', () => {
-      fixture.detectChanges();
-      expect(component['isSubmitting']()).toBe(false);
-    });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
-  describe('Fluxo de Submissão (onSubmit)', () => {
-    it('deve barrar a execução e exibir mensagem de erro se o report id não estiver presente', () => {
-      TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ imports: [DeletePatientReportComponent] })
-        .overrideComponent(DeletePatientReportComponent, {
-          set: {
-            providers: [
-              { provide: PatientService, useValue: patientServiceMock },
-              { provide: MessageService, useValue: messageServiceMock },
-              { provide: MatDialogRef, useValue: dialogRefMock },
-              { provide: MAT_DIALOG_DATA, useValue: { report: { protocol: 'Incompleto' } } }
-            ]
-          }
-        });
+  it('deve criar o componente, abrir o BroadcastChannel e formatar reportProtocol', () => {
+    expect(component).toBeTruthy();
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patients-channel');
+    expect(component['isSubmitting']()).toBe(false);
+    expect(component['reportProtocol']).toBe('PROT-900');
+  });
 
-      const localFixture = TestBed.createComponent(DeletePatientReportComponent);
-      const localComponent = localFixture.componentInstance;
-      localFixture.detectChanges();
+  it('deve usar "Sem protocolo" quando protocol estiver ausente ou em branco', async () => {
+    await createComponent({
+      patient_care: { id: 42 } as unknown as PatientCare,
+      patient_report: { id: 9, protocol: '   ' } as unknown as PatientReport,
+    });
+    expect(component['reportProtocol']).toBe('Sem protocolo');
 
-      localComponent['onSubmit']();
+    await createComponent(null);
+    expect(component['reportProtocol']).toBe('Sem protocolo');
+  });
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro: Identificador do laudo não encontrado.');
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
+  });
+
+  describe('Exclusão do Laudo (onSubmit)', () => {
+    it('deve exibir mensagem e não chamar deletePatientReport quando faltarem IDs válidos', async () => {
+      await createComponent({
+        patient_care: { id: 42 } as unknown as PatientCare,
+        patient_report: undefined,
+      });
+      component['onSubmit']();
+
+      await createComponent({
+        patient_care: undefined,
+        patient_report: { id: 9 } as unknown as PatientReport,
+      });
+      component['onSubmit']();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificadores do atendimento ou do laudo inválidos.'
+      );
       expect(patientServiceMock.deletePatientReport).not.toHaveBeenCalled();
     });
 
-    it('deve remover o laudo com sucesso, exibir toast e fechar a modal retornando true', () => {
-      fixture.detectChanges();
-      const mockApiResponse = { message: 'Laudo excluído com sucesso!' };
-      patientServiceMock.deletePatientReport.mockReturnValue(of(mockApiResponse));
+    it('deve gerenciar isSubmitting, notificar canal, exibir mensagem e fechar dialog no sucesso', () => {
+      const pending$ = new Subject<{ message?: string }>();
+      patientServiceMock.deletePatientReport.mockReturnValue(pending$.asObservable());
 
       component['onSubmit']();
-
       expect(component['isSubmitting']()).toBe(true);
-      expect(patientServiceMock.deletePatientReport).toHaveBeenCalledWith(150);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Laudo excluído com sucesso!');
+      expect(patientServiceMock.deletePatientReport).toHaveBeenCalledWith(42, 9);
+
+      pending$.next({ message: 'Laudo excluído!' });
+      pending$.complete();
+      fixture.detectChanges();
+
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Laudo excluído!');
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve usar mensagem padrão de sucesso quando response não trouxer message', () => {
+      patientServiceMock.deletePatientReport.mockReturnValue(of({}));
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Laudo removido com sucesso!');
       expect(dialogRefMock.close).toHaveBeenCalledWith(true);
     });
 
-    // 🎯 NOVO: Cobre o branch do fallback de sucesso sem mensagem da API
-    it('deve usar mensagem padrão de sucesso se a API retornar um objeto vazio', () => {
-      fixture.detectChanges();
-      patientServiceMock.deletePatientReport.mockReturnValue(of({})); // Resposta sem .message
+    it('deve exibir mensagem de erro da API ou fallback e não fechar dialog em caso de falha', () => {
+      patientServiceMock.deletePatientReport.mockReturnValueOnce(
+        throwError(() => ({ error: { message: 'Laudo vinculado a viagem.' } }))
+      );
 
       component['onSubmit']();
-
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Laudo removido com sucesso!');
-    });
-
-    it('deve tratar falhas do servidor, exibir mensagem de erro da API e resetar o estado de carregamento do botão', () => {
       fixture.detectChanges();
-      const mockApiError = { error: { message: 'Não é possível remover um laudo vinculado a um processo ativo.' } };
-      patientServiceMock.deletePatientReport.mockReturnValue(throwError(() => mockApiError));
 
-      component['onSubmit']();
-
-      expect(patientServiceMock.deletePatientReport).toHaveBeenCalledWith(150);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(mockApiError.error.message);
-      expect(component['isSubmitting']()).toBe(false);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Laudo vinculado a viagem.');
       expect(dialogRefMock.close).not.toHaveBeenCalled();
-    });
+      expect(component['isSubmitting']()).toBe(false);
 
-    // 🎯 NOVO: Cobre o branch do fallback de erro genérico se a API falhar sem payload estruturado
-    it('deve usar mensagem de erro genérica se o servidor falhar sem retornar corpo de erro', () => {
-      fixture.detectChanges();
-      const rawError = { status: 500 }; // Sem err.error.message
-      patientServiceMock.deletePatientReport.mockReturnValue(throwError(() => rawError));
+      patientServiceMock.deletePatientReport.mockReturnValueOnce(
+        throwError(() => new Error('Falha de rede'))
+      );
 
       component['onSubmit']();
+      fixture.detectChanges();
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Ocorreu um erro ao tentar remover o laudo.');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Ocorreu um erro ao tentar remover o laudo.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
       expect(component['isSubmitting']()).toBe(false);
     });
   });

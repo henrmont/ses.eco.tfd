@@ -1,145 +1,252 @@
-import { TestBed, ComponentFixture } from '@angular/core/testing';
+// src/app/tfd/components/patients/patient-escort-delete/patient-escort-delete.component.spec.ts
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { of, throwError } from 'rxjs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DeletePatientEscortComponent } from './delete-patient-escort-component';
-import { PatientService } from '../../../services/patient-service';
-import { MessageService } from '../../../../core/services/message-service';
+import {
+  PatientEscortDeleteComponent,
+  PatientEscortDeleteDialogData,
+} from './patient-escort-delete.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { PatientCare } from '../../../models/patient-care.model';
+import { PatientEscort } from '../../../models/patient-escort.model';
+import { PatientService } from '../../../services/patient.service';
 
-describe('DeletePatientEscortComponent', () => {
-  let component: DeletePatientEscortComponent;
-  let fixture: ComponentFixture<DeletePatientEscortComponent>;
-  
-  let patientServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  const mockDialogData = {
-    escort: {
-      id: 12,
-      name: 'Juvenal Antunes',
-      pivot: {
-        id: 99
-      }
-    }
+describe('PatientEscortDeleteComponent', () => {
+  let component: PatientEscortDeleteComponent;
+  let fixture: ComponentFixture<PatientEscortDeleteComponent>;
+
+  let broadcastChannelMock: MockBroadcastChannel;
+  let patientServiceMock: {
+    deletePatientEscort: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
+  };
+  let mockDialogData: PatientEscortDeleteDialogData | null;
+
+  const baseDialogData: PatientEscortDeleteDialogData = {
+    patient_care: { id: 15 } as unknown as PatientCare,
+    patient_escort: {
+      id: 42,
+      name: '  Rafael Mendes  ',
+      pivot: { id: 88 },
+    } as unknown as PatientEscort,
   };
 
-  beforeEach(async () => {
-    patientServiceMock = {
-      deletePatientEscort: vi.fn()
-    };
+  async function createComponent(
+    dialogData: PatientEscortDeleteDialogData | null = {
+      ...baseDialogData,
+      patient_escort: {
+        ...baseDialogData.patient_escort,
+        pivot: { id: 88 },
+      } as unknown as PatientEscort,
+    }
+  ): Promise<void> {
+    mockDialogData = dialogData;
 
-    messageServiceMock = {
-      showMessage: vi.fn()
-    };
-
-    dialogRefMock = {
-      close: vi.fn()
-    };
-
-    await TestBed.configureTestingModule({
-      imports: [DeletePatientEscortComponent]
-    })
-    // 🚀 Usando o recurso de override para forçar os providers direto no escopo do componente
-    .overrideComponent(DeletePatientEscortComponent, {
-      set: {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientEscortDeleteComponent],
         providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
           { provide: PatientService, useValue: patientServiceMock },
           { provide: MessageService, useValue: messageServiceMock },
           { provide: MatDialogRef, useValue: dialogRefMock },
-          { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-        ]
-      }
-    })
-    .compileComponents();
+          { provide: MAT_DIALOG_DATA, useValue: mockDialogData },
+        ],
+      })
+      .overrideComponent(PatientEscortDeleteComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
-    fixture = TestBed.createComponent(DeletePatientEscortComponent);
+    fixture = TestBed.createComponent(PatientEscortDeleteComponent);
     component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    broadcastChannelMock = new MockBroadcastChannel();
+
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
+    patientServiceMock = {
+      deletePatientEscort: vi.fn(),
+    };
+
+    messageServiceMock = {
+      showMessage: vi.fn(),
+    };
+
+    dialogRefMock = {
+      close: vi.fn(),
+    };
+
+    await createComponent();
   });
 
-  describe('Inicialização', () => {
-    it('deve instanciar o componente com sucesso', () => {
-      fixture.detectChanges();
-      expect(component).toBeTruthy();
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('deve criar o componente, abrir o BroadcastChannel e iniciar isSubmitting como false', () => {
+    expect(component).toBeTruthy();
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patients-channel');
+    expect(component['isSubmitting']()).toBe(false);
+  });
+
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
+
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
+  });
+
+  describe('Getter escortName', () => {
+    it('deve retornar o nome do acompanhante sem espaços extras', () => {
+      expect(component['escortName']).toBe('Rafael Mendes');
     });
 
-    it('deve inicializar com o estado de submissão desativado', () => {
-      fixture.detectChanges();
-      expect(component['isSubmitting']()).toBe(false);
+    it('deve retornar "Acompanhante" quando o nome estiver ausente ou em branco', async () => {
+      await createComponent({
+        patient_care: { id: 15 } as unknown as PatientCare,
+        patient_escort: { id: 42, name: '   ' } as unknown as PatientEscort,
+      });
+      expect(component['escortName']).toBe('Acompanhante');
+
+      await createComponent({
+        patient_care: { id: 15 } as unknown as PatientCare,
+        patient_escort: { id: 42 } as unknown as PatientEscort,
+      });
+      expect(component['escortName']).toBe('Acompanhante');
+
+      await createComponent(null);
+      expect(component['escortName']).toBe('Acompanhante');
     });
   });
 
-  describe('Fluxo de Submissão (onSubmit)', () => {
-    it('deve barrar a execução e exibir mensagem de erro se o pivot id não estiver presente', () => {
-      TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ imports: [DeletePatientEscortComponent] })
-        .overrideComponent(DeletePatientEscortComponent, {
-          set: {
-            providers: [
-              { provide: PatientService, useValue: patientServiceMock },
-              { provide: MessageService, useValue: messageServiceMock },
-              { provide: MatDialogRef, useValue: dialogRefMock },
-              { provide: MAT_DIALOG_DATA, useValue: { escort: { name: 'Incompleto', pivot: null } } }
-            ]
-          }
-        });
+  describe('Remoção do Acompanhante (onSubmit)', () => {
+    it('deve exibir mensagem de erro e não chamar deletePatientEscort quando identificadores estiverem ausentes', async () => {
+      await createComponent({
+        patient_care: undefined,
+        patient_escort: { id: 42 } as unknown as PatientEscort,
+      });
+      component['onSubmit']();
 
-      const localFixture = TestBed.createComponent(DeletePatientEscortComponent);
-      const localComponent = localFixture.componentInstance;
-      localFixture.detectChanges();
+      await createComponent({
+        patient_care: { id: 15 } as unknown as PatientCare,
+        patient_escort: {} as unknown as PatientEscort,
+      });
+      component['onSubmit']();
 
-      localComponent['onSubmit']();
-
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro: Identificador do vínculo não encontrado.');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledTimes(2);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificadores do atendimento ou do acompanhante inválidos.'
+      );
       expect(patientServiceMock.deletePatientEscort).not.toHaveBeenCalled();
-    });
-
-    it('deve remover o acompanhante com sucesso, exibir toast e fechar a modal retornando true', () => {
-      fixture.detectChanges();
-      const mockApiResponse = { message: 'Vínculo removido com sucesso!' };
-      patientServiceMock.deletePatientEscort.mockReturnValue(of(mockApiResponse));
-
-      component['onSubmit']();
-
-      expect(component['isSubmitting']()).toBe(true);
-      expect(patientServiceMock.deletePatientEscort).toHaveBeenCalledWith(99);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Vínculo removido com sucesso!');
-      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
-    });
-
-    // 🎯 NOVO: Cobre o branch do fallback de sucesso sem mensagem da API
-    it('deve usar mensagem padrão de sucesso se a API retornar um objeto vazio', () => {
-      fixture.detectChanges();
-      patientServiceMock.deletePatientEscort.mockReturnValue(of({})); // Resposta sem .message
-
-      component['onSubmit']();
-
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Acompanhante removido com sucesso!');
-    });
-
-    it('deve tratar falhas do servidor, exibir mensagem de erro da API e resetar o estado de carregamento do botão', () => {
-      fixture.detectChanges();
-      const mockApiError = { error: { message: 'Não é possível remover este acompanhante.' } };
-      patientServiceMock.deletePatientEscort.mockReturnValue(throwError(() => mockApiError));
-
-      component['onSubmit']();
-
-      expect(patientServiceMock.deletePatientEscort).toHaveBeenCalledWith(99);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(mockApiError.error.message);
-      expect(component['isSubmitting']()).toBe(false);
       expect(dialogRefMock.close).not.toHaveBeenCalled();
     });
 
-    // 🎯 NOVO: Cobre o branch do fallback de erro genérico se a API falhar sem payload estruturado
-    it('deve usar mensagem de erro genérica se o servidor falhar sem retornar corpo de erro', () => {
-      fixture.detectChanges();
-      const rawError = { status: 500 }; // Sem err.error.message
-      patientServiceMock.deletePatientEscort.mockReturnValue(throwError(() => rawError));
+    it('deve priorizar pivot.id quando disponível e usar id como fallback', async () => {
+      patientServiceMock.deletePatientEscort.mockReturnValue(of({}));
 
       component['onSubmit']();
+      expect(patientServiceMock.deletePatientEscort).toHaveBeenCalledWith(15, 88);
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Ocorreu um erro ao tentar remover o acompanhante.');
+      await createComponent({
+        patient_care: { id: 15 } as unknown as PatientCare,
+        patient_escort: { id: 42, name: 'Rafael Mendes' } as unknown as PatientEscort,
+      });
+      patientServiceMock.deletePatientEscort.mockReturnValue(of({}));
+
+      component['onSubmit']();
+      expect(patientServiceMock.deletePatientEscort).toHaveBeenCalledWith(15, 42);
+    });
+
+    it('deve remover o acompanhante com sucesso, notificar o BroadcastChannel, exibir mensagem e fechar o dialog', () => {
+      patientServiceMock.deletePatientEscort.mockReturnValue(
+        of({ message: 'Acompanhante desvinculado!' })
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(patientServiceMock.deletePatientEscort).toHaveBeenCalledWith(15, 88);
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Acompanhante desvinculado!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve usar mensagem padrão de sucesso quando a resposta não trouxer message', () => {
+      patientServiceMock.deletePatientEscort.mockReturnValue(of({}));
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Acompanhante removido com sucesso!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+    });
+
+    it('deve manter isSubmitting true durante requisição pendente e reverter ao concluir', () => {
+      const pending$ = new Subject<{ message?: string }>();
+      patientServiceMock.deletePatientEscort.mockReturnValue(pending$.asObservable());
+
+      component['onSubmit']();
+      expect(component['isSubmitting']()).toBe(true);
+
+      pending$.next({ message: 'OK' });
+      pending$.complete();
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve exibir mensagem de erro da API e não notificar o BroadcastChannel em caso de falha', () => {
+      patientServiceMock.deletePatientEscort.mockReturnValue(
+        throwError(() => ({ error: { message: 'Acompanhante em viagem ativa.' } }))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Acompanhante em viagem ativa.'
+      );
+      expect(broadcastChannelMock.postMessage).not.toHaveBeenCalled();
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve exibir mensagem de fallback quando o erro não possuir message explícita', () => {
+      patientServiceMock.deletePatientEscort.mockReturnValue(
+        throwError(() => new Error('Falha de rede'))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Ocorreu um erro ao tentar remover o acompanhante.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
       expect(component['isSubmitting']()).toBe(false);
     });
   });

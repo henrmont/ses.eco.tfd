@@ -1,235 +1,275 @@
-import { TestBed, ComponentFixture } from '@angular/core/testing';
+// src/app/tfd/components/patients/patient-report-create/patient-report-create.component.spec.ts
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { provideNativeDateAdapter } from '@angular/material/core';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { of, throwError } from 'rxjs';
-import { take } from 'rxjs/operators'; // 🌟 Importante para fechar canais reativos
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CreatePatientReportComponent } from './create-patient-report-component';
-import { PatientService } from '../../../services/patient-service';
-import { MessageService } from '../../../../core/services/message-service';
+import {
+  PatientReportCreateComponent,
+  PatientReportCreateDialogData,
+} from './patient-report-create.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { PatientCare } from '../../../models/patient-care.model';
+import { PatientService } from '../../../services/patient.service';
 
-describe('CreatePatientReportComponent', () => {
-  let component: CreatePatientReportComponent;
-  let fixture: ComponentFixture<CreatePatientReportComponent>;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  let patientServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+describe('PatientReportCreateComponent', () => {
+  let component: PatientReportCreateComponent;
+  let fixture: ComponentFixture<PatientReportCreateComponent>;
 
-  const mockDialogData = {
-    patient_care: {
-      id: 123,
-      patient: {
-        id: 456,
-        name: 'João da Silva'
-      }
-    }
+  let broadcastChannelMock: MockBroadcastChannel;
+  let patientServiceMock: {
+    getCids: ReturnType<typeof vi.fn>;
+    createPatientReport: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
   };
 
+  const sampleCids = Array.from({ length: 14 }, (_, i) => ({
+    id: i + 1,
+    code: i === 0 ? 'J18.9' : `C${String(i).padStart(2, '0')}`,
+    name: i === 0 ? 'Pneumonia não especificada' : `Diagnóstico ${i}`,
+  }));
+
+  const baseDialogData: PatientReportCreateDialogData = {
+    patient_care: {
+      id: 88,
+    } as unknown as PatientCare,
+  };
+
+  async function createComponent(
+    dialogData: PatientReportCreateDialogData | null = { ...baseDialogData }
+  ): Promise<void> {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientReportCreateComponent],
+        providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
+          { provide: PatientService, useValue: patientServiceMock },
+          { provide: MessageService, useValue: messageServiceMock },
+          { provide: MatDialogRef, useValue: dialogRefMock },
+          { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        ],
+      })
+      .overrideComponent(PatientReportCreateComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
+
+    fixture = TestBed.createComponent(PatientReportCreateComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
   beforeEach(async () => {
+    broadcastChannelMock = new MockBroadcastChannel();
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
     patientServiceMock = {
-      getCids: vi.fn(),
-      createPatientReport: vi.fn()
+      getCids: vi.fn().mockReturnValue(of(sampleCids)),
+      createPatientReport: vi.fn().mockReturnValue(of({ message: 'Laudo salvo!' })),
     };
 
     messageServiceMock = {
-      showMessage: vi.fn()
+      showMessage: vi.fn(),
     };
 
     dialogRefMock = {
-      close: vi.fn()
+      close: vi.fn(),
     };
 
-    // Configuração padrão do serviço de CID retornando uma lista limpa para evitar efeitos colaterais
-    patientServiceMock.getCids.mockReturnValue(of([{ code: 'B10', name: 'Infecção por herpesvírus' }]));
-
-    await TestBed.configureTestingModule({
-      imports: [
-        CreatePatientReportComponent
-      ],
-      providers: [
-        provideNativeDateAdapter(),
-        provideAnimationsAsync('noop'),
-        { provide: PatientService, useValue: patientServiceMock },
-        { provide: MessageService, useValue: messageServiceMock },
-        { provide: MatDialogRef, useValue: dialogRefMock },
-        { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-      ]
-    })
-    .overrideComponent(CreatePatientReportComponent, {
-      set: {
-        providers: [
-          { provide: MatDialogRef, useValue: dialogRefMock }
-        ]
-      }
-    })
-    .compileComponents();
-
-    fixture = TestBed.createComponent(CreatePatientReportComponent);
-    component = fixture.componentInstance;
+    await createComponent();
   });
 
-  it('deve criar o componente com sucesso e inicializar o formulário', () => {
-    fixture.detectChanges();
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('deve criar o componente, abrir o BroadcastChannel e carregar até 10 CIDs iniciais', () => {
     expect(component).toBeTruthy();
-    expect(component['isSubmitting']()).toBe(false);
-    expect(component['createReportForm']).toBeTruthy();
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patients-channel');
+    expect(patientServiceMock.getCids).toHaveBeenCalledWith(88);
+    expect(component['cidLoading']()).toBe(false);
+    expect(component['reportForm'].controls.cid_search.enabled).toBe(true);
+    expect(component['filteredCidOptions']()).toHaveLength(10);
+    expect(component['filteredSpecialtyOptions']()).toHaveLength(10);
+    expect(component['isFormInvalidOrPending']).toBe(true);
   });
 
-  describe('Buscas Automáticas e Autocomplete (CID)', () => {
-    beforeEach(() => {
-      fixture.detectChanges();
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('deve lidar com ausência de patient_care.id ao buscar CIDs e tratar erro no getCids', async () => {
+    patientServiceMock.getCids.mockClear();
+    await createComponent(null);
+    expect(patientServiceMock.getCids).not.toHaveBeenCalled();
+
+    patientServiceMock.getCids.mockReturnValueOnce(throwError(() => new Error('Erro CID')));
+    await createComponent({ patient_care: { id: 99 } as unknown as PatientCare });
+
+    expect(component['cidLoading']()).toBe(false);
+    expect(component['filteredCidOptions']()).toEqual([]);
+  });
+
+  describe('Display, Seleção, Filtros e Cleaners', () => {
+    it('deve formatar labels em displayCid e displaySpecialty', () => {
+      expect(component['displayCid'](null)).toBe('');
+      expect(component['displayCid']('A00')).toBe('A00');
+      expect(component['displayCid']({ code: 'J18.9', name: 'Pneumonia' })).toBe(
+        'J18.9 - Pneumonia'
+      );
+      expect(component['displayCid']({ code: 'K35' })).toBe('K35');
+      expect(component['displayCid']({ name: 'Apendicite' })).toBe('Apendicite');
+      expect(component['displayCid']({})).toBe('');
+
+      expect(component['displaySpecialty'](null)).toBe('');
+      expect(component['displaySpecialty']('Cardiologia')).toBe('Cardiologia');
+      expect(component['displaySpecialty']({ key: 'CARDIO', label: 'Cardiologia' })).toBe(
+        'Cardiologia'
+      );
+      expect(component['displaySpecialty']({ key: 'EMPTY', label: '' })).toBe('');
     });
 
-    it('deve filtrar as opções de CID com base no input do formulário e retornar exatamente 1 opção', () => {
-      patientServiceMock.getCids.mockReturnValue(of([{ code: 'B10', name: 'Infecção por herpesvírus' }]));
-      
-      component['createReportForm'].get('cid_id')?.setValue('B10');
-      fixture.detectChanges();
+    it('deve selecionar CID e especialidade e limpar erros invalidSelection', () => {
+      const cidOpt = { id: 7, code: 'I10', name: 'Hipertensão' };
+      component['onCidSelected'](cidOpt);
+      expect(component['reportForm'].controls.cid_id.value).toBe(7);
+      expect(component['reportForm'].controls.cid_id.dirty).toBe(true);
 
-      let resultOptions: any[] = [];
-      component['filteredCidOptions'].pipe(take(1)).subscribe(options => {
-        resultOptions = options;
-      });
-
-      expect(resultOptions.length).toBe(1);
-      expect(resultOptions[0].code).toBe('B10');
+      const firstSpec = component['specialtyOptions'][0];
+      component['onSpecialtySelected'](firstSpec);
+      expect(component['reportForm'].controls.specialty.value).toBe(firstSpec.key);
+      expect(component['reportForm'].controls.specialty.dirty).toBe(true);
     });
 
-    it('deve manter cidReadOnly como verdadeiro quando a busca por CIDs falhar', () => {
-      patientServiceMock.getCids.mockReturnValue(throwError(() => new Error('API Error')));
-      
-      fixture = TestBed.createComponent(CreatePatientReportComponent);
-      component = fixture.componentInstance;
-      
-      fixture.detectChanges();
+    it('deve filtrar CIDs e especialidades e marcar invalidSelection ao digitar texto livre', () => {
+      component['reportForm'].controls.cid_search.setValue('J18.9');
+      expect(component['filteredCidOptions']()).toEqual([sampleCids[0]]);
+      expect(component['reportForm'].controls.cid_id.value).toBeNull();
+      expect(component['reportForm'].controls.cid_search.errors?.['invalidSelection']).toBe(true);
 
-      expect(component['cidReadOnly']?.()).toBe(true);
+      component['reportForm'].controls.cid_search.setValue('');
+      expect(component['reportForm'].controls.cid_search.errors?.['invalidSelection']).toBeUndefined();
+
+      const firstSpec = component['specialtyOptions'][0];
+      component['reportForm'].controls.specialty_search.setValue(firstSpec.label);
+      expect(component['filteredSpecialtyOptions']()).toContainEqual(firstSpec);
+      expect(component['reportForm'].controls.specialty.value).toBeNull();
+      expect(
+        component['reportForm'].controls.specialty_search.errors?.['invalidSelection']
+      ).toBe(true);
+
+      component['reportForm'].controls.specialty_search.setValue(firstSpec);
+      expect(component['filteredSpecialtyOptions']()).toContainEqual(firstSpec);
+
+      component['reportForm'].controls.specialty_search.setValue('');
+      expect(
+        component['reportForm'].controls.specialty_search.errors?.['invalidSelection']
+      ).toBeUndefined();
     });
   });
 
-  describe('Fluxo de Submissão do Laudo (onSubmit)', () => {
-    beforeEach(() => {
-      fixture.detectChanges();
+  describe('Submissão (onSubmit)', () => {
+    function fillValidForm(): void {
+      const cidOpt = { id: 10, code: 'E11', name: 'Diabetes mellitus tipo 2' };
+      const specOpt = component['specialtyOptions'][0];
 
-      const reportForm = component['createReportForm'];
-      Object.keys(reportForm.controls).forEach(key => {
-        const control = reportForm.get(key);
-        control?.clearValidators();
-        control?.clearAsyncValidators();
-        control?.setErrors(null);
-        control?.updateValueAndValidity();
-      });
+      component['reportForm'].controls.protocol.setValue('  PROT-2026-01  ');
+      component['reportForm'].controls.cid_search.setValue(cidOpt);
+      component['onCidSelected'](cidOpt);
+      component['reportForm'].controls.specialty_search.setValue(specOpt);
+      component['onSpecialtySelected'](specOpt);
+      component['reportForm'].controls.lawsuit.setValue(true);
+      component['reportForm'].controls.diagnosis.setValue('  Paciente com quadro estável.  ');
+    }
 
-      Object.defineProperty(reportForm, 'invalid', { get: () => !reportForm.valid, configurable: true });
-      Object.defineProperty(reportForm, 'valid', { get: () => !reportForm.errors, configurable: true });
-    });
-
-    it('deve barrar a submissão se o formulário de laudo estiver inválido', () => {
-      component['createReportForm'].setErrors({ required: true });
+    it('deve exibir mensagem quando patient_care.id for inválido', async () => {
+      await createComponent(null);
 
       component['onSubmit']();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificador do atendimento do paciente inválido.'
+      );
       expect(patientServiceMock.createPatientReport).not.toHaveBeenCalled();
     });
 
-    it('deve enviar o laudo com sucesso utilizando getRawValue, exibir mensagem e fechar a modal', () => {
-      component['createReportForm'].patchValue({
-        cid_id: 'B10',
-        description: 'Paciente necessita de tratamento fora do domicílio.',
-        requested_date: new Date(2026, 5, 16)
-      });
+    it('deve marcar controles como touched quando formulário for inválido ou faltar specialty/cid_id', () => {
+      component['onSubmit']();
+      expect(patientServiceMock.createPatientReport).not.toHaveBeenCalled();
+      expect(component['reportForm'].controls.protocol.touched).toBe(true);
 
-      patientServiceMock.createPatientReport.mockReturnValue(of({ message: 'Laudo cadastrado com sucesso!' }));
+      fillValidForm();
+      component['reportForm'].controls.cid_id.setValue(null);
+      component['onSubmit']();
+      expect(patientServiceMock.createPatientReport).not.toHaveBeenCalled();
+      expect(component['reportForm'].controls.cid_id.touched).toBe(true);
+    });
+
+    it('deve gerenciar isSubmitting, enviar payload trimado, notificar canal e fechar dialog no sucesso', () => {
+      fillValidForm();
+      const firstSpecKey = component['specialtyOptions'][0].key;
+
+      const pending$ = new Subject<{ message?: string }>();
+      patientServiceMock.createPatientReport.mockReturnValueOnce(pending$.asObservable());
 
       component['onSubmit']();
+      expect(component['isSubmitting']()).toBe(true);
+      expect(component['reportForm'].disabled).toBe(true);
+      expect(patientServiceMock.createPatientReport).toHaveBeenCalledWith(88, {
+        protocol: 'PROT-2026-01',
+        specialty: firstSpecKey,
+        cid_id: 10,
+        lawsuit: true,
+        diagnosis: 'Paciente com quadro estável.',
+      });
+
+      pending$.next({ message: 'Laudo cadastrado!' });
+      pending$.complete();
 
       expect(component['isSubmitting']()).toBe(false);
-      expect(patientServiceMock.createPatientReport).toHaveBeenCalledWith(123, expect.any(Object));
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Laudo cadastrado com sucesso!');
+      expect(component['reportForm'].enabled).toBe(true);
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Laudo cadastrado!');
       expect(dialogRefMock.close).toHaveBeenCalledWith(true);
     });
 
-    it('deve lidar amigavelmente com falhas do backend ao criar laudo', () => {
-      component['createReportForm'].patchValue({
-        cid_id: 'B10',
-        description: 'Descrição de teste',
-        requested_date: new Date(2026, 5, 16)
-      });
-
-      const mockApiError = { error: { message: 'Erro ao salvar o laudo médico.' }, message: 'Erro ao salvar o laudo médico.' };
-      patientServiceMock.createPatientReport.mockReturnValue(throwError(() => mockApiError));
-
+    it('deve usar mensagem padrão de sucesso e tratar erros da API ou fallback', () => {
+      fillValidForm();
+      patientServiceMock.createPatientReport.mockReturnValueOnce(of({}));
       component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Laudo criado com sucesso!');
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
 
+      fillValidForm();
+      patientServiceMock.createPatientReport.mockReturnValueOnce(
+        throwError(() => ({ error: { message: 'Protocolo já existente.' } }))
+      );
+      component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Protocolo já existente.');
+
+      fillValidForm();
+      patientServiceMock.createPatientReport.mockReturnValueOnce(
+        throwError(() => new Error('Erro de rede'))
+      );
+      component['onSubmit']();
       expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro ao salvar o laudo médico.');
-      expect(dialogRefMock.close).not.toHaveBeenCalled();
-      expect(component['isSubmitting']()).toBe(false);
-    });
-  });
-
-  // =========================================================================
-  // 🚀 NOVOS TESTES ADICIONADOS PARA SAIR DOS 47% E ALCANÇAR ALTA COBERTURA
-  // =========================================================================
-
-  describe('Cobertura de Branches Ocultas (CIDs e Erros de Rede)', () => {
-    beforeEach(() => {
-      fixture.detectChanges();
-    });
-
-    it('deve lidar corretamente com o filtro quando o valor emitido for um objeto CID completo (Linhas 110-112)', () => {
-      const mockCidObjeto = { code: 'B10', name: 'Infecção por herpesvírus' };
-      
-      // Simula o Angular Material injetando o objeto selecionado diretamente no controle
-      component['createReportForm'].get('cid_id')?.setValue(mockCidObjeto);
-      fixture.detectChanges();
-
-      component['filteredCidOptions'].pipe(take(1)).subscribe(options => {
-        expect(options).toBeTruthy();
-        // Garante que mesmo passando um objeto a lógica interna de filtragem tratou a branch
-        expect(options.length).toBeGreaterThan(0);
-      });
-    });
-
-    it('deve lidar de forma segura com valores nulos ou strings vazias no campo de busca de CID', () => {
-      // Caso 1: Usuário apaga o campo limpando o texto
-      component['createReportForm'].get('cid_id')?.setValue('');
-      fixture.detectChanges();
-
-      component['filteredCidOptions'].pipe(take(1)).subscribe(options => {
-        expect(options.length).toBeGreaterThan(0);
-      });
-
-      // Caso 2: O valor inicial ou reset do campo emite null
-      component['createReportForm'].get('cid_id')?.setValue(null);
-      fixture.detectChanges();
-
-      component['filteredCidOptions'].pipe(take(1)).subscribe(options => {
-        expect(options.length).toBeGreaterThan(0);
-      });
-    });
-
-    it('deve tratar erros genéricos da API de criação do laudo sem estourar exceções (Linha 151)', () => {
-      component['createReportForm'].patchValue({
-        cid_id: 'B10',
-        description: 'Descrição Válida',
-        requested_date: new Date(2026, 5, 16)
-      });
-
-      // Bypassa validação para garantir a submissão
-      Object.defineProperty(component['createReportForm'], 'invalid', { get: () => false, configurable: true });
-
-      // Simula uma resposta de falha genérica de rede (ex: Gateway Timeout 504)
-      const mockRawError = { status: 504, statusText: 'Gateway Timeout' };
-      patientServiceMock.createPatientReport.mockReturnValue(throwError(() => mockRawError));
-
-      component['onSubmit']();
-
-      // Garante que o fallback de string tratou a branch da linha 151
-      expect(messageServiceMock.showMessage).toHaveBeenCalled();
-      expect(dialogRefMock.close).not.toHaveBeenCalled();
-      expect(component['isSubmitting']()).toBe(false);
     });
   });
 });

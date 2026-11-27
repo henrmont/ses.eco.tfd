@@ -1,165 +1,346 @@
+// src/app/tfd/components/users/user-create/user-create.component.spec.ts
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { CreateUserComponent } from './create-user-component';
-import { UserService } from '../../../services/user-service';
-import { MessageService } from '../../../../core/services/message-service';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { MatSelectChange } from '@angular/material/select';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { of, throwError } from 'rxjs';
-import { provideNgxMask } from 'ngx-mask';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { UserCreateComponent } from './user-create.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { CustomValidators } from '../../../../core/validators/custom.validator';
 import { Professionals } from '../../../enums/professionals';
+import { UserService } from '../../../services/user.service';
+import { ProfessionalTypesComponent } from '../professional-types/professional-types.component';
 
-describe('CreateUserComponent', () => {
-  let component: CreateUserComponent;
-  let fixture: ComponentFixture<CreateUserComponent>;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  let userServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+describe('UserCreateComponent', () => {
+  let component: UserCreateComponent;
+  let fixture: ComponentFixture<UserCreateComponent>;
 
-  const mockDialogData = { title: 'Contexto de Teste' };
+  let broadcastChannelMock: MockBroadcastChannel;
+  let userServiceMock: {
+    createUser: ReturnType<typeof vi.fn>;
+    emailUserExistsValidator: ReturnType<typeof vi.fn>;
+    cnsUserExistsValidator: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
+  };
+
+  const validPayload = {
+    name: 'Maria Silva',
+    email: 'maria.silva@saude.gov.br',
+    types: [Professionals.MEDICO],
+    cns: '123456789012345',
+    registration: '123456',
+    professional_register: 'CRM-MT 1234',
+    cbo: '225125',
+  };
+
+  function fillValidForm(overrides: Partial<typeof validPayload> = {}): void {
+    const data = { ...validPayload, ...overrides };
+    const controls = component['userForm'].controls;
+
+    controls.types.setValue(data.types);
+    controls.name.setValue(data.name);
+    controls.email.setValue(data.email);
+    controls.cns.setValue(data.cns);
+    controls.registration.setValue(data.registration);
+
+    if (controls.professional_register.enabled) {
+      controls.professional_register.setValue(data.professional_register);
+    }
+    if (controls.cbo.enabled) {
+      controls.cbo.setValue(data.cbo);
+    }
+  }
 
   beforeEach(async () => {
+    broadcastChannelMock = new MockBroadcastChannel();
+
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
+    vi.spyOn(CustomValidators, 'cnsValidator').mockReturnValue(() => null);
+
     userServiceMock = {
-      emailUserExistsValidator: vi.fn().mockReturnValue(() => of(null)),
-      createUser: vi.fn()
+      createUser: vi.fn(),
+      emailUserExistsValidator: vi.fn(() => () => of(null)),
+      cnsUserExistsValidator: vi.fn(() => () => of(null)),
     };
 
     messageServiceMock = {
-      showMessage: vi.fn()
+      showMessage: vi.fn(),
     };
 
     dialogRefMock = {
-      close: vi.fn()
+      close: vi.fn(),
     };
 
     await TestBed.configureTestingModule({
-      imports: [CreateUserComponent],
+      imports: [UserCreateComponent],
       providers: [
-        // Evita que o Vitest quebre tentando buscar estaticamente o pacote '@angular/animations'
         { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
-        provideNgxMask(),
         { provide: UserService, useValue: userServiceMock },
         { provide: MessageService, useValue: messageServiceMock },
         { provide: MatDialogRef, useValue: dialogRefMock },
-        { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-      ]
-    }).compileComponents();
+      ],
+    })
+      .overrideComponent(UserCreateComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
-    fixture = TestBed.createComponent(CreateUserComponent);
+    fixture = TestBed.createComponent(UserCreateComponent);
     component = fixture.componentInstance;
-    
-    // Dispara o ciclo de vida inicial do Angular (incluindo o ngOnInit que trava os campos)
     fixture.detectChanges();
   });
 
-  it('should create', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('deve criar o componente, abrir o BroadcastChannel e iniciar isSubmitting como false', () => {
     expect(component).toBeTruthy();
-    expect(component.isSubmitting()).toBe(false);
+    expect(component['isSubmitting']()).toBe(false);
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-users-channel');
   });
 
-  describe('Estado Inicial do Formulário', () => {
-    it('deve inicializar os campos CBO e Registro Profissional desabilitados por padrão', () => {
-      expect(component.createUserForm.get('cbo')?.disabled).toBe(true);
-      expect(component.createUserForm.get('professional_register')?.disabled).toBe(true);
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
+
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
+  });
+
+  describe('Inicialização e Validações do Formulário', () => {
+    it('deve inicializar o formulário com valores padrão e campos profissionais desabilitados', () => {
+      const form = component['userForm'];
+
+      expect(form.controls.name.value).toBe('');
+      expect(form.controls.email.value).toBe('');
+      expect(form.controls.types.value).toEqual([]);
+      expect(form.controls.cns.value).toBe('');
+      expect(form.controls.registration.value).toBe('');
+      expect(form.controls.professional_register.disabled).toBe(true);
+      expect(form.controls.cbo.disabled).toBe(true);
+      expect(form.invalid).toBe(true);
+    });
+
+    it('deve validar tamanho mínimo (5) e máximo (6) da matrícula', () => {
+      const registrationCtrl = component['userForm'].controls.registration;
+
+      registrationCtrl.setValue('1234');
+      expect(registrationCtrl.hasError('minlength')).toBe(true);
+
+      registrationCtrl.setValue('12345');
+      expect(registrationCtrl.valid).toBe(true);
+
+      registrationCtrl.setValue('1234567');
+      expect(registrationCtrl.hasError('maxlength')).toBe(true);
+    });
+
+    it('deve refletir erro assíncrono emailExists quando o validador retornar erro', () => {
+      userServiceMock.emailUserExistsValidator.mockReturnValueOnce(() =>
+        of({ emailExists: true })
+      );
+
+      fixture = TestBed.createComponent(UserCreateComponent);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      const emailCtrl = component['userForm'].controls.email;
+      emailCtrl.setValue('duplicado@saude.gov.br');
+      fixture.detectChanges();
+
+      expect(emailCtrl.hasError('emailExists')).toBe(true);
+    });
+
+    it('deve refletir erro assíncrono cnsExists quando o validador retornar erro', () => {
+      userServiceMock.cnsUserExistsValidator.mockReturnValueOnce(() =>
+        of({ cnsExists: true })
+      );
+
+      fixture = TestBed.createComponent(UserCreateComponent);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      const cnsCtrl = component['userForm'].controls.cns;
+      cnsCtrl.setValue('123456789012345');
+      fixture.detectChanges();
+
+      expect(cnsCtrl.hasError('cnsExists')).toBe(true);
     });
   });
 
-  describe('Reatividade do Formulário (Signals & Effects)', () => {
-    it('deve habilitar o CBO e habilitar o Registro Profissional quando o tipo selecionado for Médico', async () => {
-      component.onSelection({ value: Professionals.MEDICO } as MatSelectChange);
-      await fixture.whenStable();
+  describe('Regras Dinâmicas por Tipo de Profissional', () => {
+    it('deve habilitar e exigir professional_register e cbo quando o tipo for MEDICO', () => {
+      const typesCtrl = component['userForm'].controls.types;
+      const profRegCtrl = component['userForm'].controls.professional_register;
+      const cboCtrl = component['userForm'].controls.cbo;
 
-      expect(component.createUserForm.get('cbo')?.disabled).toBe(false);
-      expect(component.createUserForm.get('professional_register')?.disabled).toBe(false);
+      typesCtrl.setValue([Professionals.MEDICO]);
+
+      expect(profRegCtrl.enabled).toBe(true);
+      expect(profRegCtrl.hasError('required')).toBe(true);
+      expect(cboCtrl.enabled).toBe(true);
+      expect(cboCtrl.hasError('required')).toBe(true);
     });
 
-    it('deve desabilitar o CBO e habilitar o Registro Profissional quando o tipo selecionado for Assistente Social', async () => {
-      component.onSelection({ value: Professionals.ASSISTENTE_SOCIAL } as MatSelectChange);
-      await fixture.whenStable();
+    it('deve habilitar e exigir apenas professional_register quando o tipo for ASSISTENTE_SOCIAL', () => {
+      const typesCtrl = component['userForm'].controls.types;
+      const profRegCtrl = component['userForm'].controls.professional_register;
+      const cboCtrl = component['userForm'].controls.cbo;
 
-      expect(component.createUserForm.get('cbo')?.disabled).toBe(true);
-      expect(component.createUserForm.get('professional_register')?.disabled).toBe(false);
+      typesCtrl.setValue([Professionals.ASSISTENTE_SOCIAL]);
+
+      expect(profRegCtrl.enabled).toBe(true);
+      expect(profRegCtrl.hasError('required')).toBe(true);
+      expect(cboCtrl.disabled).toBe(true);
+      expect(cboCtrl.value).toBe('');
     });
 
-    it('deve desabilitar CBO e desabilitar Registro Profissional para outros tipos de profissionais (ex: Paciente)', async () => {
-      component.onSelection({ value: Professionals.PACIENTE } as MatSelectChange);
-      await fixture.whenStable();
+    it('deve desabilitar e limpar professional_register e cbo ao remover MEDICO e ASSISTENTE_SOCIAL', () => {
+      const typesCtrl = component['userForm'].controls.types;
+      const profRegCtrl = component['userForm'].controls.professional_register;
+      const cboCtrl = component['userForm'].controls.cbo;
 
-      expect(component.createUserForm.get('cbo')?.disabled).toBe(true);
-      expect(component.createUserForm.get('professional_register')?.disabled).toBe(true);
+      typesCtrl.setValue([Professionals.MEDICO]);
+      profRegCtrl.setValue('CRM-MT 999');
+      cboCtrl.setValue('225125');
+
+      typesCtrl.setValue(['OUTRO_PERFIL']);
+
+      expect(profRegCtrl.disabled).toBe(true);
+      expect(profRegCtrl.value).toBe('');
+      expect(cboCtrl.disabled).toBe(true);
+      expect(cboCtrl.value).toBe('');
+    });
+  });
+
+  describe('Modal de Tipos de Profissional (openProfessionalTypesDialog)', () => {
+    it('deve abrir o dialog com os tipos selecionados atuais e atualizar types ao confirmar', () => {
+      const openSpy = vi.spyOn(MatDialog.prototype, 'open').mockReturnValue({
+        afterClosed: () => of([Professionals.MEDICO]),
+      } as unknown as ReturnType<MatDialog['open']>);
+
+      component['userForm'].controls.types.setValue([Professionals.ASSISTENTE_SOCIAL]);
+
+      component['openProfessionalTypesDialog']();
+
+      expect(openSpy).toHaveBeenCalledWith(
+        ProfessionalTypesComponent,
+        expect.objectContaining({
+          width: '600px',
+          height: 'auto',
+          disableClose: true,
+          autoFocus: false,
+          data: { selectedTypes: [Professionals.ASSISTENTE_SOCIAL] },
+        })
+      );
+      expect(component['userForm'].controls.types.value).toEqual([Professionals.MEDICO]);
+      expect(component['userForm'].controls.types.touched).toBe(true);
     });
 
-    it('deve limpar o valor do campo CBO ao chamar o método resetCBO', () => {
-      component.createUserForm.get('cbo')?.setValue('123456');
-      component.resetCBO();
-      expect(component.createUserForm.get('cbo')?.value).toBeNull();
+    it('não deve alterar types quando o dialog for fechado sem retorno (undefined)', () => {
+      vi.spyOn(MatDialog.prototype, 'open').mockReturnValue({
+        afterClosed: () => of(undefined),
+      } as unknown as ReturnType<MatDialog['open']>);
+
+      component['userForm'].controls.types.setValue([Professionals.MEDICO]);
+
+      component['openProfessionalTypesDialog']();
+
+      expect(component['userForm'].controls.types.value).toEqual([Professionals.MEDICO]);
+      expect(component['userForm'].controls.types.touched).toBe(false);
     });
   });
 
   describe('Submissão do Formulário (onSubmit)', () => {
-    it('não deve enviar a requisição se o formulário estiver inválido', () => {
-      component.onSubmit();
+    it('não deve enviar a requisição se o formulário estiver inválido e deve marcar campos como tocados', () => {
+      component['onSubmit']();
+
       expect(userServiceMock.createUser).not.toHaveBeenCalled();
-      expect(component.isSubmitting()).toBe(false);
+      expect(component['userForm'].controls.name.touched).toBe(true);
+      expect(component['userForm'].controls.email.touched).toBe(true);
+      expect(component['isSubmitting']()).toBe(false);
     });
 
-    it('deve criar o usuário com sucesso, exibir mensagem de sucesso e fechar o modal', async () => {
-      component.createUserForm.patchValue({
-        name: 'John Doe',
-        email: 'john@example.com',
-        type: Professionals.MEDICO,
-        cns: '201234567890003',
-        registration: '123456'
-      });
+    it('deve criar o usuário com sucesso, notificar o BroadcastChannel, exibir mensagem e fechar o dialog', () => {
+      fillValidForm();
+      userServiceMock.createUser.mockReturnValue(
+        of({ message: 'Usuário criado com sucesso!' })
+      );
 
-      userServiceMock.createUser.mockReturnValue(of({ message: 'Usuário cadastrado com sucesso!' }));
-
-      component.onSubmit();
+      component['onSubmit']();
       fixture.detectChanges();
 
-      // Como o of() executa sincronicamente no teste, o finalize() já rodou aqui e o loading voltou a ser false
-      expect(component.isSubmitting()).toBe(false);
-      expect(userServiceMock.createUser).toHaveBeenCalledWith(component.createUserForm.getRawValue());
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Usuário cadastrado com sucesso!');
+      expect(userServiceMock.createUser).toHaveBeenCalledWith(validPayload);
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Usuário criado com sucesso!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
+      expect(component['userForm'].disabled).toBe(false);
+    });
+
+    it('deve usar mensagem padrão de sucesso quando a resposta não trouxer message', () => {
+      fillValidForm();
+      userServiceMock.createUser.mockReturnValue(of({}));
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Usuário cadastrado com sucesso!'
+      );
       expect(dialogRefMock.close).toHaveBeenCalledWith(true);
     });
 
-    it('deve tratar erro do servidor ao tentar criar o usuário e reverter o loading', () => {
-      component.createUserForm.patchValue({
-        name: 'John Doe',
-        email: 'john@example.com',
-        type: Professionals.MEDICO,
-        cns: '201234567890003',
-        registration: '123456'
-      });
+    it('deve exibir a mensagem de erro retornada pelo backend e reverter o estado do formulário', () => {
+      fillValidForm({ types: [Professionals.ASSISTENTE_SOCIAL], cbo: '' });
+      userServiceMock.createUser.mockReturnValue(
+        throwError(() => ({ error: { message: 'Matrícula já cadastrada.' } }))
+      );
 
-      const mockErrorResponse = { error: { message: 'Este e-mail já está em uso.' } };
-      userServiceMock.createUser.mockReturnValue(throwError(() => mockErrorResponse));
-
-      component.onSubmit();
+      component['onSubmit']();
       fixture.detectChanges();
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Este e-mail já está em uso.');
-      expect(component.isSubmitting()).toBe(false);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Matrícula já cadastrada.'
+      );
       expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(broadcastChannelMock.postMessage).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+      expect(component['userForm'].disabled).toBe(false);
+      expect(component['userForm'].controls.cbo.disabled).toBe(true);
     });
 
-    it('deve exibir mensagem de fallback padrão caso o backend retorne um erro sem mensagem explícita', () => {
-      component.createUserForm.patchValue({
-        name: 'John Doe',
-        email: 'john@example.com',
-        type: Professionals.MEDICO,
-        cns: '201234567890003',
-        registration: '123456'
-      });
+    it('deve exibir mensagem de fallback quando o erro não possuir message explícita', () => {
+      fillValidForm();
+      userServiceMock.createUser.mockReturnValue(
+        throwError(() => new Error('Erro de rede'))
+      );
 
-      userServiceMock.createUser.mockReturnValue(throwError(() => new Error('Falha Crítica')));
-
-      component.onSubmit();
+      component['onSubmit']();
       fixture.detectChanges();
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro ao criar o usuário');
-      expect(component.isSubmitting()).toBe(false);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao criar o usuário.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
     });
   });
 });

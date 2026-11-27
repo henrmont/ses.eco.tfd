@@ -1,104 +1,219 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+// src/app/tfd/components/setting/daily-cost-update/daily-cost-update.component.spec.ts
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { InjectionToken } from '@angular/core'; // 👈 Importamos o InjectionToken padrão do Core
-import { of, throwError } from 'rxjs';
-import { provideNgxMask } from 'ngx-mask';
+import { Subject, of, throwError } from 'rxjs';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { UpdateDailyCostComponent } from './update-daily-cost-component';
-import { SettingService } from '../../../services/setting-service';
-import { MessageService } from '../../../../core/services/message-service';
+import {
+  DailyCostUpdateComponent,
+  DailyCostUpdateDialogData,
+} from './daily-cost-update.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { DailyCost } from '../../../models/daily-cost.model';
+import { SettingService } from '../../../services/setting.service';
 
-// 🛡️ Criamos o token manualmente para o Material ler, evitando imports quebrados do platform-browser
-const ANIMATION_MODULE_TYPE = new InjectionToken<string>('AnimationModuleType');
+describe('DailyCostUpdateComponent', () => {
+  let component: DailyCostUpdateComponent;
+  let fixture: ComponentFixture<DailyCostUpdateComponent>;
 
-describe('UpdateDailyCostComponent', () => {
-  let component: UpdateDailyCostComponent;
-  let fixture: ComponentFixture<UpdateDailyCostComponent>;
-
-  let settingServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
-
-  const mockDailyCost = {
-    id: 1,
-    name: 'Diária Alimentação',
-    value: 120.50
+  let settingServiceMock: {
+    updateDailyCost: ReturnType<typeof vi.fn>;
   };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
+  };
+  let mockDialogData: DailyCostUpdateDialogData | null;
+
+  const baseDailyCost: DailyCost = {
+    id: 4,
+    name: 'Alimentação',
+    value: 85,
+  } as unknown as DailyCost;
+
+  async function createComponent(
+    dialogData: DailyCostUpdateDialogData | null = { daily_cost: { ...baseDailyCost } }
+  ): Promise<void> {
+    mockDialogData = dialogData;
+
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [DailyCostUpdateComponent],
+        providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
+          { provide: SettingService, useValue: settingServiceMock },
+          { provide: MessageService, useValue: messageServiceMock },
+          { provide: MatDialogRef, useValue: dialogRefMock },
+          { provide: MAT_DIALOG_DATA, useValue: mockDialogData },
+        ],
+      })
+      .overrideComponent(DailyCostUpdateComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
+
+    fixture = TestBed.createComponent(DailyCostUpdateComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
 
   beforeEach(async () => {
-    vi.clearAllMocks();
-
     settingServiceMock = {
-      updateDailyCost: vi.fn().mockReturnValue(of({ message: 'Sucesso ao salvar' }))
+      updateDailyCost: vi.fn(),
     };
 
     messageServiceMock = {
-      showMessage: vi.fn()
+      showMessage: vi.fn(),
     };
 
     dialogRefMock = {
-      close: vi.fn()
+      close: vi.fn(),
     };
 
-    await TestBed.configureTestingModule({
-      imports: [UpdateDailyCostComponent],
-      providers: [
-        { provide: SettingService, useValue: settingServiceMock },
-        { provide: MessageService, useValue: messageServiceMock },
-        { provide: MatDialogRef, useValue: dialogRefMock },
-        { provide: MAT_DIALOG_DATA, useValue: { daily_cost: mockDailyCost } },
-        provideNgxMask(),
-        // ⚡ Passamos o nosso token manual dizendo para o Material não rodar animações
-        { provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations' }
-      ]
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(UpdateDailyCostComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
+    await createComponent();
   });
 
-  afterEach(() => {
-    fixture?.destroy();
-    TestBed.resetTestingModule();
-  });
-
-  it('should create e carregar o formulário com o valor de data via constructor', () => {
+  it('deve criar o componente, preencher o formulário e expor dailyCostName', () => {
     expect(component).toBeTruthy();
-    expect(component.updateDailyCostForm.get('value')?.value).toBe(mockDailyCost.value);
-    expect(component.errorMessages['value']).toBeDefined();
+    expect(component['isSubmitting']()).toBe(false);
+    expect(component['dailyCostName']).toBe('Alimentação');
+    expect(component['dailyCostForm'].valid).toBe(true);
+    expect(component['dailyCostForm'].controls.value.value).toBe(85);
   });
 
-  it('deve submeter os dados com sucesso em onSubmit, disparar mensagem e fechar retornando true', () => {
-    component.updateDailyCostForm.patchValue({ value: 150.00 });
-    
-    component.onSubmit();
+  describe('Getter dailyCostName e Inicialização', () => {
+    it('deve retornar "Diária" quando daily_cost ou name estiver ausente e inicializar value vazio', async () => {
+      await createComponent(null);
+      expect(component['dailyCostName']).toBe('Diária');
+      expect(component['dailyCostForm'].controls.value.value).toBe('');
+      expect(component['dailyCostForm'].invalid).toBe(true);
 
-    expect(settingServiceMock.updateDailyCost).toHaveBeenCalledWith(mockDailyCost.id, { value: 150.00 });
-    expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Sucesso ao salvar');
-    expect(dialogRefMock.close).toHaveBeenCalledWith(true);
-    expect(component.isSubmitting()).toBe(false);
+      await createComponent({ daily_cost: { id: 4, value: 50 } as unknown as DailyCost });
+      expect(component['dailyCostName']).toBe('Diária');
+      expect(component['dailyCostForm'].controls.value.value).toBe(50);
+    });
+
+    it('deve invalidar o campo value quando for menor que 0.01', () => {
+      component['dailyCostForm'].controls.value.setValue(0);
+      expect(component['dailyCostForm'].controls.value.hasError('min')).toBe(true);
+      expect(component['dailyCostForm'].invalid).toBe(true);
+    });
   });
 
-  it('deve exibir mensagem tratada do servidor se a API falhar no onSubmit', () => {
-    const errorResponse = { error: { message: 'Erro interno de validação' } };
-    settingServiceMock.updateDailyCost.mockReturnValue(throwError(() => errorResponse));
+  describe('Submissão do Formulário (onSubmit)', () => {
+    it('deve exibir mensagem e não chamar updateDailyCost quando dailyCostId estiver ausente', async () => {
+      await createComponent({
+        daily_cost: { name: 'Pousada', value: 120 } as unknown as DailyCost,
+      });
 
-    component.onSubmit();
+      component['onSubmit']();
 
-    expect(settingServiceMock.updateDailyCost).toHaveBeenCalled();
-    expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro interno de validação');
-    expect(dialogRefMock.close).not.toHaveBeenCalled();
-    expect(component.isSubmitting()).toBe(false);
-  });
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificador do custo de diária inválido.'
+      );
+      expect(settingServiceMock.updateDailyCost).not.toHaveBeenCalled();
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+    });
 
-  it('NÃO deve processar o envio se o formulário estiver com valor inválido', () => {
-    component.updateDailyCostForm.patchValue({ value: 0 });
-    
-    component.onSubmit();
+    it('não deve enviar a requisição se o formulário estiver inválido e deve marcar campos como tocados', () => {
+      component['dailyCostForm'].controls.value.setValue('');
 
-    expect(settingServiceMock.updateDailyCost).not.toHaveBeenCalled();
-    expect(component.isSubmitting()).toBe(false);
+      component['onSubmit']();
+
+      expect(settingServiceMock.updateDailyCost).not.toHaveBeenCalled();
+      expect(component['dailyCostForm'].controls.value.touched).toBe(true);
+    });
+
+    it('não deve enviar nova requisição se já estiver submetendo', () => {
+      component['isSubmitting'].set(true);
+      fixture.detectChanges();
+
+      component['onSubmit']();
+
+      expect(settingServiceMock.updateDailyCost).not.toHaveBeenCalled();
+    });
+
+    it('deve atualizar o custo da diária com sucesso, exibir mensagem da resposta e fechar o dialog com true', () => {
+      component['dailyCostForm'].controls.value.setValue(95);
+      settingServiceMock.updateDailyCost.mockReturnValue(
+        of({ message: 'Valor da diária atualizado!' })
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(settingServiceMock.updateDailyCost).toHaveBeenCalledWith(4, {
+        value: 95,
+      });
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Valor da diária atualizado!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
+      expect(component['dailyCostForm'].enabled).toBe(true);
+    });
+
+    it('deve usar mensagem padrão de sucesso quando a resposta não trouxer message', () => {
+      settingServiceMock.updateDailyCost.mockReturnValue(of({}));
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Custo de diária atualizado com sucesso!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+    });
+
+    it('deve desabilitar o formulário durante requisição pendente e reabilitar ao concluir', () => {
+      const pending$ = new Subject<{ message?: string }>();
+      settingServiceMock.updateDailyCost.mockReturnValue(pending$.asObservable());
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(component['isSubmitting']()).toBe(true);
+      expect(component['dailyCostForm'].disabled).toBe(true);
+
+      pending$.next({ message: 'OK' });
+      pending$.complete();
+      fixture.detectChanges();
+
+      expect(component['isSubmitting']()).toBe(false);
+      expect(component['dailyCostForm'].enabled).toBe(true);
+    });
+
+    it('deve exibir mensagem de erro do backend e reverter o estado em caso de falha', () => {
+      settingServiceMock.updateDailyCost.mockReturnValue(
+        throwError(() => ({ error: { message: 'Valor fora do limite permitido.' } }))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Valor fora do limite permitido.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+      expect(component['dailyCostForm'].enabled).toBe(true);
+    });
+
+    it('deve exibir mensagem de fallback quando o erro não possuir message explícita', () => {
+      settingServiceMock.updateDailyCost.mockReturnValue(
+        throwError(() => new Error('Falha de rede'))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao atualizar o custo da diária.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+    });
   });
 });

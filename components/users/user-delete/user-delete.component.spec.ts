@@ -1,111 +1,184 @@
+// src/app/tfd/components/users/user-delete/user-delete.component.spec.ts
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { DeleteUserComponent } from './delete-user-component';
-import { UserService } from '../../../services/user-service';
-import { MessageService } from '../../../../core/services/message-service';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { of, throwError } from 'rxjs';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-describe('DeleteUserComponent', () => {
-  let component: DeleteUserComponent;
-  let fixture: ComponentFixture<DeleteUserComponent>;
+import { UserDeleteComponent, UserDeleteDialogData } from './user-delete.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { TfdUser as User } from '../../../models/user.model';
+import { UserService } from '../../../services/user.service';
 
-  let userServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+describe('UserDeleteComponent', () => {
+  let component: UserDeleteComponent;
+  let fixture: ComponentFixture<UserDeleteComponent>;
 
-  // Mock completo dos dados recebidos, incluindo o nome do profissional para testar o novo template
-  const mockDialogData = {
-    user: {
-      id: 'user-789',
-      professional: {
-        name: 'Dr. Carlos Eduardo'
-      }
-    }
+  let userServiceMock: {
+    deleteUser: ReturnType<typeof vi.fn>;
   };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
+  };
+  let mockDialogData: UserDeleteDialogData | null;
+
+  const baseUser: User = {
+    id: 42,
+    name: 'Carlos Souza',
+    professional: {
+      name: 'Dr. Carlos Souza',
+    },
+  } as User;
+
+  async function createComponent(dialogData: UserDeleteDialogData | null): Promise<void> {
+    mockDialogData = dialogData;
+
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [UserDeleteComponent],
+        providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
+          { provide: UserService, useValue: userServiceMock },
+          { provide: MessageService, useValue: messageServiceMock },
+          { provide: MatDialogRef, useValue: dialogRefMock },
+          { provide: MAT_DIALOG_DATA, useValue: mockDialogData },
+        ],
+      })
+      .overrideComponent(UserDeleteComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
+
+    fixture = TestBed.createComponent(UserDeleteComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
 
   beforeEach(async () => {
     userServiceMock = {
-      deleteUser: vi.fn()
+      deleteUser: vi.fn(),
     };
 
     messageServiceMock = {
-      showMessage: vi.fn()
+      showMessage: vi.fn(),
     };
 
     dialogRefMock = {
-      close: vi.fn()
+      close: vi.fn(),
     };
 
-    await TestBed.configureTestingModule({
-      imports: [DeleteUserComponent],
-      providers: [
-        { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
-        { provide: UserService, useValue: userServiceMock },
-        { provide: MessageService, useValue: messageServiceMock },
-        { provide: MatDialogRef, useValue: dialogRefMock },
-        { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-      ]
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(DeleteUserComponent);
-    component = fixture.componentInstance;
-    
-    fixture.detectChanges();
+    await createComponent({ user: { ...baseUser } });
   });
 
-  it('should create', () => {
+  it('deve criar o componente e iniciar isSubmitting como false', () => {
     expect(component).toBeTruthy();
-    expect(component.isSubmitting()).toBe(false);
+    expect(component['isSubmitting']()).toBe(false);
   });
 
-  describe('Inicialização e Template', () => {
-    it('deve exibir o nome do usuário no template se ele estiver disponível', () => {
-      const compiled = fixture.nativeElement as HTMLElement;
-      const contentText = compiled.querySelector('mat-dialog-content')?.textContent;
-      
-      expect(contentText).toContain('Dr. Carlos Eduardo');
+  describe('Getter userName', () => {
+    it('deve priorizar professional.name quando disponível', async () => {
+      await createComponent({
+        user: {
+          id: 42,
+          name: 'Carlos Souza',
+          professional: { name: 'Dr. Carlos Souza' },
+        } as User,
+      });
+
+      expect(component['userName']).toBe('Dr. Carlos Souza');
+    });
+
+    it('deve usar user.name quando professional.name não estiver disponível', async () => {
+      await createComponent({
+        user: {
+          id: 42,
+          name: 'Carlos Souza',
+        } as User,
+      });
+
+      expect(component['userName']).toBe('Carlos Souza');
+    });
+
+    it('deve retornar "Usuário" quando não houver nome em user ou professional', async () => {
+      await createComponent({ user: { id: 42 } as User });
+      expect(component['userName']).toBe('Usuário');
+
+      await createComponent(null);
+      expect(component['userName']).toBe('Usuário');
     });
   });
 
-  describe('Fluxo de Submissão (onSubmit)', () => {
-    
-    it('deve deletar o usuário com sucesso, exibir mensagem e fechar o modal', () => {
-      // 🌟 CONFIGURAÇÃO CRUCIAL: Garante que o método retorne um Observable
-      userServiceMock.deleteUser.mockReturnValue(of({ message: 'Usuário removido com sucesso!' }));
+  describe('Submissão da Remoção (onSubmit)', () => {
+    it('deve exibir mensagem de erro e não chamar o serviço quando userId estiver ausente', async () => {
+      await createComponent({ user: undefined });
 
-      component.onSubmit();
+      component['onSubmit']();
 
-      // Removido: expect(component.isSubmitting()).toBe(true); 👈 O mock resolve instantaneamente
-      expect(userServiceMock.deleteUser).toHaveBeenCalledWith(mockDialogData.user.id);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Usuário removido com sucesso!');
-      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
-      expect(component.isSubmitting()).toBe(false); // Mantido para checar o fim do ciclo
-    });
-
-    it('deve capturar erro do servidor com mensagem vinda do backend e reverter o signal', () => {
-      const errorResponse = { error: { message: 'Erro controlado do servidor.' } };
-      userServiceMock.deleteUser.mockReturnValue(throwError(() => errorResponse));
-
-      component.onSubmit();
-      fixture.detectChanges();
-
-      expect(userServiceMock.deleteUser).toHaveBeenCalledWith(mockDialogData.user.id);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro controlado do servidor.');
-      expect(component.isSubmitting()).toBe(false);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificador do usuário inválido.'
+      );
+      expect(userServiceMock.deleteUser).not.toHaveBeenCalled();
       expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
     });
 
-    it('deve exibir mensagem genérica de erro caso a resposta do backend venha malformada', () => {
-      // Simula uma falha crítica de rede onde o objeto `error.message` não existe (testa o fallback || do TS)
-      const badErrorResponse = null; 
-      userServiceMock.deleteUser.mockReturnValue(throwError(() => badErrorResponse));
+    it('deve remover o usuário com sucesso, exibir mensagem da resposta e fechar o dialog com true', () => {
+      userServiceMock.deleteUser.mockReturnValue(
+        of({ message: 'Usuário excluído!' })
+      );
 
-      component.onSubmit();
+      component['onSubmit']();
       fixture.detectChanges();
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro ao tentar remover o usuário.');
-      expect(component.isSubmitting()).toBe(false);
+      expect(userServiceMock.deleteUser).toHaveBeenCalledWith(42);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Usuário excluído!');
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
     });
 
+    it('deve usar mensagem padrão de sucesso quando a resposta não trouxer message', () => {
+      userServiceMock.deleteUser.mockReturnValue(of({}));
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Usuário removido com sucesso!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve exibir mensagem de erro retornada pelo backend e reverter isSubmitting', () => {
+      userServiceMock.deleteUser.mockReturnValue(
+        throwError(() => ({ error: { message: 'Usuário possui vínculos ativos.' } }))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Usuário possui vínculos ativos.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve exibir mensagem de fallback quando o erro não possuir message explícita', () => {
+      userServiceMock.deleteUser.mockReturnValue(
+        throwError(() => new Error('Falha inesperada'))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao tentar remover o usuário.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+    });
   });
 });

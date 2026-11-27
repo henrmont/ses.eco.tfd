@@ -1,141 +1,213 @@
-import { TestBed, ComponentFixture } from '@angular/core/testing';
+// src/app/tfd/components/patient/patient-archive/patient-archive.component.spec.ts
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { of, throwError } from 'rxjs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ArchivePatientComponent } from './archive-patient-component';
-import { PatientService } from '../../../services/patient-service';
-import { MessageService } from '../../../../core/services/message-service';
+import {
+  PatientArchiveComponent,
+  PatientArchiveDialogData,
+} from './patient-archive.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { PatientCare } from '../../../models/patient-care.model';
+import { PatientService } from '../../../services/patient.service';
 
-describe('ArchivePatientComponent', () => {
-  let component: ArchivePatientComponent;
-  let fixture: ComponentFixture<ArchivePatientComponent>;
-  
-  let patientServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  const mockDialogData = {
-    patient_care: {
-      id: 720,
-      patient: {
-        name: 'Carlos Eduardo'
-      }
-    }
+describe('PatientArchiveComponent', () => {
+  let component: PatientArchiveComponent;
+  let fixture: ComponentFixture<PatientArchiveComponent>;
+
+  let broadcastChannelMock: MockBroadcastChannel;
+  let patientServiceMock: {
+    archivePatient: ReturnType<typeof vi.fn>;
   };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
+  };
+  let mockDialogData: PatientArchiveDialogData | null;
 
-  beforeEach(async () => {
-    patientServiceMock = {
-      archivePatient: vi.fn()
-    };
+  const basePatientCare: PatientCare = {
+    id: 21,
+    patient: {
+      name: '  Mariana Souza  ',
+    },
+  } as unknown as PatientCare;
 
-    messageServiceMock = {
-      showMessage: vi.fn()
-    };
+  async function createComponent(
+    dialogData: PatientArchiveDialogData | null = { patient_care: { ...basePatientCare } }
+  ): Promise<void> {
+    mockDialogData = dialogData;
 
-    dialogRefMock = {
-      close: vi.fn()
-    };
-
-    await TestBed.configureTestingModule({
-      imports: [ArchivePatientComponent]
-    })
-    .overrideComponent(ArchivePatientComponent, {
-      set: {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientArchiveComponent],
         providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
           { provide: PatientService, useValue: patientServiceMock },
           { provide: MessageService, useValue: messageServiceMock },
           { provide: MatDialogRef, useValue: dialogRefMock },
-          { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-        ]
-      }
-    })
-    .compileComponents();
+          { provide: MAT_DIALOG_DATA, useValue: mockDialogData },
+        ],
+      })
+      .overrideComponent(PatientArchiveComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
-    fixture = TestBed.createComponent(ArchivePatientComponent);
+    fixture = TestBed.createComponent(PatientArchiveComponent);
     component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    broadcastChannelMock = new MockBroadcastChannel();
+
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
+    patientServiceMock = {
+      archivePatient: vi.fn(),
+    };
+
+    messageServiceMock = {
+      showMessage: vi.fn(),
+    };
+
+    dialogRefMock = {
+      close: vi.fn(),
+    };
+
+    await createComponent();
   });
 
-  describe('Inicialização', () => {
-    it('deve instanciar o componente com sucesso', () => {
-      fixture.detectChanges();
-      expect(component).toBeTruthy();
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('deve criar o componente, abrir o BroadcastChannel e iniciar isSubmitting como false', () => {
+    expect(component).toBeTruthy();
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patients-channel');
+    expect(component['isSubmitting']()).toBe(false);
+  });
+
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
+
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
+  });
+
+  describe('Getter patientName', () => {
+    it('deve retornar o nome do paciente sem espaços extras', () => {
+      expect(component['patientName']).toBe('Mariana Souza');
     });
 
-    it('deve inicializar com o estado de submissão desativado', () => {
-      fixture.detectChanges();
-      expect(component['isSubmitting']()).toBe(false);
+    it('deve retornar "Paciente" quando o nome estiver ausente ou em branco', async () => {
+      await createComponent({
+        patient_care: { id: 21, patient: { name: '   ' } } as unknown as PatientCare,
+      });
+      expect(component['patientName']).toBe('Paciente');
+
+      await createComponent({ patient_care: { id: 21 } as unknown as PatientCare });
+      expect(component['patientName']).toBe('Paciente');
+
+      await createComponent(null);
+      expect(component['patientName']).toBe('Paciente');
     });
   });
 
-  describe('Fluxo de Submissão (onSubmit)', () => {
-    it('deve barrar a execução e exibir mensagem de erro se o patient care id não estiver presente', () => {
-      TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ imports: [ArchivePatientComponent] })
-        .overrideComponent(ArchivePatientComponent, {
-          set: {
-            providers: [
-              { provide: PatientService, useValue: patientServiceMock },
-              { provide: MessageService, useValue: messageServiceMock },
-              { provide: MatDialogRef, useValue: dialogRefMock },
-              { provide: MAT_DIALOG_DATA, useValue: { patient_care: { id: null, patient: { name: 'Incompleto' } } } }
-            ]
-          }
-        });
-
-      const localFixture = TestBed.createComponent(ArchivePatientComponent);
-      const localComponent = localFixture.componentInstance;
-      localFixture.detectChanges();
-
-      localComponent['onSubmit']();
-
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro: Identificador do atendimento não encontrado.');
-      expect(patientServiceMock.archivePatient).not.toHaveBeenCalled();
-    });
-
-    it('deve arquivar o paciente com sucesso, exibir toast e fechar a modal retornando true', () => {
-      fixture.detectChanges();
-      const mockApiResponse = { message: 'Paciente arquivado com sucesso!' };
-      patientServiceMock.archivePatient.mockReturnValue(of(mockApiResponse));
+  describe('Arquivamento do Atendimento (onSubmit)', () => {
+    it('deve exibir mensagem de erro e não chamar archivePatient quando patientCareId estiver ausente', async () => {
+      await createComponent({ patient_care: undefined });
 
       component['onSubmit']();
 
-      expect(component['isSubmitting']()).toBe(true);
-      expect(patientServiceMock.archivePatient).toHaveBeenCalledWith(720);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Paciente arquivado com sucesso!');
-      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificador do atendimento inválido.'
+      );
+      expect(patientServiceMock.archivePatient).not.toHaveBeenCalled();
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
     });
 
-    it('deve usar mensagem padrão de sucesso se a API retornar um objeto vazio', () => {
+    it('deve arquivar o paciente com sucesso, notificar o BroadcastChannel, exibir mensagem e fechar o dialog', () => {
+      patientServiceMock.archivePatient.mockReturnValue(
+        of({ message: 'Atendimento arquivado!' })
+      );
+
+      component['onSubmit']();
       fixture.detectChanges();
+
+      expect(patientServiceMock.archivePatient).toHaveBeenCalledWith(21);
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Atendimento arquivado!');
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve usar mensagem padrão de sucesso quando a resposta não trouxer message', () => {
       patientServiceMock.archivePatient.mockReturnValue(of({}));
 
       component['onSubmit']();
+      fixture.detectChanges();
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Paciente arquivado com sucesso!');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Paciente arquivado com sucesso!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
     });
 
-    it('deve tratar falhas do servidor, exibir mensagem de erro da API e resetar o estado de carregamento do botão', () => {
-      fixture.detectChanges();
-      const mockApiError = { error: { message: 'Este atendimento possui pendências ativas e não pode ser arquivado.' } };
-      patientServiceMock.archivePatient.mockReturnValue(throwError(() => mockApiError));
+    it('deve manter isSubmitting true durante requisição pendente e reverter ao concluir', () => {
+      const pending$ = new Subject<{ message?: string }>();
+      patientServiceMock.archivePatient.mockReturnValue(pending$.asObservable());
 
       component['onSubmit']();
+      expect(component['isSubmitting']()).toBe(true);
 
-      expect(patientServiceMock.archivePatient).toHaveBeenCalledWith(720);
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(mockApiError.error.message);
+      pending$.next({ message: 'OK' });
+      pending$.complete();
       expect(component['isSubmitting']()).toBe(false);
-      expect(dialogRefMock.close).not.toHaveBeenCalled();
     });
 
-    it('deve usar mensagem de erro genérica se o servidor falhar sem retornar corpo de erro', () => {
-      fixture.detectChanges();
-      const rawError = { status: 500 };
-      patientServiceMock.archivePatient.mockReturnValue(throwError(() => rawError));
+    it('deve exibir mensagem de erro do backend e não notificar o BroadcastChannel em caso de falha', () => {
+      patientServiceMock.archivePatient.mockReturnValue(
+        throwError(() => ({ error: { message: 'Paciente possui solicitação aberta.' } }))
+      );
 
       component['onSubmit']();
+      fixture.detectChanges();
 
-      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Ocorreu um erro ao tentar arquivar o paciente.');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Paciente possui solicitação aberta.'
+      );
+      expect(broadcastChannelMock.postMessage).not.toHaveBeenCalled();
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve exibir mensagem de fallback quando o erro não possuir message explícita', () => {
+      patientServiceMock.archivePatient.mockReturnValue(
+        throwError(() => new Error('Falha de rede'))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao tentar arquivar o paciente.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
       expect(component['isSubmitting']()).toBe(false);
     });
   });

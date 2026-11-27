@@ -9,22 +9,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { NgxMaskPipe } from 'ngx-mask';
 
 // Models
-import { ProfessionalType } from '../../../models/professional-type.model';
+import { TfdUser as User } from '../../../models/user.model';
 
 export type UserDetailDialogData = {
-  user?: {
-    id?: string;
-    name?: string;
-    email?: string;
-    professional?: {
-      name?: string;
-      cns?: string;
-      registration?: string;
-      professional_register?: string;
-      cbo?: string;
-      types?: Array<ProfessionalType | string>;
-    };
-  };
+  user?: User
 };
 
 @Component({

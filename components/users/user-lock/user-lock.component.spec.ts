@@ -1,105 +1,199 @@
+// src/app/tfd/components/users/user-lock/user-lock.component.spec.ts
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { LockUserComponent } from './lock-user-component';
-import { UserService } from '../../../services/user-service';
-import { MessageService } from '../../../../core/services/message-service';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { of, throwError } from 'rxjs';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-describe('LockUserComponent', () => {
-  let component: LockUserComponent;
-  let fixture: ComponentFixture<LockUserComponent>;
+import { UserLockComponent, UserLockDialogData } from './user-lock.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { TfdUser as User } from '../../../models/user.model';
+import { UserService } from '../../../services/user.service';
 
-  let userServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+describe('UserLockComponent', () => {
+  let component: UserLockComponent;
+  let fixture: ComponentFixture<UserLockComponent>;
 
-  // Mock atualizado com a estrutura que o HTML espera renderizar sem quebrar
-  const mockDialogData = {
-    user: { 
-      id: 42, 
-      name: 'John Doe',
-      module: {
-        pivot: {
-          is_editable: true // Define true por padrão para simular o estado "Travar usuário"
-        }
-      }
-    }
+  let userServiceMock: {
+    lockUser: ReturnType<typeof vi.fn>;
   };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
+  };
+  let mockDialogData: UserLockDialogData | null;
+
+  const baseUser: User = {
+    id: 27,
+    name: 'Fernanda Lima',
+    professional: {
+      name: 'Dra. Fernanda Lima',
+    },
+    module: {
+      pivot: {
+        is_editable: true,
+      },
+    },
+  } as unknown as User;
+
+  async function createComponent(dialogData: UserLockDialogData | null): Promise<void> {
+    mockDialogData = dialogData;
+
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [UserLockComponent],
+        providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
+          { provide: UserService, useValue: userServiceMock },
+          { provide: MessageService, useValue: messageServiceMock },
+          { provide: MatDialogRef, useValue: dialogRefMock },
+          { provide: MAT_DIALOG_DATA, useValue: mockDialogData },
+        ],
+      })
+      .overrideComponent(UserLockComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
+
+    fixture = TestBed.createComponent(UserLockComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
 
   beforeEach(async () => {
     userServiceMock = {
-      lockUser: vi.fn()
+      lockUser: vi.fn(),
     };
 
     messageServiceMock = {
-      showMessage: vi.fn()
+      showMessage: vi.fn(),
     };
 
     dialogRefMock = {
-      close: vi.fn()
+      close: vi.fn(),
     };
 
-    await TestBed.configureTestingModule({
-      imports: [LockUserComponent],
-      providers: [
-        { provide: UserService, useValue: userServiceMock },
-        { provide: MessageService, useValue: messageServiceMock },
-        { provide: MatDialogRef, useValue: dialogRefMock },
-        { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-      ]
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(LockUserComponent);
-    component = fixture.componentInstance;
-    
-    // Roda a primeira detecção para inicializar o OnPush estavelmente
-    fixture.detectChanges();
+    await createComponent({ user: { ...baseUser } });
   });
 
-  it('should create', () => {
+  it('deve criar o componente e iniciar isSubmitting como false', () => {
     expect(component).toBeTruthy();
-    expect(component.isSubmitting()).toBe(false);
+    expect(component['isSubmitting']()).toBe(false);
   });
 
-  it('deve travar o usuário com sucesso, exibir mensagem e fechar o modal repassando true', () => {
-    userServiceMock.lockUser.mockReturnValue(of({ message: 'Status do usuário atualizado com sucesso!' }));
+  describe('Getter isEditable', () => {
+    it('deve retornar true quando module.pivot.is_editable for verdadeiro', () => {
+      expect(component['isEditable']).toBe(true);
+    });
 
-    component.onSubmit();
-    fixture.detectChanges();
+    it('deve retornar false quando is_editable for falso ou estrutura estiver ausente', async () => {
+      await createComponent({
+        user: { id: 27, module: { pivot: { is_editable: false } } } as unknown as User,
+      });
+      expect(component['isEditable']).toBe(false);
 
-    expect(userServiceMock.lockUser).toHaveBeenCalledWith(42);
-    
-    // 🌟 Corrigido: Texto ajustado para a string exata em português
-    expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Status do usuário atualizado com sucesso!'); 
-    
-    expect(dialogRefMock.close).toHaveBeenCalledWith(true);
-    expect(component.isSubmitting()).toBe(false);
+      await createComponent({ user: { id: 27 } as unknown as User });
+      expect(component['isEditable']).toBe(false);
+
+      await createComponent(null);
+      expect(component['isEditable']).toBe(false);
+    });
   });
 
-  it('deve tratar o erro da requisição, exibir a mensagem de erro do backend e desligar o loading', () => {
-    const mockErrorResponse = {
-      error: { message: 'Não é permitido travar este tipo de usuário.' }
-    };
-    userServiceMock.lockUser.mockReturnValue(throwError(() => mockErrorResponse));
+  describe('Getter userName', () => {
+    it('deve priorizar professional.name quando disponível', () => {
+      expect(component['userName']).toBe('Dra. Fernanda Lima');
+    });
 
-    component.onSubmit();
-    fixture.detectChanges(); // Atualiza o template com o novo valor do sinal pós-erro
+    it('deve usar user.name quando professional.name não estiver disponível', async () => {
+      await createComponent({
+        user: { id: 27, name: 'Fernanda Lima' } as unknown as User,
+      });
 
-    expect(userServiceMock.lockUser).toHaveBeenCalledWith(42);
-    expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Não é permitido travar este tipo de usuário.');
-    expect(dialogRefMock.close).not.toHaveBeenCalled();
-    expect(component.isSubmitting()).toBe(false);
+      expect(component['userName']).toBe('Fernanda Lima');
+    });
+
+    it('deve retornar "Usuário" quando não houver nome disponível', async () => {
+      await createComponent({ user: { id: 27 } as unknown as User });
+      expect(component['userName']).toBe('Usuário');
+
+      await createComponent(null);
+      expect(component['userName']).toBe('Usuário');
+    });
   });
 
-  it('deve usar uma mensagem padrão de fallback caso o erro do backend venha sem mensagem interna', () => {
-    // 🌟 CONFIGURAÇÃO: Garante o fluxo de erro simulado no mock
-    userServiceMock.lockUser.mockReturnValue(throwError(() => ({ error: {} })));
+  describe('Alteração de Status (onSubmit)', () => {
+    it('deve exibir mensagem de erro e não chamar o serviço quando userId estiver ausente', async () => {
+      await createComponent({ user: undefined });
 
-    component.onSubmit();
-    fixture.detectChanges();
+      component['onSubmit']();
 
-    // 🌟 Sincronizado com a string real que o Vitest capturou:
-    expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro ao tentar alterar o status do usuário.');
-    expect(component.isSubmitting()).toBe(false);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificador do usuário inválido.'
+      );
+      expect(userServiceMock.lockUser).not.toHaveBeenCalled();
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve alterar o status com sucesso, exibir mensagem da resposta e fechar o dialog com true', () => {
+      userServiceMock.lockUser.mockReturnValue(
+        of({ message: 'Usuário bloqueado com sucesso!' })
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(userServiceMock.lockUser).toHaveBeenCalledWith(27);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Usuário bloqueado com sucesso!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve usar mensagem padrão de sucesso quando a resposta não trouxer message', () => {
+      userServiceMock.lockUser.mockReturnValue(of({}));
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Status do usuário atualizado com sucesso!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve exibir mensagem de erro retornada pelo backend e reverter isSubmitting', () => {
+      userServiceMock.lockUser.mockReturnValue(
+        throwError(() => ({ error: { message: 'Sem permissão para alterar status.' } }))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Sem permissão para alterar status.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+    });
+
+    it('deve exibir mensagem de fallback quando o erro não possuir message explícita', () => {
+      userServiceMock.lockUser.mockReturnValue(
+        throwError(() => new Error('Erro de rede'))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao tentar alterar o status do usuário.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+    });
   });
 });

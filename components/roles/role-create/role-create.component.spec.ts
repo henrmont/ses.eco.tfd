@@ -1,176 +1,307 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+// src/app/tfd/components/roles/role-create/role-create.component.spec.ts
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { FormBuilder } from '@angular/forms';
-import { of, throwError } from 'rxjs';
+import { MatDialogRef } from '@angular/material/dialog';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Componentes e Serviços do seu ecossistema
-import { CreateRoleComponent } from './create-role-component';
-import { RoleService } from '../../../services/role-service';
-import { MessageService } from '../../../../core/services/message-service';
-import { Permission } from '../../../models/permission.model';
+import { RoleCreateComponent } from './role-create.component';
+import { Permission } from '../../../../core/models/permission.model';
+import { Role } from '../../../../core/models/role.model';
+import { MessageService } from '../../../../core/services/message.service';
+import { CustomValidators } from '../../../../core/validators/custom.validator';
+import { RoleService } from '../../../services/role.service';
 
-describe('CreateRoleComponent', () => {
-  let component: CreateRoleComponent;
-  let fixture: ComponentFixture<CreateRoleComponent>;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  // Mocks das Dependências
-  let roleServiceMock: any;
-  let messageServiceMock: any;
-  let dialogRefMock: any;
+describe('RoleCreateComponent', () => {
+  let component: RoleCreateComponent;
+  let fixture: ComponentFixture<RoleCreateComponent>;
 
-  // Massa de dados fictícia para simular as permissões da API
+  let broadcastChannelMock: MockBroadcastChannel;
+  let roleServiceMock: {
+    getPermissions: ReturnType<typeof vi.fn>;
+    createRole: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
+  };
+
   const mockPermissions: Permission[] = [
-    { id: 1, name: 'tfd/usuário visualizar' },
-    { id: 2, name: 'tfd/usuário criar' },
-    { id: 3, name: 'tfd/regra atualizar' },
-    { id: 4, name: 'tfd/unidade hospitalar deletar' }
+    { id: 1, name: 'tfd/usuário criar' } as Permission,
+    { id: 2, name: 'tfd/usuário' } as Permission,
+    { id: 3, name: 'tfd/regra editar' } as Permission,
+    { id: 4, name: 'sem-barra' } as Permission,
   ];
 
+  async function createComponent(
+    permissionsResponse = of(mockPermissions)
+  ): Promise<void> {
+    roleServiceMock.getPermissions.mockReturnValue(permissionsResponse);
+
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [RoleCreateComponent],
+        providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
+          { provide: RoleService, useValue: roleServiceMock },
+          { provide: MessageService, useValue: messageServiceMock },
+          { provide: MatDialogRef, useValue: dialogRefMock },
+        ],
+      })
+      .overrideComponent(RoleCreateComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
+
+    fixture = TestBed.createComponent(RoleCreateComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
   beforeEach(async () => {
-    vi.clearAllMocks();
+    broadcastChannelMock = new MockBroadcastChannel();
+
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
+    vi.spyOn(CustomValidators, 'permissionsValidator').mockReturnValue(() => null);
 
     roleServiceMock = {
-      getPermissions: vi.fn().mockReturnValue(of(mockPermissions)),
-      createRole: vi.fn().mockReturnValue(of({ message: 'Regra criada com sucesso!' }))
+      getPermissions: vi.fn(),
+      createRole: vi.fn(),
     };
 
     messageServiceMock = {
-      showMessage: vi.fn()
+      showMessage: vi.fn(),
     };
 
     dialogRefMock = {
-      close: vi.fn()
+      close: vi.fn(),
     };
 
-    await TestBed.configureTestingModule({
-      imports: [CreateRoleComponent],
-      providers: [
-        FormBuilder,
-        { provide: RoleService, useValue: roleServiceMock },
-        { provide: MessageService, useValue: messageServiceMock },
-        { provide: MatDialogRef, useValue: dialogRefMock },
-        { provide: MAT_DIALOG_DATA, useValue: {} } // Passa um objeto vazio como fallback seguro
-      ]
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(CreateRoleComponent);
-    component = fixture.componentInstance;
+    await createComponent();
   });
 
   afterEach(() => {
-    fixture?.destroy();
-    TestBed.resetTestingModule();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
-  it('should create e carregar as permissões no ngOnInit', () => {
-    // Dispara o ciclo de vida inicial do Angular (ngOnInit)
-    fixture.detectChanges();
-
+  it('deve criar o componente, abrir o BroadcastChannel e carregar as permissões', () => {
     expect(component).toBeTruthy();
-    expect(roleServiceMock.getPermissions).toHaveBeenCalled();
-    expect(component.permissions()).toEqual(mockPermissions);
-    expect(component.isLoading()).toBe(false); // O finalize() deve desligar o loading
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-roles-channel');
+    expect(roleServiceMock.getPermissions).toHaveBeenCalledTimes(1);
+    expect(component['permissions']()).toEqual(mockPermissions);
+    expect(component['isLoading']()).toBe(false);
+    expect(component['isSubmitting']()).toBe(false);
+    expect(component['roleForm'].controls.name.value).toBe('');
+    expect(component['selectedPermissions']).toEqual([]);
   });
 
-  it('deve inicializar o formulário com valores padrão inválidos', () => {
-    fixture.detectChanges();
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
 
-    const form = component.createRoleForm;
-    expect(form).toBeDefined();
-    expect(form.get('name')?.value).toBe('');
-    expect(form.get('permissions')?.value).toEqual([]);
-    expect(form.invalid).toBe(true); // Nome está vazio (required)
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
   });
 
-  it('deve filtrar as permissões por grupo corretamente usando getFilteredRole', () => {
-    fixture.detectChanges();
+  describe('Carregamento de Permissões (fetchPermissions)', () => {
+    it('deve exibir mensagem de erro do backend ao falhar ao carregar permissões', async () => {
+      await createComponent(
+        throwError(() => ({ error: { message: 'Falha ao buscar permissões.' } }))
+      );
 
-    // Filtra pelo grupo 'usuário'
-    const usuarioPermissions = component['getFilteredRole']('usuário');
-    expect(usuarioPermissions).toHaveLength(2);
-    expect(usuarioPermissions[0].name).toBe('tfd/usuário visualizar');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Falha ao buscar permissões.'
+      );
+      expect(component['permissions']()).toEqual([]);
+      expect(component['isLoading']()).toBe(false);
+    });
 
-    // Filtra pelo grupo 'regra'
-    const regraPermissions = component['getFilteredRole']('regra');
-    expect(regraPermissions).toHaveLength(1);
-    expect(regraPermissions[0].name).toBe('tfd/regra atualizar');
+    it('deve exibir mensagem de fallback quando o erro ao carregar permissões não tiver message', async () => {
+      await createComponent(throwError(() => new Error('Falha de rede')));
 
-    // Filtra por um grupo inexistente
-    const grupoInexistente = component['getFilteredRole']('financeiro');
-    expect(grupoInexistente).toHaveLength(0);
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao carregar lista de permissões.'
+      );
+      expect(component['isLoading']()).toBe(false);
+    });
   });
 
-  it('deve gerenciar a inserção e remoção de IDs no array de permissões via togglePermission', () => {
-    fixture.detectChanges();
-    const permItem1 = mockPermissions[0]; // ID: 1
-    const permItem2 = mockPermissions[1]; // ID: 2
+  describe('Filtro e Formatação de Permissões', () => {
+    it('deve filtrar permissões pela palavra intermediária do grupo ignorando itens sem "/"', () => {
+      expect(component['getFilteredRole']('usuário')).toEqual([
+        mockPermissions[0],
+        mockPermissions[1],
+      ]);
+      expect(component['getFilteredRole']('REGRA')).toEqual([mockPermissions[2]]);
+      expect(component['getFilteredRole']('inexistente')).toEqual([]);
+    });
 
-    // 1. Adiciona a primeira permissão
-    component['togglePermission'](permItem1);
-    expect(component.createRoleForm.get('permissions')?.value).toEqual([1]);
+    it('deve formatar o nome da permissão retornando o último segmento após "/"', () => {
+      expect(component['formatPermissionName']('tfd/usuário criar')).toBe('usuário criar');
+      expect(component['formatPermissionName']('simples')).toBe('simples');
+      expect(component['formatPermissionName']('')).toBe('');
+      expect(component['formatPermissionName'](undefined)).toBe('');
+    });
 
-    // 2. Adiciona a segunda permissão
-    component['togglePermission'](permItem2);
-    expect(component.createRoleForm.get('permissions')?.value).toEqual([1, 2]);
-
-    // 3. Remove a primeira permissão clicando nela novamente
-    component['togglePermission'](permItem1);
-    expect(component.createRoleForm.get('permissions')?.value).toEqual([2]);
+    it('deve retornar false em isPermissionSelected quando o id for undefined ou zero', () => {
+      expect(component['isPermissionSelected'](undefined)).toBe(false);
+      expect(component['isPermissionSelected'](0)).toBe(false);
+    });
   });
 
-  // 🛠️ CORREÇÃO 1: Ajustado de notFactory para .not.toHaveBeenCalled()
-  it('não deve enviar o formulário (onSubmit) se ele for inválido', () => {
-    fixture.detectChanges();
-    
-    component.onSubmit();
+  describe('Seleção de Permissões (togglePermission)', () => {
+    it('deve adicionar e remover permissões marcando o controle como dirty', () => {
+      const permCtrl = component['roleForm'].controls.permissions;
 
-    expect(component.isSubmitting()).toBe(false);
-    expect(roleServiceMock.createRole).not.toHaveBeenCalled(); // Sintaxe correta do Vitest
+      component['togglePermission'](mockPermissions[0]);
+      fixture.detectChanges();
+
+      expect(permCtrl.dirty).toBe(true);
+      expect(component['selectedPermissions']).toEqual([1]);
+      expect(component['isPermissionSelected'](1)).toBe(true);
+
+      component['togglePermission'](mockPermissions[0]);
+      fixture.detectChanges();
+
+      expect(component['selectedPermissions']).toEqual([]);
+      expect(component['isPermissionSelected'](1)).toBe(false);
+    });
+
+    it('não deve alterar permissões se o item não tiver id, isSubmitting for true ou formulário estiver desabilitado', () => {
+      component['togglePermission']({ name: 'sem-id' } as Permission);
+      expect(component['selectedPermissions']).toEqual([]);
+
+      component['isSubmitting'].set(true);
+      fixture.detectChanges();
+      component['togglePermission'](mockPermissions[0]);
+      expect(component['selectedPermissions']).toEqual([]);
+
+      component['isSubmitting'].set(false);
+      fixture.detectChanges();
+      component['roleForm'].disable();
+      component['togglePermission'](mockPermissions[0]);
+      expect(component['selectedPermissions']).toEqual([]);
+    });
   });
 
-  it('deve criar a regra com sucesso, exibir mensagem e fechar o diálogo passando true', () => {
-    fixture.detectChanges();
+  describe('Submissão do Formulário (onSubmit)', () => {
+    it('não deve enviar a requisição se o formulário estiver inválido e deve marcar campos como tocados', () => {
+      component['onSubmit']();
 
-    // Preenche o formulário com dados válidos (Mockando o CustomValidators com um array simulado)
-    component.createRoleForm.get('name')?.setValue('Diretoria');
-    component.createRoleForm.get('permissions')?.setValue([1, 2]); // Força valores para passar na validação
-    component.createRoleForm.updateValueAndValidity();
+      expect(roleServiceMock.createRole).not.toHaveBeenCalled();
+      expect(component['roleForm'].controls.name.touched).toBe(true);
+      expect(component['roleForm'].controls.permissions.touched).toBe(true);
+    });
 
-    component.onSubmit();
+    it('não deve enviar nova requisição se já estiver submetendo', () => {
+      component['roleForm'].controls.name.setValue('Gestor TFD');
+      component['isSubmitting'].set(true);
+      fixture.detectChanges();
 
-    expect(component.isSubmitting()).toBe(false); // Desligado pelo finalize()
-    expect(roleServiceMock.createRole).toHaveBeenCalledWith({ name: 'Diretoria', permissions: [1, 2] });
-    expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Regra criada com sucesso!');
-    expect(dialogRefMock.close).toHaveBeenCalledWith(true);
-  });
+      component['onSubmit']();
 
-  it('deve tratar erro no envio da API, exibir o alerta do back-end e manter o diálogo aberto', () => {
-    fixture.detectChanges();
-    
-    // Simula falha controlada na API do serviço
-    const errorResponse = { error: { message: 'Esta regra já existe no sistema.' } };
-    roleServiceMock.createRole.mockReturnValue(throwError(() => errorResponse));
+      expect(roleServiceMock.createRole).not.toHaveBeenCalled();
+    });
 
-    component.createRoleForm.get('name')?.setValue('Admin');
-    component.createRoleForm.get('permissions')?.setValue([3]);
-    
-    component.onSubmit();
+    it('deve criar a regra com sucesso, notificar o BroadcastChannel, exibir mensagem e fechar o dialog', () => {
+      component['roleForm'].controls.name.setValue('Gestor TFD');
+      component['togglePermission'](mockPermissions[0]);
+      component['togglePermission'](mockPermissions[2]);
+      fixture.detectChanges();
 
-    expect(component.isSubmitting()).toBe(false); // Desligado de forma segura pelo finalize()
-    expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Esta regra já existe no sistema.');
-    expect(dialogRefMock.close).not.toHaveBeenCalled(); // Garante que o modal não fechou na cara do usuário
-  });
+      roleServiceMock.createRole.mockReturnValue(
+        of({ message: 'Regra criada!' })
+      );
 
-  // 🛠️ CORREÇÃO 2: Ajustada a expectativa para casar com o valor dinâmico do mock
-  it('deve tratar falha silenciosa na busca inicial de permissões', () => {
-    // Se o mock envia 'Erro de conexão.', o componente exibe 'Erro de conexão.'
-    roleServiceMock.getPermissions.mockReturnValue(throwError(() => ({ error: { message: 'Erro de conexão.' } })));
-    
-    fixture.detectChanges(); // Dispara o ngOnInit que vai falhar
+      component['onSubmit']();
+      fixture.detectChanges();
 
-    expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro de conexão.');
-    expect(component.isLoading()).toBe(false); 
-    expect(component.permissions()).toEqual([]);
+      expect(roleServiceMock.createRole).toHaveBeenCalledWith({
+        name: 'Gestor TFD',
+        permissions: [1, 3],
+      } as unknown as Role);
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Regra criada!');
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+      expect(component['isSubmitting']()).toBe(false);
+      expect(component['roleForm'].enabled).toBe(true);
+    });
+
+    it('deve usar mensagem padrão de sucesso quando a resposta não trouxer message', () => {
+      component['roleForm'].controls.name.setValue('Gestor TFD');
+      roleServiceMock.createRole.mockReturnValue(of({}));
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Regra criada com sucesso!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+    });
+
+    it('deve desabilitar o formulário durante requisição pendente e reabilitar ao concluir', () => {
+      component['roleForm'].controls.name.setValue('Gestor TFD');
+      const pending$ = new Subject<{ message?: string }>();
+      roleServiceMock.createRole.mockReturnValue(pending$.asObservable());
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(component['isSubmitting']()).toBe(true);
+      expect(component['roleForm'].disabled).toBe(true);
+
+      pending$.next({ message: 'OK' });
+      pending$.complete();
+      fixture.detectChanges();
+
+      expect(component['isSubmitting']()).toBe(false);
+      expect(component['roleForm'].enabled).toBe(true);
+    });
+
+    it('deve exibir mensagem de erro do backend e reverter o estado em caso de falha', () => {
+      component['roleForm'].controls.name.setValue('Gestor TFD');
+      roleServiceMock.createRole.mockReturnValue(
+        throwError(() => ({ error: { message: 'Nome de regra já existe.' } }))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Nome de regra já existe.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(broadcastChannelMock.postMessage).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+      expect(component['roleForm'].enabled).toBe(true);
+    });
+
+    it('deve exibir mensagem de fallback quando o erro não possuir message explícita', () => {
+      component['roleForm'].controls.name.setValue('Gestor TFD');
+      roleServiceMock.createRole.mockReturnValue(
+        throwError(() => new Error('Falha de rede'))
+      );
+
+      component['onSubmit']();
+      fixture.detectChanges();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Erro ao criar a regra.'
+      );
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(component['isSubmitting']()).toBe(false);
+    });
   });
 });

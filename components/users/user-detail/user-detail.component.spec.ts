@@ -1,66 +1,106 @@
+// src/app/tfd/components/users/user-detail/user-detail.component.spec.ts
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { provideNgxMask } from 'ngx-mask';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ShowUserComponent } from './show-user-component';
+import { UserDetailComponent, UserDetailDialogData } from './user-detail.component';
+import { TfdUser as User } from '../../../models/user.model';
 
-describe('ShowUserComponent (Vitest)', () => {
-  let component: ShowUserComponent;
-  let fixture: ComponentFixture<ShowUserComponent>;
-  let mockDialogRef: any;
+describe('UserDetailComponent', () => {
+  let component: UserDetailComponent;
+  let fixture: ComponentFixture<UserDetailComponent>;
 
-  const mockDialogData = {
-    user: {
-      id: 1,
-      email: 'medico.tfd@email.com',
-      professional: {
-        name: 'Dr. Alberto Roberto',
-        type: 'MEDICO',
-        cns: '123456789012345',
-        registration: '999888',
-        professional_register: 'CRM-MT 456',
-        cbo: '225125'
-      }
-    }
-  };
+  const mockUser: User = {
+    id: 15,
+    name: 'Ana Paula',
+    email: 'ana.paula@saude.gov.br',
+    professional: {
+      name: 'Dra. Ana Paula',
+      types: ['MEDICO', { type: 'ASSISTENTE_SOCIAL' }],
+    },
+  } as unknown as User;
 
-  beforeEach(async () => {
-    mockDialogRef = {
-      close: vi.fn()
-    };
+  async function createComponent(dialogData: UserDetailDialogData | null): Promise<void> {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [UserDetailComponent],
+        providers: [
+          provideNgxMask(),
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
+          { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        ],
+      })
+      .overrideComponent(UserDetailComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
-    await TestBed.configureTestingModule({
-      imports: [ShowUserComponent],
-      providers: [
-        provideNgxMask(), // Evita o erro de token do ngx-mask config
-        { provide: MAT_DIALOG_DATA, useValue: mockDialogData },
-        { provide: MatDialogRef, useValue: mockDialogRef }
-      ]
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(ShowUserComponent);
+    fixture = TestBed.createComponent(UserDetailComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    await createComponent({ user: mockUser });
   });
 
-  it('deve criar o componente de visualização com sucesso', () => {
+  it('deve criar o componente com os dados recebidos em MAT_DIALOG_DATA', () => {
     expect(component).toBeTruthy();
+    expect(component['user']).toEqual(mockUser);
+    expect(component['professional']).toEqual(mockUser.professional);
   });
 
-  it('deve injetar e disponibilizar os dados do MAT_DIALOG_DATA no template', () => {
-    expect(component.data).toBeTruthy();
-    expect(component.data.user.email).toBe('medico.tfd@email.com');
-    expect(component.data.user.professional.name).toBe('Dr. Alberto Roberto');
+  describe('Getters user e professional', () => {
+    it('deve retornar undefined quando MAT_DIALOG_DATA for null ou não tiver user', async () => {
+      await createComponent(null);
+      expect(component['user']).toBeUndefined();
+      expect(component['professional']).toBeUndefined();
+
+      await createComponent({});
+      expect(component['user']).toBeUndefined();
+      expect(component['professional']).toBeUndefined();
+    });
+
+    it('deve retornar undefined em professional quando user não possuir professional', async () => {
+      await createComponent({
+        user: { id: 99, name: 'Sem Profissional' } as unknown as User,
+      });
+
+      expect(component['user']?.id).toBe(99);
+      expect(component['professional']).toBeUndefined();
+    });
   });
 
-  it('deve renderizar os dados do usuário corretamente no DOM', () => {
-    const compiled = fixture.nativeElement as HTMLElement;
-    
-    // Verifica se os textos cruciais foram renderizados na tela
-    expect(compiled.textContent).toContain('Dr. Alberto Roberto');
-    expect(compiled.textContent).toContain('medico.tfd@email.com');
-    expect(compiled.textContent).toContain('CRM-MT 456');
-    expect(compiled.textContent).toContain('225125');
+  describe('Getter professionalTypes', () => {
+    it('deve normalizar tipos mistos (strings e objetos com propriedade type) para string[]', () => {
+      expect(component['professionalTypes']).toEqual(['MEDICO', 'ASSISTENTE_SOCIAL']);
+    });
+
+    it('deve retornar array vazio quando professional ou types estiverem ausentes', async () => {
+      await createComponent({
+        user: { id: 15, name: 'Ana Paula', professional: {} } as unknown as User,
+      });
+      expect(component['professionalTypes']).toEqual([]);
+
+      await createComponent({
+        user: { id: 15, name: 'Ana Paula' } as unknown as User,
+      });
+      expect(component['professionalTypes']).toEqual([]);
+
+      await createComponent(null);
+      expect(component['professionalTypes']).toEqual([]);
+    });
+
+    it('deve retornar array vazio quando types não for um array', async () => {
+      await createComponent({
+        user: {
+          id: 15,
+          professional: { types: 'MEDICO' },
+        } as unknown as User,
+      });
+
+      expect(component['professionalTypes']).toEqual([]);
+    });
   });
 });

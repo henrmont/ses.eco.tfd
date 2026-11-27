@@ -1,102 +1,150 @@
-import { TestBed, ComponentFixture } from '@angular/core/testing';
+// src/app/tfd/components/patients/patient-escort-detail/patient-escort-detail.component.spec.ts
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { provideNgxMask } from 'ngx-mask';
-import { of } from 'rxjs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import * as fileSaver from 'file-saver';
+import { saveAs } from 'file-saver';
+import { Subject, of } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// 🚀 Isolamento do módulo ESM para permitir interceptação de métodos estáticos
+import { PatientEscortDetailComponent } from './patient-escort-detail.component';
+import { StorageService } from '../../../../core/services/storage.service';
+import { PatientEscort } from '../../../models/patient-escort.model';
+
 vi.mock('file-saver', () => ({
-  saveAs: vi.fn()
+  saveAs: vi.fn(),
 }));
 
-import { ShowPatientEscortComponent } from './show-patient-escort-component';
-import { StorageService } from '../../../../core/services/storage-service';
+interface PatientEscortDetailDialogData {
+  patient_escort?: PatientEscort;
+}
 
-describe('ShowPatientEscortComponent', () => {
-  let component: ShowPatientEscortComponent;
-  let fixture: ComponentFixture<ShowPatientEscortComponent>;
-  let storageServiceMock: any;
+describe('PatientEscortDetailComponent', () => {
+  let component: PatientEscortDetailComponent;
+  let fixture: ComponentFixture<PatientEscortDetailComponent>;
 
-  // Massa de dados mockada casando perfeitamente com a estrutura do novo template
-  const mockDialogData = {
-    escort: {
-      id: 10,
-      name: 'Maria do Carmo Rodrigues',
-      relation: 'Mãe',
-      document_type: 'CPF',
-      document: '44455566677',
-      cns: '222333444555666',
-      birth_date: '1975-06-15',
-      gender: 'Feminino',
-      race: 'Parda',
-      marital_status: 'Casada',
-      phone: '6536110000',
-      cell_phone: '65999998888',
-      email: 'maria.carmo@email.com',
-      cep: '78000000',
-      address: 'Avenida Historiador Rubens de Mendonça',
-      number: '1000',
-      complement: 'Apto 302',
-      neighborhood: 'Alvorada',
-      city: 'Cuiabá',
-      state: 'MT',
-      file_document_id: 801,
-      file_cns_id: 802,
-      file_address_id: 803
-    }
+  let storageServiceMock: {
+    download: ReturnType<typeof vi.fn>;
   };
+  let mockDialogData: PatientEscortDetailDialogData | null;
+
+  const baseEscort: PatientEscort = {
+    id: 42,
+    name: 'Rafael Mendes',
+    cns: '123456789012345',
+    document: '12345678901',
+    birth_date: '1992-04-08',
+  } as unknown as PatientEscort;
+
+  async function createComponent(
+    dialogData: PatientEscortDetailDialogData | null = {
+      patient_escort: { ...baseEscort },
+    }
+  ): Promise<void> {
+    mockDialogData = dialogData;
+
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientEscortDetailComponent],
+        providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
+          { provide: StorageService, useValue: storageServiceMock },
+          { provide: MAT_DIALOG_DATA, useValue: mockDialogData },
+        ],
+      })
+      .overrideComponent(PatientEscortDetailComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
+
+    fixture = TestBed.createComponent(PatientEscortDetailComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
 
   beforeEach(async () => {
+    vi.mocked(saveAs).mockClear();
+
     storageServiceMock = {
-      download: vi.fn()
+      download: vi.fn(),
     };
 
-    await TestBed.configureTestingModule({
-      imports: [ShowPatientEscortComponent],
-      providers: [
-        provideNgxMask(),
-        { provide: StorageService, useValue: storageServiceMock },
-        { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-      ]
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(ShowPatientEscortComponent);
-    component = fixture.componentInstance;
+    await createComponent();
   });
 
-  describe('Inicialização e Renderização', () => {
-    it('deve instanciar o componente com sucesso', () => {
-      fixture.detectChanges();
-      expect(component).toBeTruthy();
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deve criar o componente, expor escort e formatar data de nascimento para DD/MM/YYYY', () => {
+    expect(component).toBeTruthy();
+    expect(component['isDownloading']()).toBe(false);
+    expect(component['escort']()).toEqual(baseEscort);
+    expect(component['formattedBirthDate']()).toBe('08/04/1992');
+  });
+
+  describe('Signals escort e formattedBirthDate', () => {
+    it('deve retornar escort como null e formattedBirthDate como "Não informado" quando ausente', async () => {
+      await createComponent(null);
+
+      expect(component['escort']()).toBeNull();
+      expect(component['formattedBirthDate']()).toBe('Não informado');
     });
 
-    it('deve expor corretamente a árvore de dados do acompanhante injetada pelo diálogo', () => {
-      fixture.detectChanges();
-      expect(component.data).toBeDefined();
-      expect(component.data.escort.name).toBe('Maria do Carmo Rodrigues');
-      expect(component.data.escort.relation).toBe('Mãe');
+    it('deve formatar datas ISO com timestamp e retornar "Não informado" para formato inválido', async () => {
+      await createComponent({
+        patient_escort: {
+          ...baseEscort,
+          birth_date: '1988-11-05T03:00:00.000Z',
+        } as unknown as PatientEscort,
+      });
+      expect(component['formattedBirthDate']()).toBe('05/11/1988');
+
+      await createComponent({
+        patient_escort: {
+          ...baseEscort,
+          birth_date: 'data-invalida',
+        } as unknown as PatientEscort,
+      });
+      expect(component['formattedBirthDate']()).toBe('Não informado');
     });
   });
 
-  describe('Fluxo de Download de Arquivos Anexos', () => {
-    it('deve acionar o StorageService com o ID correto e realizar o download utilizando o file-saver', () => {
+  describe('Download de Anexo (download)', () => {
+    it('não deve chamar storageService.download quando archiveId for inválido ou já estiver baixando', () => {
+      component['download'](null, 'cns.pdf');
+      component['download'](undefined, 'cns.pdf');
+      component['download'](0, 'cns.pdf');
+      expect(storageServiceMock.download).not.toHaveBeenCalled();
+
+      component['isDownloading'].set(true);
+      component['download'](10, 'cns.pdf');
+      expect(storageServiceMock.download).not.toHaveBeenCalled();
+    });
+
+    it('deve baixar o arquivo, chamar saveAs e reverter isDownloading ao concluir', () => {
+      const blob = new Blob(['conteudo'], { type: 'application/pdf' });
+      const pending$ = new Subject<{ archive?: Blob }>();
+      storageServiceMock.download.mockReturnValue(pending$.asObservable());
+
+      component['download'](77, 'documento.pdf');
+      expect(component['isDownloading']()).toBe(true);
+      expect(storageServiceMock.download).toHaveBeenCalledWith('tfd', 77);
+
+      pending$.next({ archive: blob });
+      pending$.complete();
       fixture.detectChanges();
 
-      // Cria um Blob fake simulando o retorno de arquivo binário da API
-      const fakeBlob = new Blob(['conteudo-binario-falso'], { type: 'application/pdf' });
-      const mockApiResponse = { archive: fakeBlob };
-      
-      storageServiceMock.download.mockReturnValue(of(mockApiResponse));
+      expect(saveAs).toHaveBeenCalledWith(blob, 'documento.pdf');
+      expect(component['isDownloading']()).toBe(false);
+    });
 
-      // Executa a trigger de download configurada nos botões do HTML
-      component.download(801, 'documento_acompanhante');
+    it('não deve chamar saveAs quando response não contiver archive', () => {
+      storageServiceMock.download.mockReturnValue(of({}));
 
-      // Verifica se o serviço de Storage buscou a ID da mídia correta
-      expect(storageServiceMock.download).toHaveBeenCalledWith(801);
-      
-      // Valida se a biblioteca externa 'file-saver' recebeu a chamada de salvar em disco
-      expect(fileSaver.saveAs).toHaveBeenCalledWith(fakeBlob, 'documento_acompanhante');
+      component['download'](77, 'documento.pdf');
+      fixture.detectChanges();
+
+      expect(saveAs).not.toHaveBeenCalled();
+      expect(component['isDownloading']()).toBe(false);
     });
   });
 });

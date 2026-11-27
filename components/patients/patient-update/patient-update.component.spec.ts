@@ -1,343 +1,526 @@
+// src/app/tfd/components/patients/patient-update/patient-update.component.spec.ts
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { UpdatePatientComponent } from './update-patient-component';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { MatDatepickerInputEvent } from '@angular/material/datepicker';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { of, throwError } from 'rxjs';
-import { provideNgxMask } from 'ngx-mask';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { Subject, of, throwError } from 'rxjs';
+import moment from 'moment';
+import { saveAs } from 'file-saver';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ViacepService } from '../../../../core/services/viacep-service';
-import { PatientService } from '../../../services/patient-service';
-import { MessageService } from '../../../../core/services/message-service';
-import { StorageService } from '../../../../core/services/storage-service';
-import { MatSelectChange } from '@angular/material/select';
-import { provideNativeDateAdapter } from '@angular/material/core';
+import { PatientUpdateComponent } from './patient-update.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { StorageService } from '../../../../core/services/storage.service';
+import { ViacepService } from '../../../../core/services/viacep.service';
+import { PatientCare } from '../../../models/patient-care.model';
+import { Patient } from '../../../models/patient.model';
+import { PatientService } from '../../../services/patient.service';
 
-describe('UpdatePatientComponent', () => {
-  let component: UpdatePatientComponent;
-  let fixture: ComponentFixture<UpdatePatientComponent>;
+vi.mock('file-saver', () => ({
+  saveAs: vi.fn(),
+}));
 
-  let mockViacepService: any;
-  let mockPatientService: any;
-  let mockMessageService: any;
-  let mockStorageService: any;
-  let mockDialogRef: any;
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+}
 
-  const mockPatientData = {
+function makeValidCpf(): string {
+  const n = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const d1Calc = (n.reduce((acc, digit, idx) => acc + digit * (10 - idx), 0) * 10) % 11;
+  const d1 = d1Calc === 10 ? 0 : d1Calc;
+  const d2Calc =
+    ([...n, d1].reduce((acc, digit, idx) => acc + digit * (11 - idx), 0) * 10) % 11;
+  const d2 = d2Calc === 10 ? 0 : d2Calc;
+  return [...n, d1, d2].join('');
+}
+
+function makeValidCns(): string {
+  const prefix = [7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  const sum = prefix.reduce((acc, digit, idx) => acc + digit * (15 - idx), 0);
+  const remainder = sum % 11;
+  const dv = remainder === 0 ? 0 : 11 - remainder;
+  if (dv === 10) {
+    const altSum = sum + 2;
+    const altRem = altSum % 11;
+    const altDv = altRem === 0 ? 0 : 11 - altRem;
+    return `${prefix.join('')}001${altDv}`;
+  }
+  return `${prefix.join('')}000${dv}`;
+}
+
+describe('PatientUpdateComponent', () => {
+  let component: PatientUpdateComponent;
+  let fixture: ComponentFixture<PatientUpdateComponent>;
+
+  let broadcastChannelMock: MockBroadcastChannel;
+  let patientServiceMock: {
+    updatePatient: ReturnType<typeof vi.fn>;
+    cnsPatientExistsValidator: ReturnType<typeof vi.fn>;
+    documentPatientExistsValidator: ReturnType<typeof vi.fn>;
+  };
+  let viacepServiceMock: {
+    getAddress: ReturnType<typeof vi.fn>;
+    getNaturalness: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let storageServiceMock: {
+    download: ReturnType<typeof vi.fn>;
+  };
+  let dialogRefMock: {
+    close: ReturnType<typeof vi.fn>;
+  };
+
+  let capturedCnsFoundCallback: ((patient: Patient) => void) | undefined;
+  let capturedDocFoundCallback: ((patient: Patient) => void) | undefined;
+
+  const validCns = makeValidCns();
+  const validCpf = makeValidCpf();
+
+  const sampleCities = Array.from({ length: 15 }, (_, idx) => ({
+    nome: idx === 0 ? 'Cuiabá' : `Cidade ${idx}`,
+  }));
+
+  const basePatientCare: PatientCare = {
+    id: 55,
     patient: {
-      id: 123,
-      cns: '123456789012345',
-      file_cns_id: 1,
+      cns: validCns,
       document_type: 'CPF',
-      document: '00000000000',
-      file_document_id: 2,
-      sigadoc: 'SES-123',
-      name: 'Paciente Teste Original',
-      birth_date: '1990-01-01',
-      gender: 'Masculino',
+      document: validCpf,
+      name: 'Maria Silva',
+      birth_date: '1990-05-15',
+      gender: 'Feminino',
       newborn: false,
-      race: 'Branca',
+      race: 'Parda',
       ethnicity: '',
-      marital_status: 'Solteiro',
-      mother_name: 'Mãe Teste',
-      father_name: 'Pai Teste',
+      marital_status: 'Solteiro(a)',
+      mother_name: 'Joana Silva',
+      father_name: 'Pedro Silva',
       naturalness: 'Cuiabá',
-      phone: '',
-      cell_phone: '',
-      email: '',
-      profession: '',
+      phone: '6533221100',
+      cell_phone: '65999887766',
+      email: 'maria@exemplo.com',
+      profession: 'Enfermeiro(a)',
       deficiency: 'Nenhuma',
-      file_deficiency_id: null,
       cep: '78000-000',
-      address: 'Rua Antiga',
-      file_address_id: 3,
-      number: '123',
-      complement: '',
-      neighborhood: 'Bairro Antigo',
+      address: 'Rua das Flores',
+      number: '100',
+      complement: 'Apto 12',
+      neighborhood: 'Centro',
       city: 'Cuiabá',
       state: 'MT',
       patient_info: {
-        control_number: '9999',
-        observation: 'Nenhuma',
-        file_protocol_id: null
-      }
-    }
-  };
+        control_number: 'CTL-10',
+        sigadoc: 'SIG-2026-1',
+        observation: 'Observação inicial',
+      },
+    },
+  } as unknown as PatientCare;
 
-  beforeEach(async () => {
-    mockViacepService = {
-      getNaturalness: vi.fn().mockReturnValue(of([{ nome: 'Cuiabá' }, { nome: 'Várzea Grande' }])),
-      getAddress: vi.fn().mockReturnValue(of({
-        logradouro: 'Avenida Historiador Rubens de Mendonça',
-        bairro: 'Alvorada',
-        localidade: 'Cuiabá',
-        uf: 'MT'
-      }))
-    };
+  async function createComponent(
+    dialogData: { patient_care: PatientCare } | null = { patient_care: basePatientCare }
+  ): Promise<void> {
+    capturedCnsFoundCallback = undefined;
+    capturedDocFoundCallback = undefined;
 
-    mockPatientService = {
-      updatePatient: vi.fn(),
-      cnsPatientExistsValidator: vi.fn().mockReturnValue(() => of(null)),
-      documentPatientExistsValidator: vi.fn().mockReturnValue(() => of(null))
-    };
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientUpdateComponent],
+        providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
+          { provide: PatientService, useValue: patientServiceMock },
+          { provide: ViacepService, useValue: viacepServiceMock },
+          { provide: MessageService, useValue: messageServiceMock },
+          { provide: StorageService, useValue: storageServiceMock },
+          { provide: MatDialogRef, useValue: dialogRefMock },
+          { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        ],
+      })
+      .overrideComponent(PatientUpdateComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
-    mockMessageService = {
-      showMessage: vi.fn()
-    };
-
-    mockStorageService = {
-      download: vi.fn().mockReturnValue(of({ archive: new Blob() }))
-    };
-
-    mockDialogRef = {
-      close: vi.fn()
-    };
-
-    await TestBed.configureTestingModule({
-      imports: [
-        UpdatePatientComponent,
-        ReactiveFormsModule
-      ],
-      providers: [
-        FormBuilder,
-        { provide: MAT_DIALOG_DATA, useValue: mockPatientData },
-        { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
-        provideNgxMask(),
-        provideNativeDateAdapter(),
-        { provide: ViacepService, useValue: mockViacepService },
-        { provide: PatientService, useValue: mockPatientService },
-        { provide: MessageService, useValue: mockMessageService },
-        { provide: StorageService, useValue: mockStorageService },
-        { provide: MatDialogRef, useValue: mockDialogRef }
-      ]
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(UpdatePatientComponent);
+    fixture = TestBed.createComponent(PatientUpdateComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
-  });
+  }
 
-  it('deve criar o componente com sucesso e instanciar os 4 formulários populados', () => {
-    expect(component).toBeTruthy();
-    expect(component.updatePatientIdentificationForm).toBeDefined();
-    expect(component.updatePatientPersonalForm).toBeDefined();
-    expect(component.updatePatientAddressForm).toBeDefined();
-    expect(component.updatePatientInfoForm).toBeDefined();
-    expect(component.updatePatientPersonalForm.get('name')?.value).toBe('Paciente Teste Original');
-  });
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    vi.mocked(saveAs).mockClear();
 
-  describe('Controle de Estado e Reatividade', () => {
-    
-    it('deve gerenciar o sinal ethnicityType e alterar a validação do formulário baseando-se na raça', () => {
-      const ethnicityControl = component.updatePatientPersonalForm.get('ethnicity');
-      expect(component.ethnicityType()).toBe(true);
-      expect(ethnicityControl?.disabled).toBe(true);
+    broadcastChannelMock = new MockBroadcastChannel();
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
 
-      component.setEthnicityType('Indígena');
-      fixture.detectChanges();
-
-      expect(component.ethnicityType()).toBe(false);
-      expect(ethnicityControl?.enabled).toBe(true);
-    });
-
-    it('deve disparar setEthnicityType através do evento onSelection do MatSelect', () => {
-      const spy = vi.spyOn(component, 'setEthnicityType');
-      const fakeEvent = { value: 'Parda' } as MatSelectChange;
-
-      component.onSelection(fakeEvent);
-      expect(spy).toHaveBeenCalledWith('Parda');
-    });
-
-    it('deve atualizar o campo de data de nascimento ao disparar o evento do Datepicker', () => {
-      const targetDate = new Date(1995, 4, 15);
-      const fakeEvent = { value: targetDate } as any;
-
-      component.setBirthDate(fakeEvent);
-      expect(component.updatePatientPersonalForm.get('birth_date')?.value).toEqual(targetDate);
-    });
-
-    it('deve unificar o upload de arquivos e marcar o formulário alvo como dirty', () => {
-      const mockFile = new File(['conteudo'], 'carteira_cns.pdf', { type: 'application/pdf' });
-      const fakeEvent = { target: { files: [mockFile] } };
-
-      component.onFileSelected(fakeEvent, 'cns', component.updatePatientIdentificationForm);
-
-      expect(component.labelsFiles['cns']()).toBe('carteira_cns.pdf');
-      expect(component.files['cns']).toBe(mockFile);
-      expect(component.updatePatientIdentificationForm.dirty).toBe(true);
-    });
-
-    it('deve acionar o download do arquivo anexado quando solicitado', () => {
-      component.download(1, 'cns_antigo.pdf');
-      expect(mockStorageService.download).toHaveBeenCalledWith(1);
-    });
-  });
-
-  describe('Integrações e Autocompletes', () => {
-
-    it('deve carregar a lista de naturalidades do ViacepService e configurar o autocomplete', async () => {
-      component.getNaturalness();
-      fixture.detectChanges();
-      await fixture.whenStable();
-
-      expect(mockViacepService.getNaturalness).toHaveBeenCalled();
-      expect(component.naturalnessOptions).toEqual(['Cuiabá', 'Várzea Grande']);
-      expect(component.naturalnessReadOnly()).toBe(false);
-      expect(component.naturalnessLoading()).toBe(false);
-    });
-
-    it('deve atualizar o form de dados pessoais quando uma opção de naturalidade for selecionada', () => {
-      component.onNaturalnessSelected('Cuiabá');
-      expect(component.updatePatientPersonalForm.get('naturalness')?.value).toBe('Cuiabá');
-    });
-
-    it('deve preencher o endereço automaticamente quando o CEP digitado possuir 8 dígitos', () => {
-      component.updatePatientAddressForm.get('cep')?.setValue('78000-000');
-      component.getAddress();
-
-      expect(mockViacepService.getAddress).toHaveBeenCalledWith('78000-000');
-      expect(component.updatePatientAddressForm.value.address).toBe('Avenida Historiador Rubens de Mendonça');
-      expect(component.updatePatientAddressForm.value.neighborhood).toBe('Alvorada');
-      expect(component.updatePatientAddressForm.value.city).toBe('Cuiabá');
-      expect(component.updatePatientAddressForm.value.state).toBe('MT');
-    });
-
-    it('não deve chamar a API do ViaCEP se o CEP inserido for incompleto', () => {
-      component.updatePatientAddressForm.get('cep')?.setValue('123');
-      component.getAddress();
-      expect(mockViacepService.getAddress).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('Submissão do Formulário (onUpdatePatientSubmit)', () => {
-
-    const preencherFormulariosValidos = () => {
-      Object.defineProperty(component.updatePatientIdentificationForm, 'invalid', { get: () => false, configurable: true });
-      Object.defineProperty(component.updatePatientPersonalForm, 'invalid', { get: () => false, configurable: true });
-      Object.defineProperty(component.updatePatientAddressForm, 'invalid', { get: () => false, configurable: true });
-      Object.defineProperty(component.updatePatientInfoForm, 'invalid', { get: () => false, configurable: true });
+    patientServiceMock = {
+      updatePatient: vi.fn().mockReturnValue(of({ message: 'Atualizado com sucesso!' })),
+      cnsPatientExistsValidator: vi.fn((_current, onFound) => {
+        capturedCnsFoundCallback = onFound;
+        return () => of(null);
+      }),
+      documentPatientExistsValidator: vi.fn((_current, onFound) => {
+        capturedDocFoundCallback = onFound;
+        return () => of(null);
+      }),
     };
 
-    it('deve barrar a submissão e não chamar o serviço se algum dos formulários for inválido', () => {
-      Object.defineProperty(component.updatePatientAddressForm, 'invalid', { get: () => true, configurable: true });
-      
-      component.onUpdatePatientSubmit();
-      expect(component.isSubmitting()).toBe(false);
-      expect(mockPatientService.updatePatient).not.toHaveBeenCalled();
+    viacepServiceMock = {
+      getAddress: vi.fn().mockReturnValue(
+        of({
+          logradouro: 'Av. Historiador Rubens de Mendonça',
+          bairro: 'Bosque da Saúde',
+          localidade: 'Cuiabá',
+          uf: 'MT',
+        })
+      ),
+      getNaturalness: vi.fn().mockReturnValue(of(sampleCities)),
+    };
+
+    messageServiceMock = {
+      showMessage: vi.fn(),
+    };
+
+    storageServiceMock = {
+      download: vi.fn().mockReturnValue(of({ archive: new Blob(['conteudo']) })),
+    };
+
+    dialogRefMock = {
+      close: vi.fn(),
+    };
+
+    await createComponent();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('deve criar o componente, abrir o BroadcastChannel, preencher formulários e carregar naturalidades', () => {
+    expect(component).toBeTruthy();
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patients-channel');
+    expect(component['personalForm'].controls.name.value).toBe('Maria Silva');
+    expect(component['infoForm'].controls.sigadoc.value).toBe('SIG-2026-1');
+    expect(component['isEthnicityDisabled']()).toBe(true);
+    expect(component['personalForm'].controls.ethnicity.disabled).toBe(true);
+    expect(component['naturalnessLoading']()).toBe(false);
+    expect(component['filteredNaturalnessOptions']()).toEqual(['Cuiabá']);
+    expect(component['isFormsPristine']()).toBe(true);
+  });
+
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('deve habilitar etnia quando race inicial for Indígena e lidar com data inválida ou ausente', async () => {
+    await createComponent({
+      patient_care: {
+        id: 56,
+        patient: {
+          cns: validCns,
+          document: validCpf,
+          name: 'Curumim',
+          birth_date: 'data-invalida',
+          race: 'Indígena',
+          ethnicity: 'Bororo',
+          naturalness: 'Cuiabá',
+          cep: '78000-000',
+          address: 'Rua A',
+          number: '10',
+          neighborhood: 'Centro',
+          sigadoc: 'SIG-2',
+        },
+      } as unknown as PatientCare,
     });
 
-    it('deve unificar os dados com sucesso, chamar o PatientService e fechar a modal limpando o isSubmitting', async () => {
-      preencherFormulariosValidos();
-      fixture.detectChanges();
+    expect(component['isEthnicityDisabled']()).toBe(false);
+    expect(component['personalForm'].controls.ethnicity.enabled).toBe(true);
+    expect(component['personalForm'].controls.ethnicity.value).toBe('Bororo');
+    expect(component['personalForm'].controls.birth_date.value).toBeNull();
+    expect(component['infoForm'].controls.sigadoc.value).toBe('SIG-2');
+  });
 
-      const mockResponse = { message: 'Paciente atualizado com sucesso!' };
-      mockPatientService.updatePatient.mockReturnValue(of(mockResponse));
+  describe('Etnia, Autocompletes e CEP', () => {
+    it('deve habilitar e desabilitar ethnicity conforme mudança de race', () => {
+      component['personalForm'].controls.race.setValue('Indígena');
+      expect(component['isEthnicityDisabled']()).toBe(false);
+      expect(component['personalForm'].controls.ethnicity.enabled).toBe(true);
 
-      component.onUpdatePatientSubmit();
-      fixture.detectChanges();
-      await fixture.whenStable();
-
-      expect(component.isSubmitting()).toBe(false); 
-      expect(mockPatientService.updatePatient).toHaveBeenCalledWith(123, expect.any(Object));
-      expect(mockMessageService.showMessage).toHaveBeenCalledWith('Paciente atualizado com sucesso!');
-      expect(mockDialogRef.close).toHaveBeenCalledWith(true);
+      component['personalForm'].controls.race.setValue('Parda');
+      expect(component['isEthnicityDisabled']()).toBe(true);
+      expect(component['personalForm'].controls.ethnicity.disabled).toBe(true);
+      expect(component['personalForm'].controls.ethnicity.value).toBe('');
     });
 
-    it('deve interceptar o erro da API, exibir a mensagem de falha e liberar o estado de submissão do botão', async () => {
-      preencherFormulariosValidos();
-      fixture.detectChanges();
+    it('deve filtrar opções de naturalidade, profissão e UF, e selecionar naturalidade', () => {
+      component['personalForm'].controls.naturalness.setValue('Cidade 1');
+      expect(component['filteredNaturalnessOptions']()).toContain('Cidade 1');
 
-      const mockError = { error: { message: 'Erro ao atualizar dados cadastrais.' } };
-      mockPatientService.updatePatient.mockReturnValue(throwError(() => mockError));
+      const targetProfession = component['options'].professions[0];
+      component['personalForm'].controls.profession.setValue(targetProfession);
+      expect(component['filteredProfessionsOptions']()).toContain(targetProfession);
 
-      component.onUpdatePatientSubmit();
-      fixture.detectChanges();
-      await fixture.whenStable();
+      component['addressForm'].controls.state.setValue('MT');
+      expect(component['filteredUfsOptions']()).toEqual(['MT']);
 
-      expect(component.isSubmitting()).toBe(false); 
-      expect(mockMessageService.showMessage).toHaveBeenCalledWith('Erro ao atualizar dados cadastrais.');
-      expect(mockDialogRef.close).not.toHaveBeenCalled();
+      component['onNaturalnessSelected']('Cuiabá');
+      expect(component['personalForm'].controls.naturalness.value).toBe('Cuiabá');
+      expect(component['personalForm'].controls.naturalness.dirty).toBe(true);
+    });
+
+    it('deve buscar endereço via ViaCEP após debounce e ignorar resposta com erro ou exceção', () => {
+      component['addressForm'].controls.cep.setValue('78050000');
+      vi.advanceTimersByTime(400);
+
+      expect(viacepServiceMock.getAddress).toHaveBeenCalledWith('78050000');
+      expect(component['addressForm'].controls.address.value).toBe(
+        'Av. Historiador Rubens de Mendonça'
+      );
+      expect(component['addressForm'].controls.neighborhood.value).toBe('Bosque da Saúde');
+      expect(component['addressForm'].dirty).toBe(true);
+
+      viacepServiceMock.getAddress.mockReturnValueOnce(of({ erro: true }));
+      component['addressForm'].controls.cep.setValue('78050001');
+      vi.advanceTimersByTime(400);
+      expect(component['addressForm'].controls.address.value).toBe(
+        'Av. Historiador Rubens de Mendonça'
+      );
+
+      viacepServiceMock.getAddress.mockReturnValueOnce(throwError(() => new Error('ViaCEP offline')));
+      component['addressForm'].controls.cep.setValue('78050002');
+      vi.advanceTimersByTime(400);
+      expect(component['addressForm'].controls.address.value).toBe(
+        'Av. Historiador Rubens de Mendonça'
+      );
     });
   });
 
-  describe('Cobertura de Branches de Exceção e Casos de Borda', () => {
+  describe('Data de Nascimento e Teclado', () => {
+    it('deve tratar entrada manual em onBirthDateInput (vazio, incompleto, inválida e válida)', () => {
+      const ctrl = component['personalForm'].controls.birth_date;
 
-    it('deve tratar erros genéricos de rede na submissão caso o nó error.message não exista (Garante Linha 202)', async () => {
-      Object.defineProperty(component.updatePatientIdentificationForm, 'invalid', { get: () => false, configurable: true });
-      Object.defineProperty(component.updatePatientPersonalForm, 'invalid', { get: () => false, configurable: true });
-      Object.defineProperty(component.updatePatientAddressForm, 'invalid', { get: () => false, configurable: true });
-      Object.defineProperty(component.updatePatientInfoForm, 'invalid', { get: () => false, configurable: true });
+      const emptyInput = { value: '   ' } as HTMLInputElement;
+      component['onBirthDateInput']({ target: emptyInput } as unknown as Event);
+      expect(ctrl.value).toBeNull();
 
-      const mockRawError = { status: 500, statusText: 'Internal Server Error' };
-      mockPatientService.updatePatient.mockReturnValue(throwError(() => mockRawError));
+      const shortInput = { value: '1505' } as HTMLInputElement;
+      component['onBirthDateInput']({ target: shortInput } as unknown as Event);
+      expect(component['personalForm'].dirty).toBe(false);
 
-      component.onUpdatePatientSubmit();
-      fixture.detectChanges();
-      await fixture.whenStable();
+      const invalidYearInput = { value: '15050500' } as HTMLInputElement;
+      component['onBirthDateInput']({ target: invalidYearInput } as unknown as Event);
+      expect(ctrl.errors?.['invalidDate']).toBe(true);
 
-      expect(mockMessageService.showMessage).toHaveBeenCalled();
-      expect(component.isSubmitting()).toBe(false);
-      expect(mockDialogRef.close).not.toHaveBeenCalled();
+      const validInput = { value: '20/10/1995' } as HTMLInputElement;
+      component['onBirthDateInput']({ target: validInput } as unknown as Event);
+      expect(ctrl.errors).toBeNull();
+      expect(moment.isMoment(ctrl.value)).toBe(true);
+      expect(ctrl.value?.format('YYYY-MM-DD')).toBe('1995-10-20');
+      expect(component['personalForm'].dirty).toBe(true);
     });
 
-    it('não deve quebrar o estado de arquivos e labels se a janela de upload for cancelada vazia', () => {
-      component.files['cns'] = null;
-      const fakeEventCancelado = { target: { files: [] } };
+    it('deve tratar setBirthDate via inputElement e via event.value do datepicker', () => {
+      const ctrl = component['personalForm'].controls.birth_date;
 
-      component.onFileSelected(fakeEventCancelado, 'cns', component.updatePatientIdentificationForm);
+      component['setBirthDate']({
+        target: {},
+        targetElement: { value: '0000' } as HTMLInputElement,
+        value: null,
+      } as unknown as MatDatepickerInputEvent<moment.Moment | null>);
+      expect(ctrl.errors?.['invalidDate']).toBe(true);
 
-      expect(component.files['cns']).toBeNull();
+      component['setBirthDate']({
+        target: {},
+        targetElement: { value: '01/01/1992' } as HTMLInputElement,
+        value: null,
+      } as unknown as MatDatepickerInputEvent<moment.Moment | null>);
+      expect(ctrl.errors).toBeNull();
+      expect(ctrl.value?.format('YYYY-MM-DD')).toBe('1992-01-01');
+
+      component['setBirthDate']({
+        target: {},
+        targetElement: { value: '' } as HTMLInputElement,
+        value: moment('0500-01-01', 'YYYY-MM-DD'),
+      } as unknown as MatDatepickerInputEvent<moment.Moment | null>);
+      expect(ctrl.errors?.['invalidDate']).toBe(true);
+
+      component['setBirthDate']({
+        target: {},
+        targetElement: { value: '' } as HTMLInputElement,
+        value: moment('1998-07-10', 'YYYY-MM-DD'),
+      } as unknown as MatDatepickerInputEvent<moment.Moment | null>);
+      expect(ctrl.errors).toBeNull();
+      expect(ctrl.value?.format('YYYY-MM-DD')).toBe('1998-07-10');
     });
 
-    it('deve tratar amigavelmente a falha da API na busca de naturalidades', async () => {
-      // 1. Limpa o estado residual herdado do ngOnInit do beforeEach
-      component.naturalnessOptions = []; 
+    it('deve filtrar caracteres em onlyNumbersAndSlashes', () => {
+      const preventDefault = vi.fn();
+      expect(
+        component['onlyNumbersAndSlashes']({ key: 'a', preventDefault } as unknown as KeyboardEvent)
+      ).toBe(false);
+      expect(preventDefault).toHaveBeenCalledTimes(1);
 
-      // 2. Mock síncrono para interceptar chamadas sem agendar microtasks na Zone
-      mockViacepService.getNaturalness.mockImplementation(() => {
-        return {
-          subscribe: (observer: any) => {
-            if (typeof observer === 'function') {
-              observer(new Error('Erro de Conexão'));
-            } else if (observer && observer.error) {
-              observer.error(new Error('Erro de Conexão'));
-            }
-            return { unsubscribe: () => {} };
-          }
-        } as any;
-      });
+      expect(
+        component['onlyNumbersAndSlashes']({ key: '1', preventDefault } as unknown as KeyboardEvent)
+      ).toBe(true);
+      expect(
+        component['onlyNumbersAndSlashes']({ key: '/', preventDefault } as unknown as KeyboardEvent)
+      ).toBe(true);
+    });
+  });
 
-      // 3. Dispara a chamada que vai falhar controladamente
-      component.getNaturalness();
-      
-      // Força o signal de loading para false caso o mock síncrono tenha atropelado o ciclo do finalize
-      if (component.naturalnessLoading()) {
-        // Se for um signal gravável (writable signal):
-        if (typeof (component.naturalnessLoading as any).set === 'function') {
-          (component.naturalnessLoading as any).set(false);
-        } else {
-          // Caso seja apenas leitura ou propriedade direta
-          Object.defineProperty(component, 'naturalnessLoading', { value: () => false, configurable: true });
-        }
-      }
+  describe('Arquivos e Download', () => {
+    it('deve anexar arquivos nos diferentes grupos e atualizar isFormsPristine()', () => {
+      const makeFileEvent = (name: string) =>
+        ({
+          target: {
+            files: [new File(['abc'], name, { type: 'application/pdf' })],
+          },
+        }) as unknown as Event;
 
-      fixture.detectChanges();
-      await fixture.whenStable();
+      component['onFileSelected'](makeFileEvent('cns.pdf'), 'cns');
+      expect(component['files'].cns.label()).toBe('cns.pdf');
+      expect(component['files'].cns.hasFile()).toBe(true);
+      expect(component['hasAttachedFiles']()).toBe(true);
+      expect(component['identificationForm'].dirty).toBe(true);
+      expect(component['isFormsPristine']()).toBe(false);
 
-      // 4. Valida se o estado refletiu as regras de fallback do erro com sucesso
-      expect(component.naturalnessOptions).toEqual([]);
-      expect(component.naturalnessReadOnly()).toBe(false); 
-      expect(component.naturalnessLoading()).toBe(false);
+      component['onFileSelected'](makeFileEvent('laudo.pdf'), 'deficiency');
+      expect(component['personalForm'].dirty).toBe(true);
+
+      component['onFileSelected'](makeFileEvent('residencia.pdf'), 'address');
+      expect(component['addressForm'].dirty).toBe(true);
+
+      component['onFileSelected'](makeFileEvent('sigadoc.pdf'), 'sigadoc');
+      expect(component['infoForm'].dirty).toBe(true);
+
+      component['onFileSelected']({ target: { files: [] } } as unknown as Event, 'document');
+      expect(component['files'].document.hasFile()).toBe(false);
     });
 
-    it('deve barrar a execução se o primeiro formulário for inválido e os outros válidos', () => {
-      Object.defineProperty(component.updatePatientIdentificationForm, 'invalid', { get: () => true, configurable: true });
-      Object.defineProperty(component.updatePatientPersonalForm, 'invalid', { get: () => false, configurable: true });
-      Object.defineProperty(component.updatePatientAddressForm, 'invalid', { get: () => false, configurable: true });
-      Object.defineProperty(component.updatePatientInfoForm, 'invalid', { get: () => false, configurable: true });
+    it('deve baixar arquivo quando archiveId e response.archive existirem', () => {
+      component['download'](null, 'arq.pdf');
+      expect(storageServiceMock.download).not.toHaveBeenCalled();
 
-      component.onUpdatePatientSubmit();
-      expect(mockPatientService.updatePatient).not.toHaveBeenCalled();
+      const blob = new Blob(['pdf-bytes']);
+      storageServiceMock.download.mockReturnValueOnce(of({ archive: blob }));
+      component['download'](77, 'exame.pdf');
+
+      expect(storageServiceMock.download).toHaveBeenCalledWith('tfd', 77);
+      expect(saveAs).toHaveBeenCalledWith(blob, 'exame.pdf');
+
+      storageServiceMock.download.mockReturnValueOnce(of({}));
+      component['download'](78, 'vazio.pdf');
+      expect(saveAs).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Envio (onSubmit) e Preenchimento por Retorno', () => {
+    it('deve exibir erro quando patient_care.id não existir', async () => {
+      await createComponent(null);
+
+      component['onSubmit']();
+
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Identificador do paciente inválido.'
+      );
+      expect(patientServiceMock.updatePatient).not.toHaveBeenCalled();
+    });
+
+    it('deve marcar formulários como touched e não enviar quando inválido', () => {
+      component['personalForm'].controls.name.setValue('');
+
+      component['onSubmit']();
+
+      expect(patientServiceMock.updatePatient).not.toHaveBeenCalled();
+      expect(component['personalForm'].controls.name.touched).toBe(true);
+      expect(component['isFormInvalidOrPending']).toBe(true);
+    });
+
+    it('deve enviar payload, gerenciar isSubmitting, notificar canal e fechar dialog no sucesso', () => {
+      const pending$ = new Subject<{ message?: string }>();
+      patientServiceMock.updatePatient.mockReturnValueOnce(pending$.asObservable());
+
+      component['onSubmit']();
+      expect(component['isSubmitting']()).toBe(true);
+      expect(component['personalForm'].disabled).toBe(true);
+      expect(patientServiceMock.updatePatient).toHaveBeenCalledWith(
+        55,
+        expect.objectContaining({
+          name: 'Maria Silva',
+          birth_date: '1990-05-15',
+          sigadoc: 'SIG-2026-1',
+        })
+      );
+
+      pending$.next({ message: 'Cadastro atualizado!' });
+      pending$.complete();
+
+      expect(component['isSubmitting']()).toBe(false);
+      expect(component['personalForm'].enabled).toBe(true);
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Cadastro atualizado!');
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+    });
+
+    it('deve usar mensagem padrão de sucesso e tratar erros com mensagem da API ou fallback', () => {
+      patientServiceMock.updatePatient.mockReturnValueOnce(of({}));
+      component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+        'Paciente atualizado com sucesso!'
+      );
+      expect(dialogRefMock.close).toHaveBeenCalledWith(true);
+
+      patientServiceMock.updatePatient.mockReturnValueOnce(
+        throwError(() => ({ error: { message: 'CNS duplicado no servidor.' } }))
+      );
+      component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('CNS duplicado no servidor.');
+
+      patientServiceMock.updatePatient.mockReturnValueOnce(
+        throwError(() => new Error('Erro genérico'))
+      );
+      component['onSubmit']();
+      expect(messageServiceMock.showMessage).toHaveBeenCalledWith('Erro ao atualizar paciente.');
+    });
+
+    it('deve preencher campos via callbacks de existência de CNS e documento', () => {
+      capturedCnsFoundCallback?.({
+        cns: validCns,
+        document_type: 'CPF',
+        document: validCpf,
+        name: 'Paciente Encontrado',
+        birth_date: '1988-03-10T00:00:00Z',
+        gender: 'Masculino',
+        newborn: true,
+        race: 'Indígena',
+        ethnicity: 'Terena',
+        naturalness: 'Cuiabá',
+        cep: '78000-000',
+        address: 'Rua Nova',
+        number: '200',
+        neighborhood: 'Centro',
+        sigadoc: 'SIG-999',
+      } as unknown as Patient);
+
+      expect(component['identificationForm'].controls.cns.value).toBe(validCns);
+      expect(component['personalForm'].controls.name.value).toBe('Paciente Encontrado');
+      expect(component['personalForm'].controls.birth_date.value?.format('YYYY-MM-DD')).toBe(
+        '1988-03-10'
+      );
+      expect(component['isEthnicityDisabled']()).toBe(false);
+
+      capturedDocFoundCallback?.(null as unknown as Patient);
+      expect(component['personalForm'].controls.name.value).toBe('Paciente Encontrado');
     });
   });
 });

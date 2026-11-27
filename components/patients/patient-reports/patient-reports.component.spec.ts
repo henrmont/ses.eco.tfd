@@ -1,231 +1,272 @@
-import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
-import { MatTableDataSource } from '@angular/material/table';
-import { of, throwError } from 'rxjs';
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+// src/app/tfd/components/patients/patient-reports/patient-reports.component.spec.ts
+import { Overlay } from '@angular/cdk/overlay';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
+import { Subject, of, throwError } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { PatientReportsComponent } from './patient-reports-component';
-import { PatientService } from '../../../services/patient-service';
-import { ShowPatientReportComponent } from '../show-patient-report-component/show-patient-report-component';
-import { CreatePatientReportComponent } from '../create-patient-report-component/create-patient-report-component';
-import { UpdatePatientReportComponent } from '../update-patient-report-component/update-patient-report-component';
-import { DeletePatientReportComponent } from '../delete-patient-report-component/delete-patient-report-component';
-import { ReportAttachmentsComponent } from '../report-attachments-component/report-attachments-component';
+import {
+  PatientReportDialogData,
+  PatientReportsComponent,
+} from './patient-reports.component';
+import { MessageService } from '../../../../core/services/message.service';
+import { Specialty } from '../../../enums/specialties';
+import { PatientCare } from '../../../models/patient-care.model';
+import { PatientReport } from '../../../models/patient-report.model';
+import { PatientService } from '../../../services/patient.service';
+import { PatientReportCreateComponent } from '../patient-report-create/patient-report-create.component';
+import { PatientReportDeleteComponent } from '../patient-report-delete/patient-report-delete.component';
+import { PatientReportDetailComponent } from '../patient-report-detail/patient-report-detail.component';
+import { PatientReportUpdateComponent } from '../patient-report-update/patient-report-update.component';
+import { ReportAttachmentsComponent } from '../report-attachments/report-attachments.component';
+
+class MockBroadcastChannel {
+  postMessage = vi.fn();
+  close = vi.fn();
+  onmessage: ((event: MessageEvent<string>) => void) | null = null;
+}
 
 describe('PatientReportsComponent', () => {
   let component: PatientReportsComponent;
   let fixture: ComponentFixture<PatientReportsComponent>;
 
-  // Mocks das dependências
-  let patientServiceMock: any;
-  let dialogMock: any;
-  let dialogRefMock: any;
-  let broadcastChannelSpy: any;
-
-  // Dados falsos de entrada via MAT_DIALOG_DATA
-  const mockDialogData = {
-    patient_care: {
-      id: 45
-    }
+  let broadcastChannelMock: MockBroadcastChannel;
+  let patientServiceMock: {
+    getPatientReports: ReturnType<typeof vi.fn>;
+  };
+  let messageServiceMock: {
+    showMessage: ReturnType<typeof vi.fn>;
+  };
+  let dialogMock: {
+    open: ReturnType<typeof vi.fn>;
+  };
+  let noopScrollStrategyMock: Record<string, never>;
+  let overlayMock: {
+    scrollStrategies: { noop: ReturnType<typeof vi.fn> };
   };
 
-  // Massa de dados de laudos mockados
-  const mockReportsResponse = [
-    { id: 1, protocol: 'LAUDO-2026-001', cid: { code: 'U07.1', name: 'COVID-19' } },
-    { id: 2, protocol: 'LAUDO-2026-002', cid: { code: 'I10', name: 'Hipertensão essencial' } }
-  ];
+  const sampleReport: PatientReport = {
+    id: 11,
+    protocol: 'PROT-001',
+    specialty: Object.keys(Specialty)[0],
+    cid: { id: 3, code: 'J18.9', name: 'Pneumonia' },
+    lawsuit: false,
+  } as unknown as PatientReport;
 
-  beforeEach(async () => {
-    patientServiceMock = {
-      getPatientReports: vi.fn().mockReturnValue(of(mockReportsResponse))
-    };
+  const baseDialogData: PatientReportDialogData = {
+    patient_care: { id: 64 } as unknown as PatientCare,
+  };
 
-    dialogRefMock = {
-      afterClosed: vi.fn().mockReturnValue(of(true)) // Simula que o usuário confirmou ações nas modais filhas
-    };
-
-    dialogMock = {
-      open: vi.fn().mockReturnValue(dialogRefMock)
-    };
-
-    // Espiona o BroadcastChannel global para garantir que o canal de sincronização seja acionado
-    broadcastChannelSpy = vi.spyOn(BroadcastChannel.prototype, 'postMessage');
-
-    await TestBed.configureTestingModule({
-      imports: [PatientReportsComponent]
-    })
-    .overrideComponent(PatientReportsComponent, {
-      set: {
+  async function createComponent(
+    dialogData: PatientReportDialogData | null = {
+      patient_care: { ...baseDialogData.patient_care } as unknown as PatientCare,
+    }
+  ): Promise<void> {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [PatientReportsComponent],
         providers: [
+          { provide: 'AnimationModuleType', useValue: 'NoopAnimations' },
           { provide: PatientService, useValue: patientServiceMock },
+          { provide: MessageService, useValue: messageServiceMock },
           { provide: MatDialog, useValue: dialogMock },
-          { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-        ]
-      }
-    })
-    .compileComponents();
+          { provide: Overlay, useValue: overlayMock },
+          { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        ],
+      })
+      .overrideComponent(PatientReportsComponent, {
+        set: {
+          template: '',
+          providers: [{ provide: MatDialog, useValue: dialogMock }],
+        },
+      })
+      .compileComponents();
 
     fixture = TestBed.createComponent(PatientReportsComponent);
     component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    broadcastChannelMock = new MockBroadcastChannel();
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(function () {
+        return broadcastChannelMock;
+      })
+    );
+
+    patientServiceMock = {
+      getPatientReports: vi.fn().mockReturnValue(of([sampleReport])),
+    };
+
+    messageServiceMock = {
+      showMessage: vi.fn(),
+    };
+
+    noopScrollStrategyMock = {};
+    overlayMock = {
+      scrollStrategies: {
+        noop: vi.fn(() => noopScrollStrategyMock),
+      },
+    };
+
+    dialogMock = {
+      open: vi.fn().mockReturnValue({
+        afterClosed: () => of(false),
+      }),
+    };
+
+    await createComponent();
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  describe('Inicialização e Fluxo de Carga Inicial', () => {
-    it('deve instanciar o componente com sucesso', () => {
-      fixture.detectChanges(); // Dispara o ngOnInit
-      expect(component).toBeTruthy();
+  it('deve criar o componente, abrir o BroadcastChannel e carregar os laudos do paciente', () => {
+    expect(component).toBeTruthy();
+    expect(BroadcastChannel).toHaveBeenCalledWith('tfd-patients-channel');
+    expect(patientServiceMock.getPatientReports).toHaveBeenCalledWith(64);
+    expect(component['isLoading']()).toBe(false);
+    expect(component['reports']()).toEqual([sampleReport]);
+  });
+
+  it('deve fechar o BroadcastChannel ao destruir o componente', () => {
+    fixture.destroy();
+    expect(broadcastChannelMock.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('deve lidar com ausência de patient_care.id e com erro no getPatientReports', async () => {
+    patientServiceMock.getPatientReports.mockClear();
+    await createComponent(null);
+    expect(patientServiceMock.getPatientReports).not.toHaveBeenCalled();
+    expect(component['isLoading']()).toBe(false);
+
+    patientServiceMock.getPatientReports.mockReturnValueOnce(
+      throwError(() => ({ error: { message: 'Falha específica ao buscar laudos.' } }))
+    );
+    await createComponent({ patient_care: { id: 65 } as unknown as PatientCare });
+    expect(component['reports']()).toEqual([]);
+    expect(component['isLoading']()).toBe(false);
+    expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+      'Falha específica ao buscar laudos.'
+    );
+
+    patientServiceMock.getPatientReports.mockReturnValueOnce(
+      throwError(() => new Error('Erro de rede'))
+    );
+    await createComponent({ patient_care: { id: 66 } as unknown as PatientCare });
+    expect(messageServiceMock.showMessage).toHaveBeenCalledWith(
+      'Não foi possível carregar os laudos do paciente.'
+    );
+  });
+
+  it('deve atualizar a lista quando receber mensagem "update" no BroadcastChannel', () => {
+    patientServiceMock.getPatientReports.mockClear();
+    const updatedReports = [
+      sampleReport,
+      { id: 12, protocol: 'PROT-002' } as unknown as PatientReport,
+    ];
+    patientServiceMock.getPatientReports.mockReturnValueOnce(of(updatedReports));
+
+    broadcastChannelMock.onmessage?.({ data: 'ignorar' } as MessageEvent<string>);
+    expect(patientServiceMock.getPatientReports).not.toHaveBeenCalled();
+
+    broadcastChannelMock.onmessage?.({ data: 'update' } as MessageEvent<string>);
+    expect(patientServiceMock.getPatientReports).toHaveBeenCalledWith(64);
+    expect(component['reports']()).toEqual(updatedReports);
+  });
+
+  describe('Formatação de Especialidade e CID', () => {
+    it('deve resolver rótulo da especialidade pelo enum, manter chave avulsa ou usar fallback', () => {
+      const firstKey = Object.keys(Specialty)[0] as keyof typeof Specialty;
+      expect(component['getSpecialtyLabel'](firstKey)).toBe(Specialty[firstKey]);
+      expect(component['getSpecialtyLabel']('OUTRA_ESPECIALIDADE')).toBe('OUTRA_ESPECIALIDADE');
+      expect(component['getSpecialtyLabel'](null)).toBe('Não informada');
+      expect(component['getSpecialtyLabel'](undefined)).toBe('Não informada');
     });
 
-    it('deve carregar a lista de laudos reativamente e alimentar o dataSource (computed)', () => {
-      fixture.detectChanges();
-
-      // Garante que chamou o serviço usando o ID do atendimento correto
-      expect(patientServiceMock.getPatientReports).toHaveBeenCalledWith(45);
-      
-      // Valida se o sinal bruto foi atualizado
-      expect(component['reportsList']()).toEqual(mockReportsResponse);
-      
-      // Valida se o computed do dataSource gerou a instância correta com os dados populados
-      expect(component['dataSource']()).toBeInstanceOf(MatTableDataSource);
-      expect(component['dataSource']().data).toEqual(mockReportsResponse);
-      
-      // O loading deve ter sido desativado ao concluir
-      expect(component['isLoading']()).toBe(false);
-    });
-
-    it('deve desativar o spinner e não quebrar se o id do atendimento estiver ausente (Garda Preventiva)', () => {
-      TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ imports: [PatientReportsComponent] })
-        .overrideComponent(PatientReportsComponent, {
-          set: {
-            providers: [
-              { provide: PatientService, useValue: patientServiceMock },
-              { provide: MatDialog, useValue: dialogMock },
-              { provide: MAT_DIALOG_DATA, useValue: { patient_care: { id: null } } } // Alinhado com a guarda
-            ]
-          }
-        });
-
-      const localFixture = TestBed.createComponent(PatientReportsComponent);
-      const localComponent = localFixture.componentInstance;
-      localFixture.detectChanges();
-
-      expect(patientServiceMock.getPatientReports).not.toHaveBeenCalled();
-      expect(localComponent['isLoading']()).toBe(false);
-    });
-
-    it('deve desligar o loading mesmo se a API falhar no ciclo de inicialização', () => {
-      patientServiceMock.getPatientReports.mockReturnValue(throwError(() => new Error('Erro de Conexão')));
-      fixture.detectChanges();
-
-      expect(component['isLoading']()).toBe(false);
-      expect(component['reportsList']()).toEqual([]);
+    it('deve formatar rótulo do CID conforme code e name presentes', () => {
+      expect(
+        component['getCidLabel']({ cid: { code: '  E11  ', name: '  Diabetes  ' } } as PatientReport)
+      ).toBe('E11 - Diabetes');
+      expect(component['getCidLabel']({ cid: { code: ' I10 ' } } as PatientReport)).toBe('I10');
+      expect(component['getCidLabel']({ cid: { name: ' Asma ' } } as PatientReport)).toBe('Asma');
+      expect(component['getCidLabel']({} as PatientReport)).toBe('Não informado');
     });
   });
 
-  describe('Abertura de Modais e Fluxos de Ação', () => {
-    const targetReport = { id: 1, protocol: 'LAUDO-01', cid: { code: 'A00' } };
-
-    beforeEach(() => {
-      fixture.detectChanges(); // Inicializa o estado base antes de testar as ações
-    });
-
-    it('deve abrir a modal ShowPatientReportComponent em modo de visualização pura', () => {
-      component['showPatientReport'](targetReport);
-
-      expect(dialogMock.open).toHaveBeenCalledWith(ShowPatientReportComponent, {
-        width: '800px',
-        height: 'auto',
-        disableClose: true,
-        autoFocus: false,
-        data: { report: targetReport }
-      });
-      // Telas de visualização pura não devem emitir eventos de update no BroadcastChannel
-      expect(broadcastChannelSpy).not.toHaveBeenCalled();
-    });
-
-    it('deve abrir a modal CreatePatientReportComponent, atualizar a grid em background e notificar o sistema ao fechar com sucesso', () => {
-      // Reseta o histórico de chamadas do init para podermos contar os disparos pós-modal
+  describe('Ações de Diálogos', () => {
+    it('deve abrir diálogos de detalhe e anexos sem recarregar quando fechados', () => {
       patientServiceMock.getPatientReports.mockClear();
+      dialogMock.open.mockReturnValueOnce({ afterClosed: () => of(true) });
 
-      component['createPatientReport']();
-
-      expect(dialogMock.open).toHaveBeenCalledWith(CreatePatientReportComponent, {
-        width: '800px',
-        height: 'auto',
-        disableClose: true,
-        autoFocus: false,
-        data: { patient_care: mockDialogData.patient_care }
-      });
-
-      // Como o mock do dialogRef devolve 'true', as lógicas do bloco .subscribe() precisam rodar:
-      expect(patientServiceMock.getPatientReports).toHaveBeenCalledWith(45);
-      expect(broadcastChannelSpy).toHaveBeenCalledWith('update');
-      // O loading deve continuar falso pois a atualização é fluida (background)
-      expect(component['isLoading']()).toBe(false);
-    });
-
-    it('deve abrir a modal UpdatePatientReportComponent e atualizar registros fluidamente se houver confirmação', () => {
-      patientServiceMock.getPatientReports.mockClear();
-
-      component['updatePatientReport'](targetReport);
-
-      expect(dialogMock.open).toHaveBeenCalledWith(UpdatePatientReportComponent, {
-        width: '800px',
-        height: 'auto',
-        disableClose: true,
-        autoFocus: false,
-        data: { report: targetReport }
-      });
-
-      expect(patientServiceMock.getPatientReports).toHaveBeenCalled();
-      expect(broadcastChannelSpy).toHaveBeenCalledWith('update');
-    });
-
-    it('deve abrir a modal DeletePatientReportComponent acionando o spinner principal antes de recarregar a grid', () => {
-      patientServiceMock.getPatientReports.mockClear();
-
-      component['deletePatientReport'](targetReport);
-
-      expect(dialogMock.open).toHaveBeenCalledWith(DeletePatientReportComponent, {
-        width: '400px',
-        height: 'auto',
-        disableClose: true,
-        autoFocus: false,
-        data: { report: targetReport }
-      });
-
-      // Diferencial do delete: ele ativa o showLoading para limpar o registro deletado visualmente
-      expect(patientServiceMock.getPatientReports).toHaveBeenCalled();
-      expect(broadcastChannelSpy).toHaveBeenCalledWith('update');
-    });
-
-    it('deve abrir o gerenciador ReportAttachmentsComponent sem propagar atualizações globais', () => {
-      component['reportAttachments'](targetReport);
-
-      expect(dialogMock.open).toHaveBeenCalledWith(ReportAttachmentsComponent, {
-        width: '600px',
-        height: 'auto',
-        disableClose: true,
-        autoFocus: false,
-        data: { report: targetReport }
-      });
-      expect(broadcastChannelSpy).not.toHaveBeenCalled();
-    });
-
-    it('não deve recarregar os dados nem enviar mensagens se as modais forem fechadas sem confirmação (retorno falso/nulo)', () => {
-      // Configura temporariamente o retorno do fechamento da modal para falso
-      dialogRefMock.afterClosed.mockReturnValue(of(false));
-      patientServiceMock.getPatientReports.mockClear();
-      broadcastChannelSpy.mockClear();
-
-      component['createPatientReport']();
-
+      component['patientReportDetail'](sampleReport);
+      expect(dialogMock.open).toHaveBeenCalledWith(
+        PatientReportDetailComponent,
+        expect.objectContaining({
+          width: '800px',
+          height: 'auto',
+          disableClose: true,
+          autoFocus: false,
+          scrollStrategy: noopScrollStrategyMock,
+          data: { patient_care: baseDialogData.patient_care, patient_report: sampleReport },
+        })
+      );
       expect(patientServiceMock.getPatientReports).not.toHaveBeenCalled();
-      expect(broadcastChannelSpy).not.toHaveBeenCalled();
+      expect(broadcastChannelMock.postMessage).not.toHaveBeenCalled();
+
+      dialogMock.open.mockReturnValueOnce({ afterClosed: () => of(true) });
+      component['reportAttachments'](sampleReport);
+      expect(dialogMock.open).toHaveBeenCalledWith(
+        ReportAttachmentsComponent,
+        expect.objectContaining({ width: '600px' })
+      );
+      expect(patientServiceMock.getPatientReports).not.toHaveBeenCalled();
+    });
+
+    it('deve abrir diálogos de criação, edição e exclusão e atualizar lista/canal ao confirmar', () => {
+      const pendingRefresh$ = new Subject<PatientReport[]>();
+      patientServiceMock.getPatientReports.mockReturnValueOnce(pendingRefresh$.asObservable());
+      dialogMock.open.mockReturnValueOnce({ afterClosed: () => of(true) });
+
+      component['patientReportCreate']();
+      expect(dialogMock.open).toHaveBeenCalledWith(
+        PatientReportCreateComponent,
+        expect.objectContaining({
+          width: '800px',
+          data: { patient_care: baseDialogData.patient_care },
+        })
+      );
+      expect(component['isLoading']()).toBe(false);
+
+      pendingRefresh$.next([sampleReport]);
+      pendingRefresh$.complete();
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledWith('update');
+
+      dialogMock.open.mockReturnValueOnce({ afterClosed: () => of(false) });
+      component['patientReportUpdate'](sampleReport);
+      expect(dialogMock.open).toHaveBeenCalledWith(
+        PatientReportUpdateComponent,
+        expect.objectContaining({
+          width: '800px',
+          data: { patient_care: baseDialogData.patient_care, patient_report: sampleReport },
+        })
+      );
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledTimes(1);
+
+      dialogMock.open.mockReturnValueOnce({ afterClosed: () => of(true) });
+      component['patientReportDelete'](sampleReport);
+      expect(dialogMock.open).toHaveBeenCalledWith(
+        PatientReportDeleteComponent,
+        expect.objectContaining({
+          width: '400px',
+          data: { patient_care: baseDialogData.patient_care, patient_report: sampleReport },
+        })
+      );
+      expect(broadcastChannelMock.postMessage).toHaveBeenCalledTimes(2);
     });
   });
 });

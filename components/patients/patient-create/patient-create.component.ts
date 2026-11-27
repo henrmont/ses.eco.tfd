@@ -28,17 +28,12 @@ import {
   switchMap,
 } from 'rxjs';
 import moment, { Moment } from 'moment';
-import { NgxMaskDirective, provideNgxMask } from 'ngx-mask';
+import { NgxMaskDirective } from 'ngx-mask';
 
 // Angular Material
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
-import {
-  MAT_DATE_FORMATS,
-  MAT_DATE_LOCALE,
-  DateAdapter,
-} from '@angular/material/core';
-import { MatMomentDateModule, MomentDateAdapter } from '@angular/material-moment-adapter';
+import { MatMomentDateModule } from '@angular/material-moment-adapter';
 import { MatDatepickerInputEvent, MatDatepickerModule } from '@angular/material/datepicker';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -73,18 +68,6 @@ import { PatientService } from '../../../services/patient.service';
 const COMPONENT_CONFIG = {
   channelName: 'tfd-patients-channel',
 } as const;
-
-const MOMENT_DATE_FORMATS = {
-  parse: {
-    dateInput: 'DD/MM/YYYY',
-  },
-  display: {
-    dateInput: 'DD/MM/YYYY',
-    monthYearLabel: 'MMM YYYY',
-    dateA11yLabel: 'LL',
-    monthYearA11yLabel: 'MMMM YYYY',
-  },
-};
 
 type FileType = 'cns' | 'document' | 'deficiency' | 'address' | 'sigadoc';
 
@@ -164,14 +147,6 @@ interface ErrorMessage {
     ReactiveFormsModule,
   ],
   providers: [
-    provideNgxMask(),
-    { provide: MAT_DATE_LOCALE, useValue: 'pt-BR' },
-    {
-      provide: DateAdapter,
-      useClass: MomentDateAdapter,
-      deps: [MAT_DATE_LOCALE],
-    },
-    { provide: MAT_DATE_FORMATS, useValue: MOMENT_DATE_FORMATS },
     { provide: STEPPER_GLOBAL_OPTIONS, useValue: { showError: true } },
   ],
   templateUrl: './patient-create.component.html',
